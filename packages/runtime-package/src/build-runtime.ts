@@ -528,7 +528,8 @@ async function runCommand(
 ): Promise<string> {
   return await new Promise<string>((resolveCommand, reject) => {
     let stdout = ''
-    const child = spawn(command, args, {
+    const invocation = resolveSpawnInvocation(command, args, process.platform, options.env)
+    const child = spawn(invocation.command, invocation.args, {
       cwd: options.cwd,
       env: options.env,
       shell: false,
@@ -546,6 +547,22 @@ async function runCommand(
       else reject(new Error(`${command} exited with code ${String(code)} signal ${String(signal)}`))
     })
   })
+}
+
+export function resolveSpawnInvocation(
+  command: string,
+  args: readonly string[],
+  platform: NodeJS.Platform = process.platform,
+  environment: Readonly<NodeJS.ProcessEnv> = process.env,
+): { readonly command: string; readonly args: readonly string[] } {
+  if (platform !== 'win32' || !/\.(?:cmd|bat)$/iu.test(command)) return { command, args }
+  const comSpec = Object.entries(environment).find(([key, value]) => (
+    key.toUpperCase() === 'COMSPEC' && value !== undefined && value.length > 0
+  ))?.[1] ?? 'cmd.exe'
+  return {
+    command: comSpec,
+    args: ['/d', '/s', '/c', command, ...args],
+  }
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
