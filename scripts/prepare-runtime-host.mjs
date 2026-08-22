@@ -14,6 +14,8 @@ import {
 } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
+import { downloadPinned } from './download-pinned.mjs'
+
 const repositoryRoot = resolve(import.meta.dirname, '..')
 const sourceManifestPath = join(repositoryRoot, 'vendor', 'runtime-sources.json')
 const outputRoot = join(repositoryRoot, 'vendor', 'runtime-host')
@@ -32,7 +34,7 @@ if (await pathExists(outputRoot)) {
     await mkdir(staged, { recursive: true })
 
     const nodeArchive = join(downloads, 'node.zip')
-    await downloadPinned(manifest.node.url, manifest.node.sha256, nodeArchive, 128 * 1024 * 1024)
+    await downloadPinned([manifest.node.url], manifest.node.sha256, nodeArchive, 128 * 1024 * 1024)
     const nodeExtracted = join(extracted, 'node')
     await extractPinnedZip(nodeArchive, nodeExtracted)
     const nodeRoot = await requireSingleDirectory(nodeExtracted)
@@ -43,7 +45,7 @@ if (await pathExists(outputRoot)) {
     await assertRegularFile(join(staged, 'node', 'node.exe'), 'Node executable')
 
     const ffmpegArchive = join(downloads, 'ffmpeg.zip')
-    await downloadPinned(manifest.ffmpeg.url, manifest.ffmpeg.sha256, ffmpegArchive, 512 * 1024 * 1024)
+    await downloadPinned(manifest.ffmpeg.urls, manifest.ffmpeg.sha256, ffmpegArchive, 512 * 1024 * 1024)
     const ffmpegExtracted = join(extracted, 'ffmpeg')
     await extractPinnedZip(ffmpegArchive, ffmpegExtracted)
     const ffmpegRoot = await requireSingleDirectory(ffmpegExtracted)
@@ -61,7 +63,7 @@ if (await pathExists(outputRoot)) {
       ? join(downloads, `pnpm-${manifest.pnpm.version}.tgz`)
       : resolve(process.env.LDD_PNPM_ARCHIVE)
     if (process.env.LDD_PNPM_ARCHIVE === undefined) {
-      await downloadPinned(manifest.pnpm.url, manifest.pnpm.archiveSha256, pnpmArchive, 32 * 1024 * 1024)
+      await downloadPinned([manifest.pnpm.url], manifest.pnpm.archiveSha256, pnpmArchive, 32 * 1024 * 1024)
     }
     await assertDigest(pnpmArchive, manifest.pnpm.archiveSha256, 'pnpm archive')
     const pnpmExtracted = join(extracted, 'pnpm')
@@ -78,39 +80,6 @@ if (await pathExists(outputRoot)) {
 }
 
 process.stdout.write(`${outputRoot}\n`)
-
-async function downloadPinned(url, expectedSha256, destination, maxBytes) {
-  const response = await fetch(url, {
-    cache: 'no-store',
-    redirect: 'error',
-    signal: AbortSignal.timeout(180_000),
-  })
-  if (!response.ok || response.body === null) throw new Error(`download returned HTTP ${response.status}: ${url}`)
-  const output = await import('node:fs/promises').then(({ open }) => open(destination, 'wx', 0o600))
-  const hash = createHash('sha256')
-  let size = 0
-  let position = 0
-  try {
-    for await (const chunk of response.body) {
-      const bytes = Buffer.from(chunk)
-      size += bytes.length
-      if (size > maxBytes) throw new Error(`download exceeds size limit: ${url}`)
-      hash.update(bytes)
-      let offset = 0
-      while (offset < bytes.length) {
-        const { bytesWritten } = await output.write(bytes, offset, bytes.length - offset, position)
-        if (bytesWritten === 0) throw new Error('download write made no progress')
-        offset += bytesWritten
-        position += bytesWritten
-      }
-    }
-    await output.sync()
-  } finally {
-    await output.close()
-  }
-  const actual = hash.digest('hex')
-  if (actual !== expectedSha256) throw new Error(`download digest mismatch: ${url}`)
-}
 
 async function extractPinnedZip(archive, destination) {
   await assertSafeArchiveListing(archive, 'zip')
