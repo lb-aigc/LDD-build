@@ -30,6 +30,12 @@ test('pnpm permits only the native installers required by the Windows build', as
 test('GitHub publisher pushes through the user credential manager without force', async () => {
   const source = await readFile(resolve(root, 'Push-to-GitHub.ps1'), 'utf8').catch(() => '')
   assert.match(source, /& \$git clone/u)
+  assert.match(source, /& \$git .*add --force --all/u)
   assert.match(source, /& \$git .*push origin main/u)
-  assert.doesNotMatch(source, /--force/u)
+  assert.doesNotMatch(source, /push[^\r\n]*--force/u)
+})
+
+test('Git preserves approved Harness source bytes across Windows checkout', async () => {
+  const attributes = await readFile(resolve(root, '.gitattributes'), 'utf8').catch(() => '')
+  assert.equal(attributes, '* -text\n')
 })

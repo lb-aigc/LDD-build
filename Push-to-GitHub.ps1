@@ -22,7 +22,8 @@ try {
 
   & $git -C $PublishRoot config user.name 'LDD Windows Builder'
   & $git -C $PublishRoot config user.email 'l386340171@gmail.com'
-  & $git -C $PublishRoot add --all
+  # The approved Harness contains paths hidden by its own release/ ignore rule.
+  & $git -C $PublishRoot add --force --all
   & $git -C $PublishRoot commit -m 'build: upload LDD 0.2.0 Windows source'
   if ($LASTEXITCODE -ne 0) { throw 'git.exe commit failed' }
   & $git -C $PublishRoot push origin main
