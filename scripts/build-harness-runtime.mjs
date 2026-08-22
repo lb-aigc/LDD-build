@@ -65,6 +65,7 @@ try {
     videoPluginRoot: pluginRoot,
     upstreamPatchRoot: patchRoot,
     createdAt,
+    pnpmExecutable: process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
   })
   packed = await packRuntime(built.runtimeRoot, pendingFile)
   await publishReplacing(pendingRoot, outputRoot, pendingFile, outputFile)

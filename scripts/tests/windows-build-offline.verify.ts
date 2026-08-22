@@ -39,3 +39,8 @@ test('Git preserves approved Harness source bytes across Windows checkout', asyn
   const attributes = await readFile(resolve(root, '.gitattributes'), 'utf8').catch(() => '')
   assert.equal(attributes, '* -text\n')
 })
+
+test('runtime assembly invokes the Windows pnpm command shim', async () => {
+  const source = await readFile(resolve(root, 'scripts/build-harness-runtime.mjs'), 'utf8')
+  assert.match(source, /pnpmExecutable:\s*process\.platform === 'win32' \? 'pnpm\.cmd' : 'pnpm'/u)
+})
