@@ -198,6 +198,8 @@ export async function buildRuntime(
     await writeFile(join(runtimeRoot, 'pnpm-workspace.yaml'), [
       'packages: []',
       'allowBuilds:',
+      "  '@deepseek-ai/dsh-subprocess-local': true",
+      "  '@google/genai': false",
       '  esbuild: true',
       '  node-pty: true',
       '  koffi: true',
