@@ -150,7 +150,7 @@ export async function buildRuntime(
       filter: (path) => !isExcludedBuildPath(path, resolve(options.videoPluginRoot)),
     })
     await rewriteCopiedPluginTsconfig(pluginWorkspace)
-    await run(pnpm, ['install', '--offline', '--no-frozen-lockfile', '--ignore-scripts', '--store-dir', pnpmStore], {
+    await run(pnpm, ['install', '--prefer-offline', '--no-frozen-lockfile', '--ignore-scripts', '--store-dir', pnpmStore], {
       cwd: copiedSource,
       env: environment,
     })

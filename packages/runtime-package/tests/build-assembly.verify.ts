@@ -66,6 +66,21 @@ test('two complete runtime assemblies contain stable relative locks and archived
 
 const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
   if (args.length === 1 && args[0] === '--version') return '11.7.0\n'
+  if (
+    args[0] === 'install'
+    && args.includes('--no-frozen-lockfile')
+    && args.includes('--ignore-scripts')
+  ) {
+    assert.ok(
+      args.includes('--prefer-offline'),
+      'the copied workspace refresh permits missing registry metadata to be fetched',
+    )
+    assert.ok(
+      !args.includes('--offline'),
+      'the copied workspace refresh must not require registry metadata to be pre-cached',
+    )
+    return ''
+  }
   const releaseIndex = args.indexOf('release:pack')
   if (releaseIndex !== -1) {
     assert.notEqual(args[releaseIndex + 1], '--', 'pnpm forwards a literal separator to release:pack')
