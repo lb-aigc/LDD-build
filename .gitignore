@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+*.log
+*.tsbuildinfo
+.DS_Store
+.pnpm-store/
+.runtime-staging/
+release/
+/vendor/runtime-host/
+/vendor/.runtime-host-*/
+.build-tools/
+.build-logs/
+.github-publish/

@@ -1,0 +1,29 @@
+{
+  "name": "@ldd/root",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "pnpm --filter @ldd/runtime-kit build && pnpm --filter @ldd/runtime-package build && pnpm -r typecheck",
+    "lint": "eslint .",
+    "build": "pnpm -r build",
+    "smoke:video": "node tests/e2e/video-media-smoke.mjs",
+    "build:runtime": "pnpm --filter @ldd/runtime-package build-runtime",
+    "prepare:runtime-host": "node scripts/prepare-runtime-host.mjs",
+    "collect:release": "node scripts/collect-release-artifacts.mjs",
+    "package:source": "node scripts/package-source.mjs",
+    "package:windows-build": "node scripts/package-source.mjs && node scripts/package-windows-build-bundle.mjs",
+    "checksums:release": "node scripts/write-release-checksums.mjs",
+    "dist:win": "pnpm prepare:runtime-host && pnpm build:runtime && pnpm build && pnpm --filter @ldd/desktop dist:win && pnpm collect:release && pnpm package:source && pnpm checksums:release"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.0",
+    "typescript": "6.0.3",
+    "vitest": "4.0.0"
+  }
+}

@@ -1,0 +1,69 @@
+name: Build LDD Windows release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-2022
+    timeout-minutes: 180
+    steps:
+      - name: Check out approved source
+        uses: actions/checkout@v4
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+
+      - name: Use pinned pnpm
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+          pnpm --version
+
+      - name: Install locked dependencies
+        shell: pwsh
+        run: pnpm install --frozen-lockfile --config.block-exotic-subdeps=false
+
+      - name: Build runtime and Windows installer
+        shell: pwsh
+        run: pnpm dist:win
+
+      - name: Verify required release artifacts
+        shell: pwsh
+        run: |
+          $required = @(
+            'release/LDD-Setup-0.2.0-x64.exe',
+            'release/deepseek-harness-0.1.1-rc.2-windows-x64.lddruntime',
+            'release/LDD-0.2.0-source.zip',
+            'release/checksums.sha256'
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Missing release artifact: $path"
+            }
+            $item = Get-Item -LiteralPath $path
+            if ($item.Length -le 0) { throw "Empty release artifact: $path" }
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash.ToLowerInvariant()
+            Write-Output "$hash  $path"
+          }
+
+      - name: Upload private build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LDD-0.2.0-windows-x64
+          path: |
+            release/LDD-Setup-0.2.0-x64.exe
+            release/deepseek-harness-0.1.1-rc.2-windows-x64.lddruntime
+            release/LDD-0.2.0-source.zip
+            release/checksums.sha256
+          if-no-files-found: error
+          retention-days: 7

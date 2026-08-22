@@ -1,0 +1,28 @@
+# LDD-owned Web additions. This bundle is installed as a profile layer and
+# never rewrites the user's DSH_HOME/cordis.patch.yml.
+- insert:
+    - id: ldd-video-frame-analyzer
+      name: '@ldd/dsh-video-frame-analyzer'
+      config:
+        provider: deepseek-official
+        model: deepseek-v4-flash-vision-exp
+        defaultPrecision: balanced
+        maxTokens: 2000
+        timeoutMs: 120000
+        ffmpegPath: !!js process.env.LDD_FFMPEG_PATH
+        ffprobePath: !!js process.env.LDD_FFPROBE_PATH
+        cacheRoot: !!js dshHomePath('ldd-managed', 'cache', 'video')
+        sceneThreshold: 0.35
+        stopGraceMs: 3000
+
+    - id: ldd-video-frame-analyzer-invariant
+      name: '@ldd/dsh-video-frame-analyzer/invariant'
+
+    - id: ldd-video-analysis-skills
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: ldd-video
+        includeDefaultRoots: false
+        customSkillDirs:
+          - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@ldd/dsh-video-frame-analyzer/package.json')), 'skills')"
+        watch: false

@@ -1,0 +1,17 @@
+# LDD 0.2.0 release checklist
+
+- [ ] Build on a clean Windows x64 worker with Node 24.19.0 and pnpm 11.7.0.
+- [ ] Verify `vendor/sources/deepseek-harness-0.1.1-rc.2.zip` SHA-256.
+- [ ] Run `pnpm install`; review and retain the generated `pnpm-lock.yaml` with the release source archive.
+- [ ] Run `pnpm test`, `pnpm typecheck`, and `pnpm lint`.
+- [ ] Run the dependency-free `*.verify.ts` suite.
+- [ ] Run `pnpm dist:win`; confirm pinned runtime-host downloads and fallback assembly.
+- [ ] Confirm `release/LDD-0.2.0-source.zip`, the `-windows-x64.lddruntime`, installer, and `release/checksums.sha256` are all present and match the checksum list.
+- [ ] Verify generated fallback `runtime.json`, `checksums.sha256`, plugin archive, and `.lddruntime`.
+- [ ] Smoke-test clean install, upgrade from LDD 0.1.0, `%USERPROFILE%\.dsh` copy migration, and manual uninstall with both the default-retain and explicit-delete choices.
+- [ ] Smoke-test online download, explicit activation, failed-candidate rollback, offline import, and packaged Fallback recovery.
+- [ ] Test 20 MiB/64 MiB image modes without overwriting the user patch.
+- [ ] Test MP4/MOV/MKV/WebM probing, ranged long-video analysis, cancellation cleanup, and persisted-session reload.
+- [ ] Confirm fresh-Profile and copied-Profile candidate starts expose the Web/API health probe, DeepSeek text and vision models, `analyze_video`, and `video-analysis` Skill, then leave no child process.
+- [ ] Review third-party notices for Electron, Node, pnpm, FFmpeg, DeepSeek Harness, and bundled dependencies.
+- [ ] Code-sign the installer for any external release; LDD 0.2.0 is otherwise an internal unsigned build.

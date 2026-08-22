@@ -1,0 +1,43 @@
+{
+  "name": "@ldd/runtime-kit",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./atomic-json": {
+      "source": "./src/atomic-json.ts",
+      "types": "./lib/atomic-json.d.ts",
+      "default": "./lib/atomic-json.js"
+    },
+    "./checksum": {
+      "source": "./src/checksum.ts",
+      "types": "./lib/checksum.d.ts",
+      "default": "./lib/checksum.js"
+    },
+    "./process-tree": {
+      "source": "./src/process-tree.ts",
+      "types": "./lib/process-tree.d.ts",
+      "default": "./lib/process-tree.js"
+    },
+    "./redact": {
+      "source": "./src/redact.ts",
+      "types": "./lib/redact.d.ts",
+      "default": "./lib/redact.js"
+    },
+    "./runtime-manifest": {
+      "source": "./src/runtime-manifest.ts",
+      "types": "./lib/runtime-manifest.d.ts",
+      "default": "./lib/runtime-manifest.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.0",
+    "typescript": "6.0.3",
+    "vitest": "4.0.0"
+  }
+}

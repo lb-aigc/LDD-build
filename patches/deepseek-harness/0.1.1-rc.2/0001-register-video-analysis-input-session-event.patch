@@ -1,0 +1,9 @@
+--- a/packages/core/session/src/known-event-types.ts
++++ b/packages/core/session/src/known-event-types.ts
+@@ -64,5 +64,6 @@ export const KNOWN_SESSION_EVENT_TYPES: ReadonlySet<string> = new Set([
+   'turn/end',
+   'turn/start',
+   'user/message',
++  'video/analysis-input',
+   'web/deepseek-search-llm-request',
+ ])

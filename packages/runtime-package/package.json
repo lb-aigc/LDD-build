@@ -1,0 +1,29 @@
+{
+  "name": "@ldd/runtime-package",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "scripts": {
+    "build-runtime": "node --conditions=source --experimental-strip-types ../../scripts/build-harness-runtime.mjs",
+    "test": "vitest run && node ../../scripts/run-node-verifies.mjs tests",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ldd/runtime-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.0",
+    "typescript": "6.0.3",
+    "vitest": "4.0.0"
+  }
+}
