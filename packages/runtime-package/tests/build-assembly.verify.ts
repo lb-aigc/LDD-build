@@ -129,6 +129,14 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
     return ''
   }
   if (args[0] === 'install' && basename(options.cwd) === 'runtime') {
+    assert.ok(
+      args.includes('--prefer-offline'),
+      'the final runtime install permits missing package-range metadata to be fetched',
+    )
+    assert.ok(
+      !args.includes('--offline'),
+      'the final runtime install must not require all registry metadata to be pre-cached',
+    )
     await mkdir(join(options.cwd, 'node_modules', '@deepseek-ai', 'dsh', 'lib'), { recursive: true })
     await writeFile(join(options.cwd, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js'), '#!/usr/bin/env node\n')
     await writeFile(join(options.cwd, 'node_modules', '@deepseek-ai', 'dsh', 'package.json'), `${JSON.stringify({

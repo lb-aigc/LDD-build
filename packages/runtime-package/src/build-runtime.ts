@@ -208,7 +208,7 @@ export async function buildRuntime(
     await run(pnpm, [
       'install',
       '--prod',
-      '--offline',
+      '--prefer-offline',
       '--no-frozen-lockfile',
       '--store-dir',
       pnpmStore,
