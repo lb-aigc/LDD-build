@@ -1,0 +1,61 @@
+--- a/scripts/release/process.ts
++++ b/scripts/release/process.ts
+@@ -25,6 +25,24 @@
+   readonly stderr: string
+ }
+ 
++const WINDOWS_COMMAND_SHIMS = new Set(['npm', 'npx', 'pnpm'])
++
++export function resolveSpawnInvocation(
++  command: string,
++  args: readonly string[],
++  platform: NodeJS.Platform = process.platform,
++  environment: Readonly<NodeJS.ProcessEnv> = process.env,
++): { readonly command: string; readonly args: readonly string[] } {
++  if (platform !== 'win32' || !WINDOWS_COMMAND_SHIMS.has(command.toLowerCase())) return { command, args }
++  const comSpec = Object.entries(environment).find(([key, value]) => (
++    key.toUpperCase() === 'COMSPEC' && value !== undefined && value.length > 0
++  ))?.[1] ?? 'cmd.exe'
++  return {
++    command: comSpec,
++    args: ['/d', '/s', '/c', `${command}.cmd`, ...args],
++  }
++}
++
+ /**
+  * Run a command and capture its output without judging the exit status.
+  * @param command - executable name.
+@@ -33,7 +51,12 @@
+  * @returns The exit status and captured streams.
+  */
+ export function attempt(command: string, args: readonly string[], options: RunOptions = {}): CommandResult {
+-  const result = spawnSync(command, [...args], { cwd: options.cwd, env: options.env, encoding: 'utf8' })
++  const invocation = resolveSpawnInvocation(command, args, process.platform, options.env ?? process.env)
++  const result = spawnSync(invocation.command, [...invocation.args], {
++    cwd: options.cwd,
++    env: options.env,
++    encoding: 'utf8',
++  })
+   if (result.error !== undefined) throw result.error
+   return { status: result.status, stdout: result.stdout, stderr: result.stderr }
+ }
+@@ -58,7 +81,8 @@
+  * @returns The exit status and captured streams.
+  */
+ export function attemptEchoed(command: string, args: readonly string[], options: RunOptions = {}): CommandResult {
+-  const result = spawnSync(command, [...args], {
++  const invocation = resolveSpawnInvocation(command, args, process.platform, options.env ?? process.env)
++  const result = spawnSync(invocation.command, [...invocation.args], {
+     cwd: options.cwd,
+     env: options.env,
+     encoding: 'utf8',
+@@ -95,7 +119,8 @@
+  * @param options - working directory and environment.
+  */
+ export function run(command: string, args: readonly string[], options: RunOptions = {}): void {
+-  const result = spawnSync(command, [...args], { cwd: options.cwd, env: options.env, stdio: 'inherit' })
++  const invocation = resolveSpawnInvocation(command, args, process.platform, options.env ?? process.env)
++  const result = spawnSync(invocation.command, [...invocation.args], { cwd: options.cwd, env: options.env, stdio: 'inherit' })
+   if (result.error !== undefined) throw result.error
+   if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} exited with ${String(result.status)}`)
+ }
