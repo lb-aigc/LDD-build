@@ -68,6 +68,7 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
   if (args.length === 1 && args[0] === '--version') return '11.7.0\n'
   const releaseIndex = args.indexOf('release:pack')
   if (releaseIndex !== -1) {
+    assert.notEqual(args[releaseIndex + 1], '--', 'pnpm forwards a literal separator to release:pack')
     const familyIndex = args.indexOf('--family')
     const outIndex = args.indexOf('--out')
     const family = args[familyIndex + 1]

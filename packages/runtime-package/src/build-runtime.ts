@@ -122,11 +122,11 @@ export async function buildRuntime(
     const dshTarballs = join(packedRoot, 'dsh')
     const landlockTarballs = join(packedRoot, 'landlock')
     const lddTarballs = join(packedRoot, 'ldd')
-    await run(pnpm, ['run', 'release:pack', '--', '--family', 'vendor', '--out', relativeFrom(copiedSource, vendorTarballs)], {
+    await run(pnpm, ['run', 'release:pack', '--family', 'vendor', '--out', relativeFrom(copiedSource, vendorTarballs)], {
       cwd: copiedSource,
       env: environment,
     })
-    await run(pnpm, ['run', 'release:pack', '--', '--family', 'dsh', '--out', relativeFrom(copiedSource, dshTarballs)], {
+    await run(pnpm, ['run', 'release:pack', '--family', 'dsh', '--out', relativeFrom(copiedSource, dshTarballs)], {
       cwd: copiedSource,
       env: environment,
     })
