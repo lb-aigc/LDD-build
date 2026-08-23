@@ -12,3 +12,4 @@ release/
 .build-tools/
 .build-logs/
 .github-publish/
+.worktrees/

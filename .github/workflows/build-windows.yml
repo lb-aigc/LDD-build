@@ -41,6 +41,18 @@ jobs:
         shell: pwsh
         run: pnpm dist:win
 
+      - name: Smoke-test installed Harness runtime
+        shell: pwsh
+        run: |
+          $dshEntry = 'dist/runtime/0.1.1-rc.2/node_modules/@deepseek-ai/dsh/lib/bin.js'
+          if (-not (Test-Path -LiteralPath $dshEntry -PathType Leaf)) {
+            throw "Missing installed Harness entry: $dshEntry"
+          }
+          & node $dshEntry --help
+          if ($LASTEXITCODE -ne 0) {
+            throw "Installed Harness smoke test failed with exit code $LASTEXITCODE"
+          }
+
       - name: Verify required release artifacts
         shell: pwsh
         run: |

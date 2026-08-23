@@ -14,12 +14,14 @@ const repositoryRoot = resolve(import.meta.dirname, '..', '..', '..')
 const sourceRoot = join(repositoryRoot, 'upstream', 'deepseek-harness')
 const pluginRoot = join(repositoryRoot, 'packages', 'video-frame-analyzer')
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2')
+const observedRuntimeNodeCommands: string[] = []
 
 test('two complete runtime assemblies contain stable relative locks and archived plugin bytes', async () => {
   const parent = await mkdtemp(join(tmpdir(), 'ldd-runtime-assembly-'))
   try {
     const outputs: Buffer[] = []
     for (const sequence of [1, 2]) {
+      observedRuntimeNodeCommands.length = 0
       const runtimeRoot = join(parent, `runtime-${sequence}`)
       const built = await buildRuntime(sourceRoot, runtimeRoot, {
         sourceArchiveSha256: approvedHarnessSourceArchiveSha256,
@@ -66,6 +68,14 @@ test('two complete runtime assemblies contain stable relative locks and archived
         '0.2.0',
       )
       assert.match(packageManifest, /node-addon-landlock-run/)
+      assert.deepEqual(observedRuntimeNodeCommands, [
+        'esbuild:install.js',
+        'koffi:./cnoke.cjs -P . -D src/koffi --prebuild --release',
+        'node-pty:scripts/prebuild.js',
+        'node-pty:scripts/post-install.js',
+        'dsh-subprocess-local:scripts/ensure-spawn-helper.mjs',
+        'runtime:--help',
+      ])
 
       const archive = join(parent, `runtime-${sequence}.lddruntime`)
       await packRuntime(runtimeRoot, archive)
@@ -78,11 +88,18 @@ test('two complete runtime assemblies contain stable relative locks and archived
 })
 
 const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
+  if (_command === process.execPath) {
+    const packageLabel = basename(options.cwd)
+    const detail = packageLabel === 'runtime' ? args.slice(1).join(' ') : args.join(' ')
+    observedRuntimeNodeCommands.push(`${packageLabel}:${detail}`)
+    return packageLabel === 'runtime' ? 'Usage: dsh\n' : ''
+  }
   if (args.length === 1 && args[0] === '--version') return '11.7.0\n'
   if (
     args[0] === 'install'
     && args.includes('--no-frozen-lockfile')
     && args.includes('--ignore-scripts')
+    && basename(options.cwd) !== 'runtime'
   ) {
     assert.ok(
       args.includes('--prefer-offline'),
@@ -149,6 +166,10 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
   }
   if (args[0] === 'install' && basename(options.cwd) === 'runtime') {
     assert.ok(
+      args.includes('--ignore-scripts'),
+      'the final runtime install must not execute package lifecycle scripts implicitly',
+    )
+    assert.ok(
       args.includes('--prefer-offline'),
       'the final runtime install permits missing package-range metadata to be fetched',
     )
@@ -163,15 +184,48 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
       version: '0.1.1-rc.2',
       dependencies: {},
     }, null, 2)}\n`)
+    await writeInstalledPackage(options.cwd, 'esbuild', {
+      postinstall: 'node install.js',
+    }, ['install.js'])
+    await writeInstalledPackage(options.cwd, 'koffi', {
+      install: 'node ./cnoke.cjs -P . -D src/koffi --prebuild --release',
+    }, ['cnoke.cjs'])
+    await writeInstalledPackage(options.cwd, 'node-pty', {
+      install: 'node scripts/prebuild.js || node-gyp rebuild',
+      postinstall: 'node scripts/post-install.js',
+    }, ['scripts/prebuild.js', 'scripts/post-install.js'])
+    await writeInstalledPackage(options.cwd, '@deepseek-ai/dsh-subprocess-local', {
+      postinstall: 'node scripts/ensure-spawn-helper.mjs',
+    }, ['scripts/ensure-spawn-helper.mjs'])
+    await writeInstalledPackage(options.cwd, '@ldd/dsh-video-frame-analyzer', {}, [])
     await writeFile(join(options.cwd, 'pnpm-lock.yaml'), [
       'lockfileVersion: 9.0',
-      'importers:',
-      '  .:',
-      '    dependencies: {}',
+      'packages:',
+      "  '@deepseek-ai/cordis@file:packages/deepseek-ai-cordis-4.0.1.tgz': {}",
+      "  '@deepseek-ai/dsh@file:packages/deepseek-ai-dsh-0.1.1-rc.2.tgz': {}",
+      "  '@deepseek-ai/dsh-subprocess-local@file:packages/deepseek-ai-dsh-subprocess-local-0.1.1-rc.2.tgz': {}",
+      "  '@deepseek-ai/node-addon-landlock-run@file:packages/deepseek-ai-node-addon-landlock-run-0.1.1.tgz': {}",
+      "  '@ldd/dsh-video-frame-analyzer@file:packages/ldd-dsh-video-frame-analyzer-0.2.0.tgz': {}",
       '',
     ].join('\n'))
   }
   return ''
+}
+
+async function writeInstalledPackage(
+  runtimeRoot: string,
+  name: string,
+  scripts: Readonly<Record<string, string>>,
+  files: readonly string[],
+): Promise<void> {
+  const packageRoot = join(runtimeRoot, 'node_modules', ...name.split('/'))
+  await mkdir(packageRoot, { recursive: true })
+  await writeFile(join(packageRoot, 'package.json'), `${JSON.stringify({ name, scripts })}\n`)
+  for (const file of files) {
+    const path = join(packageRoot, ...file.split('/'))
+    await mkdir(resolve(path, '..'), { recursive: true })
+    await writeFile(path, '')
+  }
 }
 
 async function writePackageTarball(

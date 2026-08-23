@@ -35,6 +35,14 @@ test('GitHub publisher pushes through the user credential manager without force'
   assert.doesNotMatch(source, /push[^\r\n]*--force/u)
 })
 
+test('GitHub publisher treats an already-synchronized Scheme A source as success', async () => {
+  const source = await readFile(resolve(root, 'Push-to-GitHub.ps1'), 'utf8').catch(() => '')
+  assert.match(source, /runtime-lifecycle\.ts/u)
+  assert.match(source, /runtime-install-verification\.ts/u)
+  assert.match(source, /git -C \$PublishRoot status --porcelain/u)
+  assert.match(source, /already contains Scheme A/u)
+})
+
 test('Git preserves approved Harness source bytes across Windows checkout', async () => {
   const attributes = await readFile(resolve(root, '.gitattributes'), 'utf8').catch(() => '')
   assert.equal(attributes, '* -text\n')
@@ -59,4 +67,21 @@ test('Windows release runs repository verification before packaging', async () =
   assert.notEqual(verification, -1)
   assert.notEqual(packaging, -1)
   assert.ok(verification < packaging, 'repository verification must run before Windows packaging')
+})
+
+test('Windows release smoke-tests the installed Harness before artifact upload', async () => {
+  const workflow = await readFile(resolve(root, '.github/workflows/build-windows.yml'), 'utf8')
+  const packaging = workflow.indexOf('run: pnpm dist:win')
+  const smoke = workflow.indexOf('name: Smoke-test installed Harness runtime')
+  const upload = workflow.indexOf('name: Upload private build artifacts')
+  assert.notEqual(packaging, -1)
+  assert.notEqual(smoke, -1)
+  assert.notEqual(upload, -1)
+  assert.ok(packaging < smoke, 'installed Harness smoke test must follow Windows packaging')
+  assert.ok(smoke < upload, 'installed Harness smoke test must precede artifact upload')
+  assert.match(
+    workflow,
+    /dist\/runtime\/0\.1\.1-rc\.2\/node_modules\/@deepseek-ai\/dsh\/lib\/bin\.js/u,
+  )
+  assert.match(workflow, /& node \$dshEntry --help/u)
 })

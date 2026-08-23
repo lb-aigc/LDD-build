@@ -33,6 +33,14 @@ test('online runtime install applies pnpm portable layout before dependency inst
         assert.match(workspace, /'@google\/genai': false/u)
         assert.match(workspace, /'node-addon-require-builtin': false/u)
         assert.match(workspace, /'protobufjs': false/u)
+        assert.match(
+          workspace,
+          /'@deepseek-ai\/dsh': 'file:packages\/dsh-0\.1\.1-rc\.3\.tgz'/u,
+        )
+        assert.match(
+          workspace,
+          /'@ldd\/dsh-video-frame-analyzer': 'file:packages\/ldd-video-frame-analyzer\.tgz'/u,
+        )
         const npmrc = await readFile(join(options.cwd, '.npmrc'), 'utf8')
         assert.doesNotMatch(npmrc, /node-linker|package-import-method|shared-workspace-lockfile/u)
         await mkdir(join(options.cwd, 'node_modules', '@deepseek-ai', 'dsh', 'lib'), { recursive: true })
