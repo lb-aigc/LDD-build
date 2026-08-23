@@ -10,6 +10,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "pnpm --filter @ldd/runtime-kit build && pnpm --filter @ldd/runtime-package build && pnpm -r typecheck",
+    "verify:release": "pnpm typecheck && pnpm test && node scripts/run-node-verifies.mjs apps packages scripts",
     "lint": "eslint .",
     "build": "pnpm -r build",
     "smoke:video": "node tests/e2e/video-media-smoke.mjs",

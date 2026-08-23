@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const suppliedArchive = fileURLToPath(
-  new URL('../../../../upload/deepseek-harness-master(1).zip', import.meta.url),
+  new URL('../../../vendor/sources/deepseek-harness-0.1.1-rc.2.zip', import.meta.url),
 )
 const importedPackage = fileURLToPath(
   new URL('../../../upstream/deepseek-harness/package.json', import.meta.url),

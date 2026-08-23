@@ -3,7 +3,11 @@ import { spawn } from 'node:child_process'
 import { copyFile, lstat, mkdir, open, readFile, rename, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 
-import { wireRuntimeExtensionIntoDsh, writeRuntimeMetadata } from '@ldd/runtime-package'
+import {
+  wireRuntimeExtensionIntoDsh,
+  writePortableRuntimePnpmConfig,
+  writeRuntimeMetadata,
+} from '@ldd/runtime-package'
 import { sha256File } from '@ldd/runtime-kit/checksum'
 
 import type { RuntimeProgressEvent } from '../ipc/contracts.ts'
@@ -75,20 +79,15 @@ export async function installOnlineRuntime(
         '@ldd/dsh-video-frame-analyzer': 'file:packages/ldd-video-frame-analyzer.tgz',
       },
     }, null, 2)}\n`, { mode: 0o600 })
-    await writeFile(join(payload, '.npmrc'), [
-      'node-linker=hoisted',
-      'package-import-method=copy',
-      'shared-workspace-lockfile=false',
-      '',
-    ].join('\n'), { mode: 0o600 })
-    await writeFile(join(payload, 'pnpm-workspace.yaml'), [
-      'packages: []',
-      'allowBuilds:',
-      '  esbuild: true',
-      '  node-pty: true',
-      '  koffi: true',
-      '',
-    ].join('\n'), { mode: 0o600 })
+    await writePortableRuntimePnpmConfig(payload, {
+      '@deepseek-ai/dsh-subprocess-local': true,
+      '@google/genai': false,
+      esbuild: true,
+      'node-pty': true,
+      koffi: true,
+      'node-addon-require-builtin': false,
+      protobufjs: false,
+    })
 
     await progress(options, 'install', 45, '正在安装精确版本依赖')
     const command = pnpmCommand(options.host)

@@ -23,6 +23,7 @@ import {
 } from './manifest.ts'
 import { applyTrackedUpstreamPatches } from './upstream-patches.ts'
 import { assertApprovedHarnessSource } from './source-identity.ts'
+import { writePortableRuntimePnpmConfig } from './pnpm-runtime-config.ts'
 
 const expectedPnpm = 'pnpm@11.7.0'
 const expectedNodeMajor = 24
@@ -191,25 +192,16 @@ export async function buildRuntime(
       type: 'module',
       dependencies,
     }, null, 2)}\n`, { mode: 0o600 })
-    await writeFile(join(runtimeRoot, '.npmrc'), [
-      'node-linker=hoisted',
-      'package-import-method=copy',
-      'shared-workspace-lockfile=false',
-      '',
-    ].join('\n'), { mode: 0o600 })
-    await writeFile(join(runtimeRoot, 'pnpm-workspace.yaml'), [
-      'packages: []',
-      'allowBuilds:',
-      "  '@deepseek-ai/dsh-subprocess-local': true",
-      `  '${subprocessLocalTarball.name}@${subprocessLocalSpecifier}': true`,
-      "  '@google/genai': false",
-      '  esbuild: true',
-      '  node-pty: true',
-      '  koffi: true',
-      '  node-addon-require-builtin: false',
-      '  protobufjs: false',
-      '',
-    ].join('\n'), { mode: 0o600 })
+    await writePortableRuntimePnpmConfig(runtimeRoot, {
+      '@deepseek-ai/dsh-subprocess-local': true,
+      [`${subprocessLocalTarball.name}@${subprocessLocalSpecifier}`]: true,
+      '@google/genai': false,
+      esbuild: true,
+      'node-pty': true,
+      koffi: true,
+      'node-addon-require-builtin': false,
+      protobufjs: false,
+    })
     await run(pnpm, [
       'install',
       '--prod',

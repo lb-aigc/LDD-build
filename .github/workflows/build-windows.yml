@@ -33,6 +33,10 @@ jobs:
         shell: pwsh
         run: pnpm install --frozen-lockfile --config.block-exotic-subdeps=false
 
+      - name: Verify repository before packaging
+        shell: pwsh
+        run: pnpm verify:release
+
       - name: Build runtime and Windows installer
         shell: pwsh
         run: pnpm dist:win

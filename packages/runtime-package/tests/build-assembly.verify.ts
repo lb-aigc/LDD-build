@@ -41,12 +41,18 @@ test('two complete runtime assemblies contain stable relative locks and archived
       assert.doesNotMatch(packageManifest, /file:\/\/|\.ldd-runtime-build-/)
       assert.match(packageManifest, /file:packages\//)
       const runtimeWorkspace = await readFile(join(runtimeRoot, 'pnpm-workspace.yaml'), 'utf8')
+      assert.match(runtimeWorkspace, /^nodeLinker: hoisted$/mu)
+      assert.match(runtimeWorkspace, /^packageImportMethod: copy$/mu)
+      assert.match(runtimeWorkspace, /^sharedWorkspaceLockfile: false$/mu)
+      assert.match(runtimeWorkspace, /^preferSymlinkedExecutables: false$/mu)
       assert.match(runtimeWorkspace, /'@deepseek-ai\/dsh-subprocess-local': true/u)
       assert.match(
         runtimeWorkspace,
         /'@deepseek-ai\/dsh-subprocess-local@file:packages\/deepseek-ai-dsh-subprocess-local-0\.1\.1-rc\.2\.tgz': true/u,
       )
       assert.match(runtimeWorkspace, /'@google\/genai': false/u)
+      const runtimeNpmrc = await readFile(join(runtimeRoot, '.npmrc'), 'utf8')
+      assert.doesNotMatch(runtimeNpmrc, /node-linker|package-import-method|shared-workspace-lockfile/u)
       assert.equal(built.pnpmLockPath, join(runtimeRoot, 'pnpm-lock.yaml'))
       const installedDshManifest = JSON.parse(await readFile(join(
         runtimeRoot,
