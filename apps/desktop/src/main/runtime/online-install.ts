@@ -69,15 +69,16 @@ export async function installOnlineRuntime(
     }
 
     await transaction.transition('verifying')
+    const dependencies = {
+      '@deepseek-ai/dsh': `file:packages/${basename(dshArchive)}`,
+      '@ldd/dsh-video-frame-analyzer': 'file:packages/ldd-video-frame-analyzer.tgz',
+    }
     await writeFile(join(payload, 'package.json'), `${JSON.stringify({
       name: '@ldd/online-harness-runtime',
       version: options.release.version,
       private: true,
       type: 'module',
-      dependencies: {
-        '@deepseek-ai/dsh': `file:packages/${basename(dshArchive)}`,
-        '@ldd/dsh-video-frame-analyzer': 'file:packages/ldd-video-frame-analyzer.tgz',
-      },
+      dependencies,
     }, null, 2)}\n`, { mode: 0o600 })
     await writePortableRuntimePnpmConfig(payload, {
       '@deepseek-ai/dsh-subprocess-local': true,
@@ -87,7 +88,7 @@ export async function installOnlineRuntime(
       koffi: true,
       'node-addon-require-builtin': false,
       protobufjs: false,
-    })
+    }, dependencies)
 
     await progress(options, 'install', 45, '正在安装精确版本依赖')
     const command = pnpmCommand(options.host)

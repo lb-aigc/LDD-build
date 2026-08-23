@@ -47,6 +47,17 @@ describe('installed runtime verification', () => {
       .rejects.toThrow(/registry-backed runtime package.*cosmokit/iu)
   })
 
+  it('rejects an internal snapshot absent from the approved dependency inventory', async () => {
+    const root = await fixtureRuntime([
+      localLockfile(),
+      "  '@deepseek-ai/unapproved@1.0.0': {}",
+      '',
+    ].join('\n'))
+
+    await expect(verifyInstalledRuntime(root, dependencies, realRunner, {}))
+      .rejects.toThrow(/unapproved internal runtime package.*@deepseek-ai\/unapproved/iu)
+  })
+
   it('rejects a symbolic link anywhere in the installed runtime', async () => {
     const root = await fixtureRuntime(localLockfile())
     await symlink(
@@ -75,6 +86,14 @@ describe('installed runtime verification', () => {
     await expect(verifyInstalledRuntime(brokenCliRoot, dependencies, realRunner, {}))
       .rejects.toThrow(/exited with code 7/iu)
   })
+
+  it('loads the installed native packages instead of trusting their manifests', async () => {
+    const root = await fixtureRuntime(localLockfile())
+    await rm(join(root, 'node_modules', 'node-pty', 'index.js'))
+
+    await expect(verifyInstalledRuntime(root, dependencies, realRunner, {}))
+      .rejects.toThrow(/native package probe/iu)
+  })
 })
 
 async function fixtureRuntime(lockfile: string): Promise<string> {
@@ -91,9 +110,12 @@ async function fixtureRuntime(lockfile: string): Promise<string> {
       'node_modules/@ldd/dsh-video-frame-analyzer/package.json',
       '{"name":"@ldd/dsh-video-frame-analyzer"}\n',
     ],
-    ['node_modules/esbuild/package.json', '{"name":"esbuild"}\n'],
-    ['node_modules/koffi/package.json', '{"name":"koffi"}\n'],
-    ['node_modules/node-pty/package.json', '{"name":"node-pty"}\n'],
+    ['node_modules/esbuild/package.json', '{"name":"esbuild","type":"module","main":"index.js"}\n'],
+    ['node_modules/esbuild/index.js', 'export async function transform() { return { code: "ok" } }\n'],
+    ['node_modules/koffi/package.json', '{"name":"koffi","type":"module","main":"index.js"}\n'],
+    ['node_modules/koffi/index.js', 'export const loaded = true\n'],
+    ['node_modules/node-pty/package.json', '{"name":"node-pty","type":"module","main":"index.js"}\n'],
+    ['node_modules/node-pty/index.js', 'export const loaded = true\n'],
   ])
   for (const [relative, content] of files) {
     const path = join(root, ...relative.split('/'))

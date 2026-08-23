@@ -29,6 +29,27 @@ export async function verifyInstalledRuntime(
     )
   }
 
+  try {
+    await run(process.execPath, [
+      '--input-type=module',
+      '--eval',
+      [
+        "const esbuild = await import('esbuild')",
+        "const transformed = await esbuild.transform('export const ready = true')",
+        "if (typeof transformed.code !== 'string' || transformed.code.length === 0) process.exit(41)",
+        "await import('koffi')",
+        "await import('node-pty')",
+      ].join(';'),
+    ], {
+      cwd: runtimeRoot,
+      env: compactLifecycleEnvironment(runtimeRoot, baseEnvironment),
+      captureOutput: true,
+    })
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    throw new Error(`installed native package probe failed: ${reason}`)
+  }
+
   await run(process.execPath, [dshEntry, '--help'], {
     cwd: runtimeRoot,
     env: compactLifecycleEnvironment(runtimeRoot, baseEnvironment),
@@ -40,6 +61,16 @@ export function verifyInternalPackageSnapshots(
   lockfile: string,
   dependencies: Readonly<Record<string, string>>,
 ): void {
+  const approvedInternalPackages = new Set(Object.keys(dependencies).filter(
+    (name) => name.startsWith('@deepseek-ai/') || name.startsWith('@ldd/'),
+  ))
+  const internalSnapshot = /^\s{2}'?(@(?:deepseek-ai|ldd)\/[A-Za-z0-9._+-]+)@/gmu
+  for (const match of lockfile.matchAll(internalSnapshot)) {
+    const name = match[1]
+    if (name !== undefined && !approvedInternalPackages.has(name)) {
+      throw new Error(`unapproved internal runtime package detected in lockfile: ${name}`)
+    }
+  }
   for (const [name, target] of Object.entries(dependencies)) {
     if (!name.startsWith('@deepseek-ai/') && !name.startsWith('@ldd/')) continue
     if (!/^file:packages\/[A-Za-z0-9._-]+\.tgz$/u.test(target)) {

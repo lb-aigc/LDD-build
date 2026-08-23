@@ -1,10 +1,14 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { createReadStream } from 'node:fs'
-import { lstat, mkdir, rename, rm } from 'node:fs/promises'
+import { lstat, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
-import { copyTrackedEntryWindowsCompatible } from './source-package-tree.mjs'
+import {
+  copyTrackedEntryWindowsCompatible,
+  createSourceFileInventory,
+  sourceFileInventoryName,
+} from './source-package-tree.mjs'
 
 const repositoryRoot = resolve(import.meta.dirname, '..')
 const releaseRoot = join(repositoryRoot, 'release')
@@ -25,11 +29,17 @@ try {
     {},
     32 * 1024 * 1024,
   ))
+  const sourceEntries = entries.filter((entry) => entry.path !== sourceFileInventoryName)
   await mkdir(staging, { mode: 0o700 })
-  for (const entry of entries) {
+  for (const entry of sourceEntries) {
     if (entry.type !== 'blob') throw new Error(`unsupported tracked source entry type: ${entry.type} ${entry.path}`)
     await copyTrackedEntryWindowsCompatible(repositoryRoot, staging, entry.path, entry.mode)
   }
+  await writeFile(
+    join(staging, sourceFileInventoryName),
+    createSourceFileInventory(sourceEntries.map((entry) => entry.path)),
+    { flag: 'wx', mode: 0o644 },
+  )
   await runGit(['init', '--quiet'], false, staging)
   await runGit(['-c', 'core.autocrlf=false', '-c', 'core.filemode=true', 'add', '--force', '-A'], false, staging)
   const tree = (await runGit(['write-tree'], true, staging)).trim()

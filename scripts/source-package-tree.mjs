@@ -1,6 +1,31 @@
 import { chmod, cp, lstat, mkdir, readFile, readlink, realpath, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, relative, resolve } from 'node:path'
 
+export const sourceFileInventoryName = '.ldd-source-files.json'
+
+export function createSourceFileInventory(paths) {
+  const files = [
+    sourceFileInventoryName,
+    ...paths.filter((path) => path !== sourceFileInventoryName),
+  ].sort()
+  const seen = new Set()
+  for (const path of files) {
+    if (
+      typeof path !== 'string' ||
+      path.length === 0 ||
+      path.includes('\0') ||
+      path.includes('\\') ||
+      path.startsWith('/') ||
+      path.split('/').some((segment) => segment.length === 0 || segment === '.' || segment === '..')
+    ) {
+      throw new Error(`unsafe source inventory path: ${String(path)}`)
+    }
+    if (seen.has(path)) throw new Error(`duplicate source inventory path: ${path}`)
+    seen.add(path)
+  }
+  return `${JSON.stringify({ formatVersion: 1, files }, null, 2)}\n`
+}
+
 export async function copyTrackedEntryWindowsCompatible(sourceRoot, destinationRoot, path, mode) {
   const source = resolve(sourceRoot, path)
   const destination = resolve(destinationRoot, path)
@@ -14,8 +39,11 @@ export async function copyTrackedEntryWindowsCompatible(sourceRoot, destinationR
   await mkdir(dirname(destination), { recursive: true })
   if (isTrackedLink) {
     const target = await readTrackedLink(source, metadata)
-    const resolvedTarget = await realpath(resolve(dirname(source), target))
-    assertWithin(sourceRoot, resolvedTarget, 'symlink target')
+    const [canonicalSourceRoot, resolvedTarget] = await Promise.all([
+      realpath(sourceRoot),
+      realpath(resolve(dirname(source), target)),
+    ])
+    assertWithin(canonicalSourceRoot, resolvedTarget, 'symlink target')
     await writeFile(destination, target, { flag: 'wx', mode: 0o644 })
     return
   }
@@ -31,7 +59,9 @@ export async function copyTrackedEntryWindowsCompatible(sourceRoot, destinationR
 }
 
 async function readTrackedLink(source, metadata) {
-  if (metadata.isSymbolicLink()) return await readlink(source)
+  if (metadata.isSymbolicLink()) {
+    return normalizeTrackedLinkTarget(await readlink(source))
+  }
   if (!metadata.isFile() || metadata.size > 4096) {
     throw new Error(`invalid Git symlink placeholder: ${source}`)
   }
@@ -40,6 +70,10 @@ async function readTrackedLink(source, metadata) {
     throw new Error(`invalid Git symlink placeholder: ${source}`)
   }
   return target
+}
+
+export function normalizeTrackedLinkTarget(target, platform = process.platform) {
+  return platform === 'win32' ? target.replaceAll('\\', '/') : target
 }
 
 function assertWithin(root, candidate, label) {
