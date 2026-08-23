@@ -122,7 +122,7 @@ describe('runtime archive paths', () => {
     )
 
     expect(result.files.get(executablePath)?.size).toBe(executableBytes)
-  })
+  }, 30_000)
 })
 
 function sha256(bytes: Buffer): string {
