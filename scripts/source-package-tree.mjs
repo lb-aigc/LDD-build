@@ -14,11 +14,8 @@ export async function copyTrackedEntryWindowsCompatible(sourceRoot, destinationR
   await mkdir(dirname(destination), { recursive: true })
   if (isTrackedLink) {
     const target = await readTrackedLink(source, metadata)
-    const [canonicalSourceRoot, resolvedTarget] = await Promise.all([
-      realpath(sourceRoot),
-      realpath(resolve(dirname(source), target)),
-    ])
-    assertWithin(canonicalSourceRoot, resolvedTarget, 'symlink target')
+    const resolvedTarget = await realpath(resolve(dirname(source), target))
+    assertWithin(sourceRoot, resolvedTarget, 'symlink target')
     await writeFile(destination, target, { flag: 'wx', mode: 0o644 })
     return
   }
@@ -34,9 +31,7 @@ export async function copyTrackedEntryWindowsCompatible(sourceRoot, destinationR
 }
 
 async function readTrackedLink(source, metadata) {
-  if (metadata.isSymbolicLink()) {
-    return normalizeTrackedLinkTarget(await readlink(source))
-  }
+  if (metadata.isSymbolicLink()) return await readlink(source)
   if (!metadata.isFile() || metadata.size > 4096) {
     throw new Error(`invalid Git symlink placeholder: ${source}`)
   }
@@ -45,10 +40,6 @@ async function readTrackedLink(source, metadata) {
     throw new Error(`invalid Git symlink placeholder: ${source}`)
   }
   return target
-}
-
-export function normalizeTrackedLinkTarget(target, platform = process.platform) {
-  return platform === 'win32' ? target.replaceAll('\\', '/') : target
 }
 
 function assertWithin(root, candidate, label) {

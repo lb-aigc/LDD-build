@@ -24,18 +24,12 @@ import {
   type CandidateHealthProcess,
 } from './health.ts'
 import { installOnlineRuntime } from './online-install.ts'
+import { runtimeArchiveLimits } from './limits.ts'
 import { RegistryClient, type ResolvedRuntimeRelease } from './registry.ts'
 import { selectRuntime, type RuntimeCandidate, type RuntimeInventory } from './select.ts'
 import { assertSemanticVersion, compareSemanticVersions } from './semver.ts'
 import { readRuntimeState, writeRuntimeState, type RuntimeState } from './state.ts'
 import { RuntimeUpdater } from './updater.ts'
-
-const archiveLimits = {
-  maxEntries: 100_000,
-  maxFileBytes: 128 * 1024 * 1024,
-  maxTotalBytes: 3 * 1024 * 1024 * 1024,
-  maxCompressedBytes: 1024 * 1024 * 1024,
-} as const
 
 export interface DesktopRuntimeControllerOptions {
   readonly paths: LddPaths
@@ -159,7 +153,7 @@ export class DesktopRuntimeController implements DesktopRuntimePort {
   }
 
   async importOfflineRuntime(archivePath: string): Promise<unknown> {
-    const installed = await this.#installer.install({ archivePath, limits: archiveLimits }, async (candidate) => {
+    const installed = await this.#installer.install({ archivePath, limits: runtimeArchiveLimits }, async (candidate) => {
       if (compareSemanticVersions(this.#options.desktopVersion, candidate.manifest.minimumLddVersion) < 0) {
         throw new Error(`该内核包需要 LDD ${candidate.manifest.minimumLddVersion} 或更高版本`)
       }

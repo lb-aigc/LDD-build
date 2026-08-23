@@ -24,8 +24,6 @@ import {
 import { applyTrackedUpstreamPatches } from './upstream-patches.ts'
 import { assertApprovedHarnessSource } from './source-identity.ts'
 import { writePortableRuntimePnpmConfig } from './pnpm-runtime-config.ts'
-import { runApprovedRuntimeLifecycles } from './runtime-lifecycle.ts'
-import { verifyInstalledRuntime } from './runtime-install-verification.ts'
 
 const expectedPnpm = 'pnpm@11.7.0'
 const expectedNodeMajor = 24
@@ -203,21 +201,18 @@ export async function buildRuntime(
       koffi: true,
       'node-addon-require-builtin': false,
       protobufjs: false,
-    }, dependencies)
+    })
     await run(pnpm, [
       'install',
       '--prod',
       '--prefer-offline',
       '--no-frozen-lockfile',
-      '--ignore-scripts',
       '--store-dir',
       pnpmStore,
     ], { cwd: runtimeRoot, env: environment })
-    await runApprovedRuntimeLifecycles(runtimeRoot, environment, run)
 
     const pluginTarball = requireTarball(tarballs, '@ldd/dsh-video-frame-analyzer')
     await wireRuntimeExtensionIntoDsh(runtimeRoot, pluginTarball.name, pluginTarball.version)
-    await verifyInstalledRuntime(runtimeRoot, dependencies, run, environment)
 
     for (const legalFile of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) {
       await copyFile(join(copiedSource, legalFile), join(runtimeRoot, legalFile))

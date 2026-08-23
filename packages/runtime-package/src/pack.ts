@@ -36,7 +36,7 @@ const deflatedMethod = 8
 const regularFileAttributes = (0o100644 << 16) >>> 0
 const maxZip32 = 0xffff_ffff
 const maxZipEntries = 0xffff
-const maxInputFileBytes = 128 * 1024 * 1024
+const maxInputFileBytes = 512 * 1024 * 1024
 const maxCompressedInputBytes = 16 * 1024 * 1024
 
 export interface PackedRuntimeResult {
@@ -235,7 +235,7 @@ async function readStableEntry(root: string, entryPath: string): Promise<Buffer>
     const before = await file.stat()
     if (!before.isFile()) throw new Error(`runtime archive entry is not a regular file: ${entryPath}`)
     if (before.size > maxInputFileBytes) {
-      throw new Error(`runtime archive file exceeds the 128 MiB pack limit: ${entryPath}`)
+      throw new Error(`runtime archive file exceeds the 512 MiB pack limit: ${entryPath}`)
     }
     const data = Buffer.allocUnsafe(before.size)
     let offset = 0

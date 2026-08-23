@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto'
-import { access } from 'node:fs/promises'
+import { access, mkdir, open } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
+import { packRuntime, writeRuntimeMetadata } from '@ldd/runtime-package'
 import { createFixtureDirectory } from '../../../packages/runtime-kit/tests/fixture-directory.js'
 import {
   extractRuntimeArchive,
   validateRuntimeArchivePath,
 } from '../src/main/runtime/archive.js'
+import { runtimeArchiveLimits } from '../src/main/runtime/limits.js'
 import { writeStoredZip } from './runtime-archive-fixture.js'
 
 const limits = {
@@ -85,6 +87,41 @@ describe('runtime archive paths', () => {
 
     await expect(extractRuntimeArchive(archive, staging, limits)).rejects.toThrow()
     await expect(access(staging)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('packs and extracts a runtime executable above the legacy 128 MiB limit', async () => {
+    await using fixture = await createFixtureDirectory('ldd-runtime-large-file-')
+    const runtimeRoot = fixture.path('runtime')
+    const executablePath = 'node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/claude.exe'
+    const executableBytes = 129 * 1024 * 1024
+    const executable = fixture.path('runtime', ...executablePath.split('/'))
+    await mkdir(fixture.path('runtime', 'node_modules', '@anthropic-ai', 'claude-agent-sdk-win32-x64'), {
+      recursive: true,
+    })
+    const file = await open(executable, 'w')
+    try {
+      await file.truncate(executableBytes)
+    } finally {
+      await file.close()
+    }
+    await writeRuntimeMetadata(runtimeRoot, {
+      harnessVersion: '0.1.1-rc.2',
+      createdAt: '2026-08-24T00:00:00.000Z',
+      minimumLddVersion: '0.2.0',
+      sourceArchiveSha256: 'a'.repeat(64),
+      npmIntegrity: null,
+      plugins: [],
+    })
+    const archive = fixture.path('runtime.lddruntime')
+    await packRuntime(runtimeRoot, archive)
+
+    const result = await extractRuntimeArchive(
+      archive,
+      fixture.path('staging', 'large-file'),
+      runtimeArchiveLimits,
+    )
+
+    expect(result.files.get(executablePath)?.size).toBe(executableBytes)
   })
 })
 
