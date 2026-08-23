@@ -14,8 +14,11 @@ export async function copyTrackedEntryWindowsCompatible(sourceRoot, destinationR
   await mkdir(dirname(destination), { recursive: true })
   if (isTrackedLink) {
     const target = await readTrackedLink(source, metadata)
-    const resolvedTarget = await realpath(resolve(dirname(source), target))
-    assertWithin(sourceRoot, resolvedTarget, 'symlink target')
+    const [canonicalSourceRoot, resolvedTarget] = await Promise.all([
+      realpath(sourceRoot),
+      realpath(resolve(dirname(source), target)),
+    ])
+    assertWithin(canonicalSourceRoot, resolvedTarget, 'symlink target')
     await writeFile(destination, target, { flag: 'wx', mode: 0o644 })
     return
   }
