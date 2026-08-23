@@ -4,6 +4,19 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 
+test('source packaging converts Windows readlink separators back to Git link bytes', async () => {
+  const module = await import('../source-package-tree.mjs')
+  assert.equal(typeof module.normalizeTrackedLinkTarget, 'function')
+  assert.equal(
+    module.normalizeTrackedLinkTarget('canonical\\AGENTS.md', 'win32'),
+    'canonical/AGENTS.md',
+  )
+  assert.equal(
+    module.normalizeTrackedLinkTarget('canonical\\AGENTS.md', 'linux'),
+    'canonical\\AGENTS.md',
+  )
+})
+
 test('source packaging preserves Git link identity as regular Windows files', async () => {
   const module = await import('../source-package-tree.mjs').catch(() => undefined)
   assert.ok(module, 'source packaging does not yet provide a Windows-compatible tree materializer')
