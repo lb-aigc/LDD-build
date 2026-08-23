@@ -58,6 +58,17 @@ describe('installed runtime verification', () => {
       .rejects.toThrow(/unapproved internal runtime package.*@deepseek-ai\/unapproved/iu)
   })
 
+  it('accepts registry-backed landlock platform prebuilds as optional dependencies', async () => {
+    const root = await fixtureRuntime([
+      localLockfile(),
+      "  '@deepseek-ai/node-addon-landlock-run-linux-arm64@0.1.1': {}",
+      "  '@deepseek-ai/node-addon-landlock-run-linux-x64@0.1.1': {}",
+      '',
+    ].join('\n'))
+
+    await expect(verifyInstalledRuntime(root, dependencies, realRunner, {})).resolves.toBeUndefined()
+  })
+
   it('rejects a symbolic link anywhere in the installed runtime', async () => {
     const root = await fixtureRuntime(localLockfile())
     await symlink(
