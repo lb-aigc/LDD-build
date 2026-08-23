@@ -182,6 +182,8 @@ export async function buildRuntime(
       tarball.name,
       `file:packages/${basename(tarball.path)}`,
     ]))
+    const subprocessLocalTarball = requireTarball(tarballs, '@deepseek-ai/dsh-subprocess-local')
+    const subprocessLocalSpecifier = `file:packages/${basename(subprocessLocalTarball.path)}`
     await writeFile(join(runtimeRoot, 'package.json'), `${JSON.stringify({
       name: '@ldd/harness-runtime',
       version: harnessVersion,
@@ -199,6 +201,7 @@ export async function buildRuntime(
       'packages: []',
       'allowBuilds:',
       "  '@deepseek-ai/dsh-subprocess-local': true",
+      `  '${subprocessLocalTarball.name}@${subprocessLocalSpecifier}': true`,
       "  '@google/genai': false",
       '  esbuild: true',
       '  node-pty: true',

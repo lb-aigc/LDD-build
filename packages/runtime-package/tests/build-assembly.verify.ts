@@ -42,6 +42,10 @@ test('two complete runtime assemblies contain stable relative locks and archived
       assert.match(packageManifest, /file:packages\//)
       const runtimeWorkspace = await readFile(join(runtimeRoot, 'pnpm-workspace.yaml'), 'utf8')
       assert.match(runtimeWorkspace, /'@deepseek-ai\/dsh-subprocess-local': true/u)
+      assert.match(
+        runtimeWorkspace,
+        /'@deepseek-ai\/dsh-subprocess-local@file:packages\/deepseek-ai-dsh-subprocess-local-0\.1\.1-rc\.2\.tgz': true/u,
+      )
       assert.match(runtimeWorkspace, /'@google\/genai': false/u)
       assert.equal(built.pnpmLockPath, join(runtimeRoot, 'pnpm-lock.yaml'))
       const installedDshManifest = JSON.parse(await readFile(join(
@@ -98,6 +102,12 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
       await writePackageTarball(output, 'deepseek-ai-cordis-4.0.1.tgz', '@deepseek-ai/cordis', '4.0.1')
     } else if (family === 'dsh') {
       await writePackageTarball(output, 'deepseek-ai-dsh-0.1.1-rc.2.tgz', '@deepseek-ai/dsh', '0.1.1-rc.2')
+      await writePackageTarball(
+        output,
+        'deepseek-ai-dsh-subprocess-local-0.1.1-rc.2.tgz',
+        '@deepseek-ai/dsh-subprocess-local',
+        '0.1.1-rc.2',
+      )
     }
     return ''
   }
