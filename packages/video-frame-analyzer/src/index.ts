@@ -68,7 +68,6 @@ export const Config: z<Config> = z.object({
 const imageRefSchema = {
   type: 'object',
   additionalProperties: false,
-  required: true,
   properties: {
     attachmentId: { type: 'string', required: true },
     mediaType: { type: 'string', enum: ['image/jpeg'], required: true },
@@ -82,7 +81,6 @@ const imageRefSchema = {
 const observationSchema = {
   type: 'object',
   additionalProperties: false,
-  required: true,
   properties: {
     startSeconds: { type: 'number', required: true },
     endSeconds: { type: 'number', required: true },

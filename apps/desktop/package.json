@@ -55,9 +55,14 @@
       {
         "from": "../../dist/runtime/0.1.1-rc.2",
         "to": "runtime-fallback"
+      },
+      {
+        "from": "build/icon.png",
+        "to": "assets/icon.png"
       }
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
