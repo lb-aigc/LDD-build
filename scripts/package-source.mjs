@@ -18,7 +18,8 @@ const staging = join(releaseRoot, `.LDD-0.2.0-source-tree-${randomBytes(8).toStr
 
 const status = await runGit(['status', '--porcelain=v1', '--untracked-files=all'], true)
 if (status.trim().length > 0) {
-  throw new Error('source packaging requires a clean Git worktree so the archive cannot omit local changes')
+  const dirty = status.trim().split('\n').slice(0, 50).join('\n')
+  throw new Error(`source packaging requires a clean Git worktree so the archive cannot omit local changes\nDirty entries (first 50):\n${dirty}`)
 }
 await mkdir(releaseRoot, { mode: 0o700, recursive: true })
 try {

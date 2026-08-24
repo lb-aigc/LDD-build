@@ -41,6 +41,18 @@ jobs:
         shell: pwsh
         run: pnpm dist:win
 
+      - name: Diagnose worktree state after build (always)
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host '=== git status (porcelain, all) ==='
+          git status --porcelain=v1 --untracked-files=all
+          Write-Host '=== git status (short) ==='
+          git status --short
+          Write-Host '=== git diff --stat (tracked changes) ==='
+          git diff --stat
+          Write-Host '=== done ==='
+
       - name: Smoke-test installed Harness runtime
         shell: pwsh
         run: |
