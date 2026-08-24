@@ -53,17 +53,87 @@ jobs:
           git diff --stat
           Write-Host '=== done ==='
 
-      - name: Smoke-test installed Harness runtime
+      - name: Smoke-test installed Harness runtime (real plugin-tree load)
         shell: pwsh
         run: |
           $dshEntry = 'dist/runtime/0.1.1-rc.2/node_modules/@deepseek-ai/dsh/lib/bin.js'
           if (-not (Test-Path -LiteralPath $dshEntry -PathType Leaf)) {
             throw "Missing installed Harness entry: $dshEntry"
           }
-          & node $dshEntry --help
-          if ($LASTEXITCODE -ne 0) {
-            throw "Installed Harness smoke test failed with exit code $LASTEXITCODE"
+
+          # Reproduce the exact managed patch the desktop app writes at startup by
+          # importing the compiled image-mode module. This guarantees the smoke test
+          # can never drift from the shipped configuration: a missing 'invariants'
+          # service registration (or any other plugin-tree load failure) fails here
+          # in CI instead of shipping a blank window.
+          $imageModeJs = 'apps/desktop/dist/main/src/main/profile/image-mode.js'
+          if (-not (Test-Path -LiteralPath $imageModeJs -PathType Leaf)) {
+            throw "Missing compiled image-mode module: $imageModeJs"
           }
+
+          $smokeDir = Join-Path $env:RUNNER_TEMP 'ldd-harness-smoke'
+          New-Item -ItemType Directory -Force -Path $smokeDir | Out-Null
+          $managedPatch = Join-Path $smokeDir 'cordis.patch.yml'
+          $genScript = Join-Path $smokeDir 'gen-patch.mjs'
+          @'
+          import { writeFileSync } from 'node:fs'
+          import { resolve } from 'node:path'
+          import { pathToFileURL } from 'node:url'
+          const target = pathToFileURL(resolve(process.argv[2]))
+          const mod = await import(target)
+          writeFileSync(process.argv[3], mod.renderManagedImagePatch('standard'))
+          '@ | Set-Content -LiteralPath $genScript -Encoding UTF8
+          node $genScript 'apps/desktop/dist/main/src/main/profile/image-mode.js' $managedPatch
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to render the managed patch from the compiled image-mode module' }
+          if (-not (Test-Path -LiteralPath $managedPatch -PathType Leaf)) { throw 'Managed patch was not written' }
+
+          # Isolate the harness home so the smoke run never touches user state.
+          $dshHome = Join-Path $smokeDir 'home'
+          New-Item -ItemType Directory -Force -Path $dshHome | Out-Null
+          $env:DSH_HOME = $dshHome
+          $env:LDD_RUNTIME_VERSION = '0.1.1-rc.2'
+          $env:LDD_IMAGE_MODE = 'standard'
+          $env:LDD_IDENTITY_NONCE = 'ldd-ci-smoke-nonce-0123456789abcdef'
+          $env:LDD_FFMPEG_PATH = 'C:\ldd-smoke\ffmpeg.exe'
+          $env:LDD_FFPROBE_PATH = 'C:\ldd-smoke\ffprobe.exe'
+
+          $port = 3199
+          $stdoutLog = Join-Path $smokeDir 'dsh-stdout.log'
+          $stderrLog = Join-Path $smokeDir 'dsh-stderr.log'
+          $proc = Start-Process -FilePath node -ArgumentList @($dshEntry, 'web', '--patch', $managedPatch, '--host', '127.0.0.1', '--port', "$port", '--no-open') -PassThru -NoNewWindow -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
+
+          $deadline = (Get-Date).AddSeconds(120)
+          $ready = $false
+          while ((Get-Date) -lt $deadline) {
+            if ($proc.HasExited) {
+              Write-Host '=== dsh stdout ==='
+              if (Test-Path -LiteralPath $stdoutLog) { Get-Content -LiteralPath $stdoutLog }
+              Write-Host '=== dsh stderr ==='
+              if (Test-Path -LiteralPath $stderrLog) { Get-Content -LiteralPath $stderrLog }
+              throw "Harness exited before readiness with exit code $($proc.ExitCode)"
+            }
+            try {
+              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/__ldd/identity" -TimeoutSec 2 -UseBasicParsing
+              if ($resp.StatusCode -eq 200) {
+                $identity = $resp.Content | ConvertFrom-Json
+                if ($identity.product -eq 'LDD-Harness') { $ready = $true; break }
+              }
+            } catch {
+              Start-Sleep -Milliseconds 500
+            }
+          }
+
+          if (-not $ready) {
+            Write-Host '=== dsh stdout ==='
+            if (Test-Path -LiteralPath $stdoutLog) { Get-Content -LiteralPath $stdoutLog }
+            Write-Host '=== dsh stderr ==='
+            if (Test-Path -LiteralPath $stderrLog) { Get-Content -LiteralPath $stderrLog }
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            throw 'Harness did not become ready within 120s (plugin tree failed to load)'
+          }
+
+          Write-Host "Harness ready: http://127.0.0.1:$port/__ldd/identity -> product=$($identity.product)"
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
 
       - name: Verify required release artifacts
         shell: pwsh

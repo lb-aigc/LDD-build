@@ -56,6 +56,8 @@ export function renderManagedImagePatch(mode: ImageMode): string {
     `    normalizedImageMaxBytes: ${String(config.normalizedImageMaxBytes)}`,
     `    imageCompressionConcurrency: ${String(config.imageCompressionConcurrency)}`,
     '- insert:',
+    '    - id: invariants',
+    "      name: '@deepseek-ai/dsh-invariants'",
     '    - id: ldd-video-frame-analyzer',
     "      name: '@ldd/dsh-video-frame-analyzer'",
     '      config:',

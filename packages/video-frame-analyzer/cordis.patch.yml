@@ -1,6 +1,9 @@
 # LDD-owned Web additions. This bundle is installed as a profile layer and
 # never rewrites the user's DSH_HOME/cordis.patch.yml.
 - insert:
+    - id: invariants
+      name: '@deepseek-ai/dsh-invariants'
+
     - id: ldd-video-frame-analyzer
       name: '@ldd/dsh-video-frame-analyzer'
       config:
