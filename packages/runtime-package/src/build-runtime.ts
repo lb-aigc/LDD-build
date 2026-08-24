@@ -38,7 +38,8 @@ export interface BuildCommand {
 
 export interface BuildRuntimeOptions {
   readonly sourceArchiveSha256: string
-  readonly videoPluginRoot: string
+  /** Absolute source directories of every LDD plugin to bundle (e.g. video-frame-analyzer, generate). */
+  readonly pluginRoots: readonly string[]
   readonly upstreamPatchRoot: string
   readonly createdAt: string
   readonly minimumLddVersion?: string
@@ -145,24 +146,31 @@ export async function buildRuntime(
       env: environment,
     })
 
-    // Keep the downstream package out of the official release-family glob.
+    // Keep the downstream packages out of the official release-family glob.
     // Official tarballs are complete before the copied workspace gains @ldd/*.
-    const pluginWorkspace = join(copiedSource, 'packages', 'ldd', 'video-frame-analyzer')
-    await cp(resolve(options.videoPluginRoot), pluginWorkspace, {
-      recursive: true,
-      filter: (path) => !isExcludedBuildPath(path, resolve(options.videoPluginRoot)),
-    })
-    await rewriteCopiedPluginTsconfig(pluginWorkspace)
+    const pluginWorkspaces: string[] = []
+    for (const pluginRoot of options.pluginRoots) {
+      const pluginName = basename(resolve(pluginRoot))
+      const pluginWorkspace = join(copiedSource, 'packages', 'ldd', pluginName)
+      await cp(resolve(pluginRoot), pluginWorkspace, {
+        recursive: true,
+        filter: (path) => !isExcludedBuildPath(path, resolve(pluginRoot)),
+      })
+      await rewriteCopiedPluginTsconfig(pluginWorkspace)
+      pluginWorkspaces.push(pluginWorkspace)
+    }
     await run(pnpm, ['install', '--prefer-offline', '--no-frozen-lockfile', '--ignore-scripts', '--store-dir', pnpmStore], {
       cwd: copiedSource,
       env: environment,
     })
-    await run(pnpm, ['--dir', pluginWorkspace, 'build'], { cwd: copiedSource, env: environment })
     await mkdir(lddTarballs, { recursive: true })
-    await run(pnpm, ['--dir', pluginWorkspace, 'pack', '--pack-destination', lddTarballs], {
-      cwd: copiedSource,
-      env: environment,
-    })
+    for (const pluginWorkspace of pluginWorkspaces) {
+      await run(pnpm, ['--dir', pluginWorkspace, 'build'], { cwd: copiedSource, env: environment })
+      await run(pnpm, ['--dir', pluginWorkspace, 'pack', '--pack-destination', lddTarballs], {
+        cwd: copiedSource,
+        env: environment,
+      })
+    }
 
     const tarballs = await discoverTarballs([
       vendorTarballs,
@@ -215,8 +223,11 @@ export async function buildRuntime(
     ], { cwd: runtimeRoot, env: environment })
     await runApprovedRuntimeLifecycles(runtimeRoot, environment, run)
 
-    const pluginTarball = requireTarball(tarballs, '@ldd/dsh-video-frame-analyzer')
-    await wireRuntimeExtensionIntoDsh(runtimeRoot, pluginTarball.name, pluginTarball.version)
+    const pluginTarballs = tarballs.filter((tarball) => tarball.name.startsWith('@ldd/'))
+    if (pluginTarballs.length === 0) throw new Error('runtime pack contains no @ldd plugin tarballs')
+    for (const pluginTarball of pluginTarballs) {
+      await wireRuntimeExtensionIntoDsh(runtimeRoot, pluginTarball.name, pluginTarball.version)
+    }
     await verifyInstalledRuntime(runtimeRoot, dependencies, run, environment)
 
     for (const legalFile of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) {
@@ -229,21 +240,25 @@ export async function buildRuntime(
     }, null, 2)}\n`, { mode: 0o600 })
     const dshTarball = requireTarball(tarballs, '@deepseek-ai/dsh')
     const installedDshTarball = requireInstalledTarball(installedTarballs, dshTarball.name)
-    const installedPluginTarball = requireInstalledTarball(installedTarballs, pluginTarball.name)
-    const pluginArchive = join(runtimeRoot, 'plugins', '@ldd', 'dsh-video-frame-analyzer.tgz')
-    await mkdir(dirname(pluginArchive), { recursive: true })
-    await copyFile(installedPluginTarball, pluginArchive)
+    const pluginManifests: Array<{ readonly name: string; readonly version: string; readonly sha256: string }> = []
+    for (const pluginTarball of pluginTarballs) {
+      const installedPluginTarball = requireInstalledTarball(installedTarballs, pluginTarball.name)
+      const pluginArchive = join(runtimeRoot, 'plugins', '@ldd', `${pluginTarball.name.slice('@ldd/'.length)}.tgz`)
+      await mkdir(dirname(pluginArchive), { recursive: true })
+      await copyFile(installedPluginTarball, pluginArchive)
+      pluginManifests.push({
+        name: pluginTarball.name,
+        version: pluginTarball.version,
+        sha256: await hashFileHex(pluginArchive, 'sha256'),
+      })
+    }
     const manifest = await writeRuntimeMetadata(runtimeRoot, {
       harnessVersion,
       createdAt: options.createdAt,
       minimumLddVersion: options.minimumLddVersion ?? '0.2.0',
       sourceArchiveSha256: options.sourceArchiveSha256,
       npmIntegrity: `sha512-${await hashFileBase64(installedDshTarball, 'sha512')}`,
-      plugins: [{
-        name: pluginTarball.name,
-        version: pluginTarball.version,
-        sha256: await hashFileHex(pluginArchive, 'sha256'),
-      }],
+      plugins: pluginManifests,
     })
     const dshEntryPath = join(runtimeRoot, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
     await assertRegularFile(dshEntryPath, 'installed dsh entry')
@@ -477,10 +492,12 @@ function validateBuildInputs(
   if (
     !isAbsolute(sourceRoot) ||
     !isAbsolute(outputRoot) ||
-    !isAbsolute(options.videoPluginRoot) ||
     !isAbsolute(options.upstreamPatchRoot)
   ) {
     throw new TypeError('buildRuntime paths must be absolute')
+  }
+  for (const pluginRoot of options.pluginRoots) {
+    if (!isAbsolute(pluginRoot)) throw new TypeError('buildRuntime pluginRoots must be absolute')
   }
   if (!/^[a-f0-9]{64}$/.test(options.sourceArchiveSha256)) {
     throw new TypeError('sourceArchiveSha256 must be a lowercase SHA-256 digest')

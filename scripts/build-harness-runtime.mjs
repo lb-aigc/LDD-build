@@ -11,7 +11,7 @@ const { values } = parseArgs({
   options: {
     source: { type: 'string' },
     'source-archive': { type: 'string' },
-    plugin: { type: 'string' },
+    plugin: { type: 'string', multiple: true },
     patches: { type: 'string' },
     'out-root': { type: 'string' },
     'out-file': { type: 'string' },
@@ -26,7 +26,10 @@ const defaults = {
   source: join(repositoryRoot, 'upstream', 'deepseek-harness'),
   sourceArchive: process.env.LDD_HARNESS_SOURCE_ARCHIVE ??
     join(repositoryRoot, 'vendor', 'sources', 'deepseek-harness-0.1.1-rc.2.zip'),
-  plugin: join(repositoryRoot, 'packages', 'video-frame-analyzer'),
+  plugins: [
+    join(repositoryRoot, 'packages', 'video-frame-analyzer'),
+    join(repositoryRoot, 'packages', 'generate'),
+  ],
   patches: join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2'),
   outputRoot: join(repositoryRoot, 'dist', 'runtime', '0.1.1-rc.2'),
   outputFile: join(repositoryRoot, 'dist', 'runtime', 'deepseek-harness-0.1.1-rc.2-windows-x64.lddruntime'),
@@ -34,19 +37,25 @@ const defaults = {
 const selected = {
   source: values.source ?? defaults.source,
   sourceArchive: values['source-archive'] ?? defaults.sourceArchive,
-  plugin: values.plugin ?? defaults.plugin,
+  plugins: values.plugin ?? defaults.plugins,
   patches: values.patches ?? defaults.patches,
   outputRoot: values['out-root'] ?? defaults.outputRoot,
   outputFile: values['out-file'] ?? defaults.outputFile,
 }
-for (const [field, path] of Object.entries(selected)) {
-  if (!isAbsolute(path)) throw new Error(`${field} must be an absolute path`)
+for (const [field, value] of Object.entries(selected)) {
+  if (field === 'plugins') {
+    for (const pluginPath of value) {
+      if (!isAbsolute(pluginPath)) throw new Error(`${field} must be absolute paths`)
+    }
+  } else if (!isAbsolute(value)) {
+    throw new Error(`${field} must be an absolute path`)
+  }
 }
 
 const createdAt = values['created-at'] ?? sourceDateEpoch() ?? '2026-08-22T00:00:00.000Z'
 const sourceRoot = resolve(selected.source)
 const sourceArchive = resolve(selected.sourceArchive)
-const pluginRoot = resolve(selected.plugin)
+const pluginRoots = selected.plugins.map((pluginPath) => resolve(pluginPath))
 const patchRoot = resolve(selected.patches)
 const outputRoot = resolve(selected.outputRoot)
 const outputFile = resolve(selected.outputFile)
@@ -62,7 +71,7 @@ let packed
 try {
   const built = await buildRuntime(sourceRoot, pendingRoot, {
     sourceArchiveSha256,
-    videoPluginRoot: pluginRoot,
+    pluginRoots,
     upstreamPatchRoot: patchRoot,
     createdAt,
     pnpmExecutable: process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',

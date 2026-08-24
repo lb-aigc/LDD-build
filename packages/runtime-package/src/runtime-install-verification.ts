@@ -33,10 +33,12 @@ export async function verifyInstalledRuntime(
 
   const dshEntry = join(runtimeRoot, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
   await assertRegularFile(dshEntry, 'installed DSH entry')
-  await assertRegularFile(
-    join(runtimeRoot, 'node_modules', '@ldd', 'dsh-video-frame-analyzer', 'package.json'),
-    'installed video plugin manifest',
-  )
+  for (const packageName of Object.keys(dependencies).filter((name) => name.startsWith('@ldd/'))) {
+    await assertRegularFile(
+      join(runtimeRoot, 'node_modules', ...packageName.split('/'), 'package.json'),
+      `installed LDD plugin manifest ${packageName}`,
+    )
+  }
   for (const packageName of ['esbuild', 'koffi', 'node-pty']) {
     await assertRegularFile(
       join(runtimeRoot, 'node_modules', packageName, 'package.json'),

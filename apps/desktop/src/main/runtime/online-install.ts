@@ -21,7 +21,7 @@ const maxHarnessTarballBytes = 128 * 1024 * 1024
 export interface OnlineRuntimeHost {
   readonly nodePath: string
   readonly pnpmPath: string
-  readonly pluginArchivePath: string
+  readonly pluginArchivePaths: readonly string[]
 }
 
 export interface OnlineRuntimeInstallOptions {
@@ -61,17 +61,32 @@ export async function installOnlineRuntime(
       dshArchive,
       options.fetchImpl ?? fetch,
     )
-    const installPluginArchive = join(payload, 'packages', 'ldd-video-frame-analyzer.tgz')
-    await copyRegularFile(options.host.pluginArchivePath, installPluginArchive)
-    const pluginManifest = await readPackedIdentity(installPluginArchive)
-    if (pluginManifest.name !== '@ldd/dsh-video-frame-analyzer') {
-      throw new Error('bundled video plugin archive identity is invalid')
+    interface StagedPlugin {
+      readonly name: string
+      readonly version: string
+      readonly filename: string
+      readonly stagedPath: string
+    }
+    const stagedPlugins: StagedPlugin[] = []
+    for (const [index, pluginArchivePath] of options.host.pluginArchivePaths.entries()) {
+      const filename = `ldd-plugin-${String(index)}.tgz`
+      const stagedPath = join(payload, 'packages', filename)
+      await copyRegularFile(pluginArchivePath, stagedPath, 'bundled LDD plugin archive')
+      const identity = await readPackedIdentity(stagedPath)
+      if (!identity.name.startsWith('@ldd/dsh-')) {
+        throw new Error(`bundled LDD plugin archive identity is invalid: ${identity.name}`)
+      }
+      stagedPlugins.push({ name: identity.name, version: identity.version, filename, stagedPath })
     }
 
     await transaction.transition('verifying')
+    const pluginDependencies = Object.fromEntries(stagedPlugins.map((plugin) => [
+      plugin.name,
+      `file:packages/${plugin.filename}`,
+    ]))
     const dependencies = {
       '@deepseek-ai/dsh': `file:packages/${basename(dshArchive)}`,
-      '@ldd/dsh-video-frame-analyzer': 'file:packages/ldd-video-frame-analyzer.tgz',
+      ...pluginDependencies,
     }
     await writeFile(join(payload, 'package.json'), `${JSON.stringify({
       name: '@ldd/online-harness-runtime',
@@ -108,26 +123,31 @@ export async function installOnlineRuntime(
     if (reported !== options.release.version) {
       throw new Error(`installed Harness reports ${JSON.stringify(reported)}, expected ${options.release.version}`)
     }
-    await wireRuntimeExtensionIntoDsh(payload, pluginManifest.name, pluginManifest.version)
+    for (const plugin of stagedPlugins) {
+      await wireRuntimeExtensionIntoDsh(payload, plugin.name, plugin.version)
+    }
     await assertDurablePluginEventSupport(options.host.nodePath, payload, run, options.host)
 
     await transaction.transition('health-checking')
     await progress(options, 'verify', 75, '正在生成并核对运行包清单')
-    const pluginArchive = join(payload, 'plugins', '@ldd', 'dsh-video-frame-analyzer.tgz')
-    await mkdir(dirname(pluginArchive), { mode: 0o700, recursive: true })
-    await copyRegularFile(installPluginArchive, pluginArchive)
-    const pluginSha256 = await sha256File(pluginArchive)
+    const manifestPlugins: Array<{ readonly name: string; readonly version: string; readonly sha256: string }> = []
+    for (const plugin of stagedPlugins) {
+      const pluginArchive = join(payload, 'plugins', '@ldd', `${plugin.name.slice('@ldd/'.length)}.tgz`)
+      await mkdir(dirname(pluginArchive), { mode: 0o700, recursive: true })
+      await copyRegularFile(plugin.stagedPath, pluginArchive, 'staged LDD plugin archive')
+      manifestPlugins.push({
+        name: plugin.name,
+        version: plugin.version,
+        sha256: await sha256File(pluginArchive),
+      })
+    }
     const manifest = await writeRuntimeMetadata(payload, {
       harnessVersion: options.release.version,
       createdAt: options.createdAt,
       minimumLddVersion: options.desktopVersion,
       sourceArchiveSha256,
       npmIntegrity: options.release.integrity,
-      plugins: [{
-        name: pluginManifest.name,
-        version: pluginManifest.version,
-        sha256: pluginSha256,
-      }],
+      plugins: manifestPlugins,
     })
     await mkdir(options.versionsRoot, { mode: 0o700, recursive: true })
     await rename(payload, installedPath)
@@ -238,10 +258,10 @@ function resolveVersionPath(versionsRoot: string, version: string): string {
   return target
 }
 
-async function copyRegularFile(source: string, destination: string): Promise<void> {
-  await assertRegularFile(source, 'bundled video plugin archive')
+async function copyRegularFile(source: string, destination: string, field: string): Promise<void> {
+  await assertRegularFile(source, field)
   await copyFile(source, destination)
-  await assertRegularFile(destination, 'copied video plugin archive')
+  await assertRegularFile(destination, `copied ${field}`)
 }
 
 async function assertRegularFile(path: string, field: string): Promise<void> {

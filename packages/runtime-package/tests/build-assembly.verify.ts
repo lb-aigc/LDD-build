@@ -12,7 +12,8 @@ import { approvedHarnessSourceArchiveSha256 } from '../src/source-identity.ts'
 
 const repositoryRoot = resolve(import.meta.dirname, '..', '..', '..')
 const sourceRoot = join(repositoryRoot, 'upstream', 'deepseek-harness')
-const pluginRoot = join(repositoryRoot, 'packages', 'video-frame-analyzer')
+const videoPluginRoot = join(repositoryRoot, 'packages', 'video-frame-analyzer')
+const generatePluginRoot = join(repositoryRoot, 'packages', 'generate')
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2')
 const observedRuntimeNodeCommands: string[] = []
 
@@ -25,20 +26,26 @@ test('two complete runtime assemblies contain stable relative locks and archived
       const runtimeRoot = join(parent, `runtime-${sequence}`)
       const built = await buildRuntime(sourceRoot, runtimeRoot, {
         sourceArchiveSha256: approvedHarnessSourceArchiveSha256,
-        videoPluginRoot: pluginRoot,
+        pluginRoots: [videoPluginRoot, generatePluginRoot],
         upstreamPatchRoot: patchRoot,
         createdAt: '2026-08-22T00:00:00.000Z',
         requireWindowsHost: false,
         verificationCommands: [],
       }, fakeBuildRunner)
-      const manifestPlugin = built.manifest.plugins[0]
-      const pluginArchive = await readFile(join(
-        runtimeRoot,
-        'plugins',
-        '@ldd',
-        'dsh-video-frame-analyzer.tgz',
-      ))
-      assert.equal(manifestPlugin?.sha256, sha256(pluginArchive))
+      const pluginNames = ['@ldd/dsh-video-frame-analyzer', '@ldd/dsh-generate']
+      assert.deepEqual(
+        built.manifest.plugins.map((item) => item.name),
+        pluginNames,
+      )
+      for (const plugin of built.manifest.plugins) {
+        const pluginArchive = await readFile(join(
+          runtimeRoot,
+          'plugins',
+          '@ldd',
+          `${plugin.name.slice('@ldd/'.length)}.tgz`,
+        ))
+        assert.equal(plugin.sha256, sha256(pluginArchive))
+      }
       const packageManifest = await readFile(join(runtimeRoot, 'package.json'), 'utf8')
       assert.doesNotMatch(packageManifest, /file:\/\/|\.ldd-runtime-build-/)
       assert.match(packageManifest, /file:packages\//)
@@ -65,6 +72,10 @@ test('two complete runtime assemblies contain stable relative locks and archived
       ), 'utf8')) as { dependencies?: Record<string, string> }
       assert.equal(
         installedDshManifest.dependencies?.['@ldd/dsh-video-frame-analyzer'],
+        '0.2.0',
+      )
+      assert.equal(
+        installedDshManifest.dependencies?.['@ldd/dsh-generate'],
         '0.2.0',
       )
       assert.match(packageManifest, /node-addon-landlock-run/)
@@ -148,12 +159,20 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
     const destination = args[args.indexOf('--pack-destination') + 1]
     if (destination === undefined) throw new Error('fake package pack has no destination')
     await mkdir(destination, { recursive: true })
+    const workspaceName = basename(args[1] as string)
     if ((args[1] as string).endsWith(join('landlock-run', 'packages', 'entry'))) {
       await writePackageTarball(
         destination,
         'deepseek-ai-node-addon-landlock-run-0.1.1.tgz',
         '@deepseek-ai/node-addon-landlock-run',
         '0.1.1',
+      )
+    } else if (workspaceName === 'generate') {
+      await writePackageTarball(
+        destination,
+        'ldd-dsh-generate-0.2.0.tgz',
+        '@ldd/dsh-generate',
+        '0.2.0',
       )
     } else {
       await writePackageTarball(
@@ -199,6 +218,7 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
       postinstall: 'node scripts/ensure-spawn-helper.mjs',
     }, ['scripts/ensure-spawn-helper.mjs'])
     await writeInstalledPackage(options.cwd, '@ldd/dsh-video-frame-analyzer', {}, [])
+    await writeInstalledPackage(options.cwd, '@ldd/dsh-generate', {}, [])
     await writeFile(join(options.cwd, 'pnpm-lock.yaml'), [
       'lockfileVersion: 9.0',
       'packages:',
@@ -207,6 +227,7 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
       "  '@deepseek-ai/dsh-subprocess-local@file:packages/deepseek-ai-dsh-subprocess-local-0.1.1-rc.2.tgz': {}",
       "  '@deepseek-ai/node-addon-landlock-run@file:packages/deepseek-ai-node-addon-landlock-run-0.1.1.tgz': {}",
       "  '@ldd/dsh-video-frame-analyzer@file:packages/ldd-dsh-video-frame-analyzer-0.2.0.tgz': {}",
+      "  '@ldd/dsh-generate@file:packages/ldd-dsh-generate-0.2.0.tgz': {}",
       '',
     ].join('\n'))
   }

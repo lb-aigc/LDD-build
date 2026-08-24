@@ -113,12 +113,12 @@ export class DesktopRuntimeController implements DesktopRuntimePort {
       release = await this.#registry.resolve(state.channel, await this.#currentVersion())
     }
     if (release?.version !== version) throw new Error(`官方更新源没有提供 Harness ${version}`)
-    const fallbackPlugin = join(
+    const pluginArchivePaths = requiredLddPlugins.map((name) => join(
       this.#options.paths.fallbackRoot,
       'plugins',
       '@ldd',
-      'dsh-video-frame-analyzer.tgz',
-    )
+      `${name.slice('@ldd/'.length)}.tgz`,
+    ))
     const installed = await installOnlineRuntime({
       release,
       stagingRoot: this.#options.paths.stagingRoot,
@@ -126,7 +126,7 @@ export class DesktopRuntimeController implements DesktopRuntimePort {
       host: {
         nodePath: join(this.#options.paths.runtimeHostRoot, 'node', 'node.exe'),
         pnpmPath: join(this.#options.paths.runtimeHostRoot, 'pnpm', 'bin', 'pnpm.cjs'),
-        pluginArchivePath: fallbackPlugin,
+        pluginArchivePaths,
       },
       createdAt: new Date().toISOString(),
       desktopVersion: this.#options.desktopVersion,
@@ -438,16 +438,19 @@ async function assertRuntimeEntry(path: string): Promise<void> {
   const metadata = await lstat(entry)
   if (metadata.isSymbolicLink() || !metadata.isFile()) throw new Error('运行包缺少 dsh 入口')
   const manifest = await readManifest(path)
-  const plugin = manifest.plugins.find((item) => item.name === '@ldd/dsh-video-frame-analyzer')
-  if (plugin !== undefined) {
-    const archive = join(path, 'plugins', '@ldd', 'dsh-video-frame-analyzer.tgz')
-    if (await sha256File(archive) !== plugin.sha256) throw new Error('LDD 视频插件校验失败')
+  for (const plugin of manifest.plugins) {
+    const archive = join(path, 'plugins', '@ldd', `${plugin.name.slice('@ldd/'.length)}.tgz`)
+    if (await sha256File(archive) !== plugin.sha256) throw new Error(`LDD 插件校验失败：${plugin.name}`)
   }
 }
 
+const requiredLddPlugins = ['@ldd/dsh-video-frame-analyzer', '@ldd/dsh-generate'] as const
+
 function assertRequiredPlugin(manifest: RuntimeManifest): void {
-  if (!manifest.plugins.some((item) => item.name === '@ldd/dsh-video-frame-analyzer')) {
-    throw new Error('运行包缺少 LDD 视频分析插件')
+  for (const required of requiredLddPlugins) {
+    if (!manifest.plugins.some((item) => item.name === required)) {
+      throw new Error(`运行包缺少 LDD 插件：${required}`)
+    }
   }
 }
 

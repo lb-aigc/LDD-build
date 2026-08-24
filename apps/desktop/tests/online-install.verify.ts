@@ -13,8 +13,10 @@ test('online runtime install applies pnpm portable layout before dependency inst
   try {
     const version = '0.1.1-rc.3'
     const dshArchive = packageTarball('@deepseek-ai/dsh', version)
-    const pluginArchive = join(parent, 'ldd-video-frame-analyzer.tgz')
-    await writeFile(pluginArchive, packageTarball('@ldd/dsh-video-frame-analyzer', '0.2.0'))
+    const videoPluginArchive = join(parent, 'ldd-video-frame-analyzer.tgz')
+    await writeFile(videoPluginArchive, packageTarball('@ldd/dsh-video-frame-analyzer', '0.2.0'))
+    const generatePluginArchive = join(parent, 'ldd-generate.tgz')
+    await writeFile(generatePluginArchive, packageTarball('@ldd/dsh-generate', '0.2.0'))
     const nodePath = join(parent, 'host', 'node.exe')
     const pnpmPath = join(parent, 'host', 'pnpm.cjs')
     await mkdir(join(parent, 'host'), { recursive: true })
@@ -39,7 +41,11 @@ test('online runtime install applies pnpm portable layout before dependency inst
         )
         assert.match(
           workspace,
-          /'@ldd\/dsh-video-frame-analyzer': 'file:packages\/ldd-video-frame-analyzer\.tgz'/u,
+          /'@ldd\/dsh-video-frame-analyzer': 'file:packages\/ldd-plugin-\d+\.tgz'/u,
+        )
+        assert.match(
+          workspace,
+          /'@ldd\/dsh-generate': 'file:packages\/ldd-plugin-\d+\.tgz'/u,
         )
         const npmrc = await readFile(join(options.cwd, '.npmrc'), 'utf8')
         assert.doesNotMatch(npmrc, /node-linker|package-import-method|shared-workspace-lockfile/u)
@@ -65,7 +71,7 @@ test('online runtime install applies pnpm portable layout before dependency inst
       },
       stagingRoot: join(parent, 'staging'),
       versionsRoot: join(parent, 'versions'),
-      host: { nodePath, pnpmPath, pluginArchivePath: pluginArchive },
+      host: { nodePath, pnpmPath, pluginArchivePaths: [videoPluginArchive, generatePluginArchive] },
       createdAt: '2026-08-23T00:00:00.000Z',
       desktopVersion: '0.2.0',
       fetchImpl: async () => new Response(new Uint8Array(dshArchive), { status: 200 }),

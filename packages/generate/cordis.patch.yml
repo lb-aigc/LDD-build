@@ -1,0 +1,18 @@
+# LDD-owned generation additions. This bundle is installed as a profile layer
+# and never rewrites the user's DSH_HOME/cordis.patch.yml.
+- insert:
+    - id: ldd-generate
+      name: '@ldd/dsh-generate'
+      config:
+        provider: mock
+        model: mock-generation
+        timeoutMs: 60000
+
+    - id: ldd-generate-skills
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: ldd-generate
+        includeDefaultRoots: false
+        customSkillDirs:
+          - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@ldd/dsh-generate/package.json')), 'skills')"
+        watch: false

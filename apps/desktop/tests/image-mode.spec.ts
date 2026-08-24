@@ -31,6 +31,7 @@ describe('LDD image modes', () => {
     const second = renderManagedImagePatch('standard')
     expect(first).toBe(second)
     expect(first).toContain('@ldd/dsh-video-frame-analyzer')
+    expect(first).toContain('@ldd/dsh-generate')
     expect(first).toMatch(/createRequire\(baseUrl\).*package\.json/)
     expect(first).toContain('maxImageBytes: 20971520')
     expect(first).toContain('normalizedImageMaxBytes: 4194304')
