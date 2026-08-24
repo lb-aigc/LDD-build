@@ -1,0 +1,125 @@
+--- a/packages/client/ui-brand-official/src/client/Brand.tsx
++++ b/packages/client/ui-brand-official/src/client/Brand.tsx
+@@ -1,22 +1,47 @@
+-import { BrandWordmark, FishLogo } from '@deepseek-ai/dsh-client-ui-primitives'
+ import type { HeroBrandMarkOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+ import type { SidebarBrandMarkOwnerProps } from '@deepseek-ai/dsh-client-ui-sidebar/client'
+ 
+ type OfficialBrandMarkProps = HeroBrandMarkOwnerProps & SidebarBrandMarkOwnerProps
+ 
++// LDD hand-drawn wordmark, traced from the LDD brand icon (transparent
++// background, black ink; the white squircle plate is intentionally dropped so
++// the mark rides the surface like the fish it replaces). Native 1031x487,
++// rendered height-first; color rides currentColor so it stays legible in both
++// light and dark themes.
++const LDD_WORDMARK_VIEWBOX_WIDTH = 1031
++const LDD_WORDMARK_VIEWBOX_HEIGHT = 487
++const LDD_WORDMARK_PATH = 'M1020.0,196.0L947.0,241.0L842.0,287.0L856.0,241.0L856.0,214.0L846.0,190.0L829.0,175.0L796.0,165.0L764.0,166.0L727.0,174.0L670.0,197.0L626.0,224.0L603.0,249.0L683.0,199.0L769.0,173.0L804.0,174.0L828.0,184.0L843.0,203.0L844.0,232.0L830.0,267.0L805.0,299.0L648.0,358.0L694.0,269.0L735.0,206.0L732.0,198.0L718.0,198.0L672.0,269.0L627.0,367.0L570.0,405.0L555.0,423.0L555.0,437.0L568.0,444.0L604.0,441.0L700.0,405.0L775.0,357.0L831.0,299.0L943.0,250.0L989.0,222.0Z M641.0,317.0L549.0,316.0L582.0,260.0L582.0,203.0L550.0,175.0L497.0,172.0L392.0,210.0L318.0,272.0L372.0,230.0L437.0,197.0L502.0,179.0L544.0,181.0L570.0,200.0L574.0,234.0L553.0,280.0L516.0,322.0L398.0,350.0L478.0,214.0L465.0,204.0L425.0,259.0L375.0,358.0L261.0,387.0L154.0,395.0L204.0,315.0L319.0,86.0L374.0,17.0L380.0,22.0L381.0,12.0L370.0,10.0L331.0,39.0L286.0,102.0L178.0,328.0L139.0,390.0L40.0,430.0L18.0,446.0L10.0,465.0L23.0,476.0L66.0,468.0L154.0,403.0L258.0,396.0L372.0,368.0L368.0,404.0L394.0,361.0L506.0,332.0L426.0,394.0L351.0,426.0L345.0,415.0L358.0,389.0L340.0,422.0L353.0,433.0L378.0,431.0L465.0,389.0L543.0,324.0Z M796.0,311.0L774.0,333.0L751.0,352.0L712.0,379.0L683.0,396.0L642.0,416.0L603.0,431.0L578.0,437.0L564.0,437.0L559.0,433.0L559.0,427.0L563.0,420.0L579.0,404.0L622.0,377.0L623.0,378.0L618.0,398.0L619.0,404.0L622.0,404.0L628.0,396.0L641.0,370.0L645.0,366.0L711.0,338.0L793.0,310.0Z M120.0,410.0L120.0,412.0L113.0,419.0L112.0,419.0L98.0,433.0L97.0,433.0L92.0,438.0L91.0,438.0L86.0,443.0L85.0,443.0L82.0,446.0L81.0,446.0L79.0,448.0L78.0,448.0L75.0,451.0L74.0,451.0L69.0,455.0L64.0,457.0L62.0,459.0L61.0,459.0L54.0,463.0L52.0,463.0L49.0,465.0L47.0,465.0L46.0,466.0L44.0,466.0L43.0,467.0L41.0,467.0L40.0,468.0L37.0,468.0L36.0,469.0L31.0,469.0L30.0,470.0L26.0,470.0L25.0,469.0L21.0,469.0L18.0,466.0L18.0,465.0L17.0,464.0L17.0,461.0L18.0,460.0L19.0,457.0L21.0,455.0L21.0,454.0L29.0,446.0L30.0,446.0L34.0,442.0L35.0,442.0L40.0,438.0L43.0,437.0L45.0,435.0L46.0,435.0L47.0,434.0L48.0,434.0L49.0,433.0L50.0,433.0L59.0,428.0L61.0,428.0L68.0,424.0L73.0,423.0L76.0,421.0L78.0,421.0L79.0,420.0L81.0,420.0L82.0,419.0L84.0,419.0L85.0,418.0L87.0,418.0L88.0,417.0L90.0,417.0L91.0,416.0L94.0,416.0L95.0,415.0L98.0,415.0L99.0,414.0L102.0,414.0L103.0,413.0L106.0,413.0L107.0,412.0L110.0,412.0L111.0,411.0L113.0,411.0L114.0,410.0L118.0,410.0L119.0,409.0Z'
++
+ /**
+- * Render the official mark with the presentation requested by its host surface.
++ * Render the LDD mark with the presentation requested by its host surface.
++ * Host surfaces pass a width hint sized for the fish mark (24 sidebar, 34
++ * hero); the LDD wordmark is height-first, so map to a readable letter height
++ * per surface instead.
+  * @param props - Host-supplied mark presentation.
+- * @returns the official whale mark.
++ * @returns the LDD wordmark.
+  */
+ export function OfficialBrandMark({ size, className }: OfficialBrandMarkProps) {
+-  return <FishLogo size={size} className={className} />
++  const height = size >= 34 ? 22 : 18
++  const width = (height * LDD_WORDMARK_VIEWBOX_WIDTH) / LDD_WORDMARK_VIEWBOX_HEIGHT
++  return (
++    <svg
++      width={width}
++      height={height}
++      className={className}
++      viewBox={`0 0 ${LDD_WORDMARK_VIEWBOX_WIDTH} ${LDD_WORDMARK_VIEWBOX_HEIGHT}`}
++      fill="none"
++      aria-hidden="true"
++    >
++      <path fill-rule="evenodd" fill="currentColor" d={LDD_WORDMARK_PATH} />
++    </svg>
++  )
+ }
+ 
+ /**
+- * Render the official name artwork without its independently slotted mark.
+- * @returns the official name wordmark.
++ * Render the LDD brand name. The sidebar shell owns the name typography
++ * (its .brandName seat), so this occupant contributes only the word itself.
++ * @returns the LDD brand name text.
+  */
+ export function OfficialBrandName() {
+-  return <BrandWordmark includeMark={false} />
++  return <>LDD</>
+ }
+--- a/packages/client/ui-conversation/src/client/locales.ts
++++ b/packages/client/ui-conversation/src/client/locales.ts
+@@ -71,7 +71,7 @@
+   'access.confirm.acknowledge': '我已了解风险，并愿意继续',
+   'access.confirm.cancel': '取消',
+   'access.confirm.enable': '启用 Full access',
+-  'hero.headline': '探索未至之境',
++  'hero.headline': 'LDD',
+   'hero.preview': '预览版',
+   'hero.chooseWorkspace': '选择工作区',
+   'session.hierarchy': '会话层级',
+@@ -248,7 +248,7 @@
+   'access.confirm.acknowledge': 'I understand the risks and want to continue',
+   'access.confirm.cancel': 'Cancel',
+   'access.confirm.enable': 'Enable Full access',
+-  'hero.headline': 'Into the Unknown',
++  'hero.headline': 'LDD',
+   'hero.preview': 'Preview',
+   'hero.chooseWorkspace': 'Choose workspace',
+   'session.hierarchy': 'Session hierarchy',
+--- a/packages/client/ui-conversation/src/client/skeleton/HeroShell.module.css
++++ b/packages/client/ui-conversation/src/client/skeleton/HeroShell.module.css
+@@ -28,7 +28,7 @@
+    riding the title's top-right. */
+ .headline {
+   display: grid;
+-  grid-template-columns: 34px auto auto;
++  grid-template-columns: 47px auto auto;
+   column-gap: 10px;
+   align-items: center;
+   justify-content: center;
+@@ -61,7 +61,7 @@
+   white-space: nowrap;
+ }
+ 
+-/* Keep hover detection on a stationary box while the mark moves within it. */
++/* Keep hover detection on a stationary box; the wordmark does not animate. */
+ .fishHitbox {
+   grid-row: 1;
+   grid-column: 1;
+@@ -73,27 +73,6 @@
+ /* Keep the hero mark in the same primary ink as its headline. */
+ .fish {
+   color: var(--dsw-alias-label-primary);
+-  transform-origin: 50% 60%;
+-}
+-
+-@keyframes hero-fish-swim {
+-  0%, 100% {
+-    transform: translate(0, 0) rotate(0deg);
+-  }
+-
+-  35% {
+-    transform: translate(-1px, -1px) rotate(-5deg);
+-  }
+-
+-  70% {
+-    transform: translate(1px, 0) rotate(3deg);
+-  }
+-}
+-
+-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+-  .fishHitbox:hover .fish {
+-    animation: hero-fish-swim var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+-  }
+ }
+ 
+ /* Workspace row sits 12px above the input card (figma y80 → y112). The blue
