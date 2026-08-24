@@ -32,7 +32,7 @@ test('two complete runtime assemblies contain stable relative locks and archived
         requireWindowsHost: false,
         verificationCommands: [],
       }, fakeBuildRunner)
-      const pluginNames = ['@ldd/dsh-video-frame-analyzer', '@ldd/dsh-generate']
+      const pluginNames = ['@ldd/dsh-generate', '@ldd/dsh-video-frame-analyzer']
       assert.deepEqual(
         built.manifest.plugins.map((item) => item.name),
         pluginNames,
