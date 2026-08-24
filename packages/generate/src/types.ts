@@ -38,14 +38,14 @@ export interface GenerateVideoRequest {
 
 /** Normalized result a provider returns for image generation. */
 export interface GenerateImageResult {
-  readonly images: readonly GeneratedImage[]
+  readonly images: GeneratedImage[]
   readonly provider: string
   readonly model: string
 }
 
 /** Normalized result a provider returns for video generation. */
 export interface GenerateVideoResult {
-  readonly videos: readonly GeneratedVideo[]
+  readonly videos: GeneratedVideo[]
   readonly provider: string
   readonly model: string
 }
