@@ -29,3 +29,16 @@ test('renderer styling uses the neutral LDD palette', async () => {
   assert.match(styles, /--paper:\s*#ffffff/)
   assert.match(styles, /--soft:\s*#ebebe7/)
 })
+
+test('startup splash shows the LDD wordmark with a persistent spinner', async () => {
+  const splash = await readFile(new URL('../public/splash.html', import.meta.url), 'utf8')
+  // 与界面 logo 同一份 LDD 字标（viewBox 1031x487）
+  assert.match(splash, /viewBox="0 0 1031 487"/)
+  assert.match(splash, /fill-rule="evenodd"/)
+  // 持续加载动画（旋转指示器）
+  assert.match(splash, /@keyframes spin/)
+  assert.match(splash, /animation:\s*spin/)
+  // 不得残留 DeepSeek 品牌，也不得引入特权能力
+  assert.doesNotMatch(splash, /deepseek|fish|whale/i)
+  assert.doesNotMatch(splash, /node:fs|node:child_process|ipcRenderer/)
+})

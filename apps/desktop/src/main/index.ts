@@ -67,6 +67,11 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     rendererFileUrl(options.paths),
   )
 
+  // 立即显示启动加载画面（LDD 字标 + 旋转指示），覆盖内核完整性校验
+  // （首次启动可达数分钟）期间的等待，避免窗口停留在空白状态。
+  await mainWindow.loadFile(options.paths.splashHtml)
+  mainWindow.show()
+
   const loadBootResult = async (result: BootResult): Promise<void> => {
     if (result.kind === 'ready') {
       verifiedHarnessOrigin = new URL(result.url).origin

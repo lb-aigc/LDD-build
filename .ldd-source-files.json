@@ -17,6 +17,7 @@
     "apps/desktop/build/installer.nsh",
     "apps/desktop/index.html",
     "apps/desktop/package.json",
+    "apps/desktop/public/splash.html",
     "apps/desktop/src/main/bootstrap.ts",
     "apps/desktop/src/main/harness/identity.ts",
     "apps/desktop/src/main/harness/supervisor.ts",

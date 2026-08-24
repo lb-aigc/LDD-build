@@ -17,6 +17,7 @@ export interface LddPaths {
   readonly runtimeHostRoot: string
   readonly fallbackRoot: string
   readonly rendererHtml: string
+  readonly splashHtml: string
   readonly preloadScript: string
 }
 
@@ -47,6 +48,7 @@ export function resolveLddPaths(
     runtimeHostRoot: join(normalizedResources, 'runtime-host'),
     fallbackRoot: join(normalizedResources, 'runtime-fallback'),
     rendererHtml: join(normalizedResources, 'app.asar', 'dist', 'renderer', 'index.html'),
+    splashHtml: join(normalizedResources, 'app.asar', 'dist', 'renderer', 'splash.html'),
     preloadScript: join(normalizedResources, 'app.asar', 'dist', 'main', 'preload', 'index.cjs'),
   }
 }

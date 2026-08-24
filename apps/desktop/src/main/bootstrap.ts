@@ -66,6 +66,7 @@ function developmentPaths(paths: LddPaths): LddPaths {
   return {
     ...paths,
     rendererHtml: join(app.getAppPath(), 'dist', 'renderer', 'index.html'),
+    splashHtml: join(app.getAppPath(), 'dist', 'renderer', 'splash.html'),
     preloadScript: join(app.getAppPath(), 'dist', 'main', 'preload', 'index.cjs'),
   }
 }
