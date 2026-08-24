@@ -120,6 +120,7 @@
     "packages/generate/src/client/controller.ts",
     "packages/generate/src/client/index.ts",
     "packages/generate/src/client/locales.ts",
+    "packages/generate/src/client/slot-contract.ts",
     "packages/generate/src/config.ts",
     "packages/generate/src/credentials.ts",
     "packages/generate/src/index.ts",

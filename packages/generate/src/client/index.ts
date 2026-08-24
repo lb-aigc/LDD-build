@@ -9,9 +9,14 @@
  * model and controls below are vendored here rather than imported.
  */
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
-import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+// Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+// Type-only: pulls the settings shell's Context merge (ctx.settingsScope).
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
+// Slot + locale type declarations (settings.plugin.item, LocaleNamespaceMap).
+import type {} from './slot-contract.ts'
 
 import { GenerateSettingsCard } from './card.tsx'
 import { GenerateSettingsController } from './controller.ts'

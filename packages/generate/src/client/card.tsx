@@ -50,7 +50,7 @@ function Field(props: {
         value={props.value}
         disabled={props.disabled}
         placeholder={props.hint}
-        onChange={(event) => { props.onEdit(event.target.value) }}
+        onChange={(event) => { props.onEdit(event.currentTarget.value) }}
       />
     </div>
   )

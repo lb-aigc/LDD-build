@@ -1,6 +1,15 @@
 /** Locale dictionaries for the generation settings cards (zh + en). */
 
-export const zh = {
+export type GenerateLocaleKey =
+  | 'imageTitle' | 'videoTitle'
+  | 'provider' | 'providerHint'
+  | 'model' | 'modelHint'
+  | 'baseURL' | 'baseURLHint'
+  | 'apiKeyEnv' | 'apiKeyEnvHint'
+  | 'apiKey' | 'apiKeySet' | 'apiKeyUnset'
+  | 'unsaved' | 'save' | 'saving' | 'discard' | 'readOnly' | 'saveFailed'
+
+export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
   videoTitle: '生视频模型',
   provider: '服务预设',
@@ -22,7 +31,7 @@ export const zh = {
   saveFailed: '保存失败，请重试。',
 }
 
-export const en = {
+export const en: Record<GenerateLocaleKey, string> = {
   imageTitle: 'Image model',
   videoTitle: 'Video model',
   provider: 'Provider',
