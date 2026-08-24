@@ -119,6 +119,7 @@
     "packages/generate/src/config.ts",
     "packages/generate/src/index.ts",
     "packages/generate/src/provider.ts",
+    "packages/generate/src/settings.ts",
     "packages/generate/src/types.ts",
     "packages/generate/tests/provider.spec.ts",
     "packages/generate/tests/provider.verify.ts",

@@ -10,9 +10,7 @@ export type VideoAspectRatio = (typeof videoAspectRatios)[number]
 export const maxImagesPerRequest = 4
 export const maxVideoDurationSeconds = 30
 
-/** Static plugin config resolved from cordis.patch.yml. */
+/** Static plugin config resolved from cordis.patch.yml (technical params only). */
 export interface GenerationConfig {
-  readonly provider: string
-  readonly model: string
   readonly timeoutMs: number
 }

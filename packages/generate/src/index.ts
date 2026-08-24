@@ -6,7 +6,15 @@ import { imageSizes, maxImagesPerRequest, maxVideoDurationSeconds, videoAspectRa
 import type { GenerationConfig } from './config.ts'
 import { MockGenerationProvider } from './provider.ts'
 import type { GenerationProvider } from './provider.ts'
-import type { ResolvedGenerationConfig } from './types.ts'
+import {
+  DEFAULT_IMAGE_MODEL,
+  DEFAULT_PROVIDER,
+  DEFAULT_VIDEO_MODEL,
+  IMAGE_SETTINGS_NS,
+  VIDEO_SETTINGS_NS,
+  ImageGenerationSettingsSchema,
+  VideoGenerationSettingsSchema,
+} from './settings.ts'
 
 export const name = 'ldd-generate'
 export const inject = ['tools']
@@ -14,8 +22,6 @@ export const inject = ['tools']
 export interface Config extends GenerationConfig {}
 
 export const Config: z<Config> = z.object({
-  provider: z.string().required(),
-  model: z.string().required(),
   timeoutMs: z.natural().min(1).required(),
 })
 
@@ -77,20 +83,43 @@ const providers: Record<string, GenerationProvider> = {
   mock: new MockGenerationProvider(),
 }
 
-function resolveProvider(config: ResolvedGenerationConfig): GenerationProvider {
-  const provider = providers[config.provider]
+function resolveProvider(providerName: string): GenerationProvider {
+  const provider = providers[providerName]
   if (provider === undefined) {
-    throw new Error(`unknown generation provider "${config.provider}" (available: ${Object.keys(providers).join(', ')})`)
+    throw new Error(`unknown generation provider "${providerName}" (available: ${Object.keys(providers).join(', ')})`)
   }
   return provider
 }
 
 export function apply(ctx: Context, config: Config): void {
-  const resolved: ResolvedGenerationConfig = {
-    provider: config.provider,
-    model: config.model,
-    timeoutMs: config.timeoutMs,
-  }
+  // Live selections. They default to the mock provider and are overwritten by
+  // the settings namespaces below whenever the settings service is present.
+  const imageSelection = { provider: DEFAULT_PROVIDER, model: DEFAULT_IMAGE_MODEL }
+  const videoSelection = { provider: DEFAULT_PROVIDER, model: DEFAULT_VIDEO_MODEL }
+
+  // Best-effort settings registration: without a settings provider (headless
+  // boot) the selections keep their mock defaults and the tools still work.
+  ctx.inject(['settings'], (settingsCtx) => {
+    const imageScope = settingsCtx.settings.register(
+      IMAGE_SETTINGS_NS,
+      ImageGenerationSettingsSchema,
+    )
+    const videoScope = settingsCtx.settings.register(
+      VIDEO_SETTINGS_NS,
+      VideoGenerationSettingsSchema,
+    )
+    const sync = () => {
+      const image = imageScope.get()
+      imageSelection.provider = image.provider ?? DEFAULT_PROVIDER
+      imageSelection.model = image.model ?? DEFAULT_IMAGE_MODEL
+      const video = videoScope.get()
+      videoSelection.provider = video.provider ?? DEFAULT_PROVIDER
+      videoSelection.model = video.model ?? DEFAULT_VIDEO_MODEL
+    }
+    sync()
+    imageScope.watch(sync)
+    videoScope.watch(sync)
+  })
 
   ctx.tools.register(defineTool({
     name: 'generate_image',
@@ -107,7 +136,7 @@ export function apply(ctx: Context, config: Config): void {
     },
     isConcurrencySafe: () => true,
     async execute(args, exec) {
-      const provider = resolveProvider(resolved)
+      const provider = resolveProvider(imageSelection.provider)
       const count = args.count === undefined ? 1 : Math.max(1, Math.min(maxImagesPerRequest, args.count))
       const request = {
         prompt: args.prompt,
@@ -115,7 +144,7 @@ export function apply(ctx: Context, config: Config): void {
         size: args.size ?? '1024x1024',
         ...(args.style === undefined ? {} : { style: args.style }),
       }
-      const taskSignal = AbortSignal.any([exec.signal, AbortSignal.timeout(resolved.timeoutMs)])
+      const taskSignal = AbortSignal.any([exec.signal, AbortSignal.timeout(config.timeoutMs)])
       return await provider.generateImage(request, taskSignal)
     },
   }))
@@ -135,7 +164,7 @@ export function apply(ctx: Context, config: Config): void {
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
-      const provider = resolveProvider(resolved)
+      const provider = resolveProvider(videoSelection.provider)
       const durationSeconds = args.durationSeconds === undefined
         ? 5
         : Math.max(1, Math.min(maxVideoDurationSeconds, Math.round(args.durationSeconds)))
@@ -145,7 +174,7 @@ export function apply(ctx: Context, config: Config): void {
         resolution: args.resolution ?? '1080p',
         aspectRatio: args.aspectRatio ?? '16:9',
       }
-      const taskSignal = AbortSignal.any([exec.signal, AbortSignal.timeout(resolved.timeoutMs)])
+      const taskSignal = AbortSignal.any([exec.signal, AbortSignal.timeout(config.timeoutMs)])
       return await provider.generateVideo(request, taskSignal)
     },
   }))

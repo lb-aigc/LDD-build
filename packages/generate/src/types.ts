@@ -49,10 +49,3 @@ export interface GenerateVideoResult {
   readonly provider: string
   readonly model: string
 }
-
-/** Resolved generation config bound to one tool call. */
-export interface ResolvedGenerationConfig {
-  readonly provider: string
-  readonly model: string
-  readonly timeoutMs: number
-}

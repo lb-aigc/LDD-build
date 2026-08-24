@@ -4,8 +4,6 @@
     - id: ldd-generate
       name: '@ldd/dsh-generate'
       config:
-        provider: mock
-        model: mock-generation
         timeoutMs: 60000
 
     - id: ldd-generate-skills
