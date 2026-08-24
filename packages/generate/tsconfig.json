@@ -3,7 +3,8 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "lib",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "ESNext.Disposable", "DOM", "DOM.Iterable"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

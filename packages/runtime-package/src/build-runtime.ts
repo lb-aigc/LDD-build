@@ -425,7 +425,7 @@ async function rewriteCopiedPluginTsconfig(pluginWorkspace: string): Promise<voi
       moduleResolution: 'NodeNext',
       allowImportingTsExtensions: true,
       rewriteRelativeImportExtensions: true,
-      lib: ['ES2023', 'ESNext.Disposable'],
+      lib: ['ES2023', 'ESNext.Disposable', 'DOM', 'DOM.Iterable'],
       types: ['node'],
       strict: true,
       noUncheckedIndexedAccess: true,
