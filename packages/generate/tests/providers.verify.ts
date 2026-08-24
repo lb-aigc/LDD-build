@@ -1,0 +1,54 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
+import {
+  CUSTOM_PROVIDER_ID,
+  IMAGE_PROVIDER_PRESETS,
+  findPreset,
+  presetIds,
+} from '../src/presets.ts'
+import { createProvider } from '../src/providers/index.ts'
+
+const emptyOptions = { baseURL: '', model: '', apiKey: undefined }
+
+test('preset table offers the four real image providers plus custom', () => {
+  assert.deepEqual(presetIds(IMAGE_PROVIDER_PRESETS), [
+    'mock',
+    'gpt-image',
+    'nano-banana',
+    'midjourney',
+    'seedream',
+    CUSTOM_PROVIDER_ID,
+  ])
+})
+
+test('presets carry the expected protocol and defaults', () => {
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'gpt-image')?.protocol, 'openai-compatible')
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'gpt-image')?.defaultModel, 'gpt-image-2')
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'nano-banana')?.protocol, 'gemini')
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'midjourney')?.protocol, 'midjourney')
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'seedream')?.protocol, 'volcengine')
+})
+
+test('createProvider constructs the matching adapter per protocol', () => {
+  assert.equal(createProvider('mock', emptyOptions).id, 'mock')
+  assert.equal(createProvider('openai-compatible', emptyOptions).id, 'openai-compatible')
+  assert.equal(createProvider('gemini', emptyOptions).id, 'gemini')
+  assert.equal(createProvider('midjourney', emptyOptions).id, 'midjourney')
+  assert.equal(createProvider('volcengine', emptyOptions).id, 'volcengine')
+})
+
+test('an unknown protocol throws with the available list', () => {
+  assert.throws(
+    () => createProvider('nope', emptyOptions),
+    /unknown generation protocol "nope" \(available: mock, openai-compatible, gemini, midjourney, volcengine\)/,
+  )
+})
+
+test('real adapters fail fast without an API key', async () => {
+  const provider = createProvider('openai-compatible', { baseURL: 'https://example.test/v1', model: 'm', apiKey: undefined })
+  await assert.rejects(
+    provider.generateImage({ prompt: 'x', count: 1, size: '1024x1024' }, new AbortController().signal),
+    /API key/,
+  )
+})

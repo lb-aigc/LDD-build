@@ -25,7 +25,17 @@ export interface GenerationProvider {
   generateVideo(request: GenerateVideoRequest, signal: AbortSignal): Promise<GenerateVideoResult>
 }
 
-function imageSizeOf(size: string): { width: number; height: number } {
+/** Resolved inputs every wire-protocol adapter needs (see `src/providers/`). */
+export interface ProviderOptions {
+  /** Endpoint root the adapter POSTs to (preset default or user override). */
+  readonly baseURL: string
+  /** Model id sent to the host. */
+  readonly model: string
+  /** Resolved API key; `undefined` when unconfigured — adapters fail fast on it. */
+  readonly apiKey: string | undefined
+}
+
+export function imageSizeOf(size: string): { width: number; height: number } {
   const [width, height] = size.split('x').map((part) => Number.parseInt(part, 10))
   return { width: width ?? 1024, height: height ?? 1024 }
 }

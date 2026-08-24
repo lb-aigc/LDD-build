@@ -11,11 +11,50 @@ the descriptions and the `generate` skill, fills the parameters, and continues
 the multi-turn conversation from the result. The user never switches models
 manually.
 
-## GenerationProvider
+## Provider presets and protocols
 
-Tool bodies call an injectable `GenerationProvider`. The shipped
-`MockGenerationProvider` returns self-describing placeholder results so the
-routing link (request → decision → tool dispatch → result → follow-up) runs
-end to end without a live image/video API. To wire a real backend, implement
-`GenerationProvider` and register it under `config.provider` in `src/index.ts`;
-the tools, skill, and plugin-tree wiring stay unchanged.
+Generation routes through a small provider table, not a hardcoded backend. The
+user picks a **preset** in settings (or leaves the default), and the preset maps
+to a **wire protocol** implemented by an adapter in `src/providers/`:
+
+| Preset id      | Protocol          | Adapter                          |
+|----------------|-------------------|----------------------------------|
+| `mock`         | `mock`            | `MockGenerationProvider`         |
+| `gpt-image`    | `openai-compatible` | `OpenAICompatibleProvider`     |
+| `nano-banana`  | `gemini`          | `GeminiImageProvider`            |
+| `midjourney`   | `midjourney`      | `MidjourneyProvider` (async)     |
+| `seedream`     | `volcengine`      | `VolcengineProvider`             |
+| `custom`       | settings-supplied | any adapter via `settings.protocol` |
+
+One protocol serves many hosts: `openai-compatible` drives gpt-image-2 and every
+OpenAI-compatible aggregator, so adding a new backend is usually just a new
+preset row (or a `custom` selection) — not a new adapter.
+
+## Settings
+
+The two capabilities configure independently under two namespaces (stored in the
+harness `settings.yaml`, hot-reloaded):
+
+```yaml
+generate-image:
+  provider: mock        # mock | gpt-image | nano-banana | midjourney | seedream | custom
+  protocol: ''          # required only when provider is "custom"
+  model: ''             # blank inherits the preset default
+  baseURL: ''           # blank inherits the preset default
+  apiKeyEnv: ''         # reference to the API key (env var / credentials domain), never the key itself
+generate-video:
+  provider: mock
+  # ... same shape
+```
+
+The API key is resolved from its reference at request time (`src/credentials.ts`);
+the settings document never carries a secret. `timeoutMs` remains a static
+Cordis config in `cordis.patch.yml`, not a per-request setting.
+
+## Adding a backend
+
+1. **New protocol family** → implement `GenerationProvider` in `src/providers/`,
+   register it in `src/providers/index.ts` `createProvider`, and add the
+   protocol to `PROVIDER_PROTOCOLS` in `src/presets.ts`.
+2. **New preset on an existing protocol** → add a row to
+   `IMAGE_PROVIDER_PRESETS` / `VIDEO_PROVIDER_PRESETS` in `src/presets.ts`.

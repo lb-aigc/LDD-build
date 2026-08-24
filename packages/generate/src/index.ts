@@ -4,8 +4,17 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 
 import { imageSizes, maxImagesPerRequest, maxVideoDurationSeconds, videoAspectRatios, videoResolutions } from './config.ts'
 import type { GenerationConfig } from './config.ts'
-import { MockGenerationProvider } from './provider.ts'
 import type { GenerationProvider } from './provider.ts'
+import { environmentSecretResolver } from './credentials.ts'
+import {
+  CUSTOM_PROVIDER_ID,
+  IMAGE_PROVIDER_PRESETS,
+  VIDEO_PROVIDER_PRESETS,
+  findPreset,
+  presetIds,
+} from './presets.ts'
+import type { ProviderPreset } from './presets.ts'
+import { createProvider } from './providers/index.ts'
 import {
   DEFAULT_IMAGE_MODEL,
   DEFAULT_PROVIDER,
@@ -74,28 +83,62 @@ const videoResultSchema = {
   },
 } as const
 
-/**
- * Provider registry. The mock is the only shipped implementation; a real
- * image/video backend registers here by keying off `config.provider` without
- * touching the tool definitions or plugin-tree wiring.
- */
-const providers: Record<string, GenerationProvider> = {
-  mock: new MockGenerationProvider(),
+/** Resolved user selection for one generation half (mirrors the settings ns). */
+interface GenerationSelection {
+  provider: string
+  protocol: string
+  model: string
+  baseURL: string
+  apiKeyEnv: string
 }
 
-function resolveProvider(providerName: string): GenerationProvider {
-  const provider = providers[providerName]
-  if (provider === undefined) {
-    throw new Error(`unknown generation provider "${providerName}" (available: ${Object.keys(providers).join(', ')})`)
+/**
+ * Resolve a settings selection into a concrete adapter. Built per call (no
+ * cache) so every request reads the latest selection and secret — a preset
+ * inherits its protocol/default endpoint/default model; `custom` takes them
+ * verbatim from settings. The API key is resolved from its reference here.
+ */
+function buildProvider(selection: GenerationSelection, presets: readonly ProviderPreset[]): GenerationProvider {
+  if (selection.provider === CUSTOM_PROVIDER_ID) {
+    if (selection.protocol === '') {
+      throw new Error(`provider "custom" 需要配置 protocol（请在设置里配置 protocol）`)
+    }
+    return createProvider(selection.protocol, {
+      baseURL: selection.baseURL,
+      model: selection.model,
+      apiKey: environmentSecretResolver(selection.apiKeyEnv),
+    })
   }
-  return provider
+  const preset = findPreset(presets, selection.provider)
+  if (preset === undefined) {
+    throw new Error(
+      `unknown generation provider "${selection.provider}" (available: ${presetIds(presets).join(', ')})`,
+    )
+  }
+  return createProvider(preset.protocol, {
+    baseURL: selection.baseURL || preset.defaultBaseURL,
+    model: selection.model || preset.defaultModel,
+    apiKey: environmentSecretResolver(selection.apiKeyEnv),
+  })
 }
 
 export function apply(ctx: Context, config: Config): void {
-  // Live selections. They default to the mock provider and are overwritten by
-  // the settings namespaces below whenever the settings service is present.
-  const imageSelection = { provider: DEFAULT_PROVIDER, model: DEFAULT_IMAGE_MODEL }
-  const videoSelection = { provider: DEFAULT_PROVIDER, model: DEFAULT_VIDEO_MODEL }
+  // Live selections. They default to the mock preset and are overwritten by the
+  // settings namespaces below whenever the settings service is present.
+  const imageSelection: GenerationSelection = {
+    provider: DEFAULT_PROVIDER,
+    protocol: '',
+    model: DEFAULT_IMAGE_MODEL,
+    baseURL: '',
+    apiKeyEnv: '',
+  }
+  const videoSelection: GenerationSelection = {
+    provider: DEFAULT_PROVIDER,
+    protocol: '',
+    model: DEFAULT_VIDEO_MODEL,
+    baseURL: '',
+    apiKeyEnv: '',
+  }
 
   // Best-effort settings registration: without a settings provider (headless
   // boot) the selections keep their mock defaults and the tools still work.
@@ -111,10 +154,16 @@ export function apply(ctx: Context, config: Config): void {
     const sync = () => {
       const image = imageScope.get()
       imageSelection.provider = image.provider ?? DEFAULT_PROVIDER
+      imageSelection.protocol = image.protocol ?? ''
       imageSelection.model = image.model ?? DEFAULT_IMAGE_MODEL
+      imageSelection.baseURL = image.baseURL ?? ''
+      imageSelection.apiKeyEnv = image.apiKeyEnv ?? ''
       const video = videoScope.get()
       videoSelection.provider = video.provider ?? DEFAULT_PROVIDER
+      videoSelection.protocol = video.protocol ?? ''
       videoSelection.model = video.model ?? DEFAULT_VIDEO_MODEL
+      videoSelection.baseURL = video.baseURL ?? ''
+      videoSelection.apiKeyEnv = video.apiKeyEnv ?? ''
     }
     sync()
     imageScope.watch(sync)
@@ -136,7 +185,7 @@ export function apply(ctx: Context, config: Config): void {
     },
     isConcurrencySafe: () => true,
     async execute(args, exec) {
-      const provider = resolveProvider(imageSelection.provider)
+      const provider = buildProvider(imageSelection, IMAGE_PROVIDER_PRESETS)
       const count = args.count === undefined ? 1 : Math.max(1, Math.min(maxImagesPerRequest, args.count))
       const request = {
         prompt: args.prompt,
@@ -164,7 +213,7 @@ export function apply(ctx: Context, config: Config): void {
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
-      const provider = resolveProvider(videoSelection.provider)
+      const provider = buildProvider(videoSelection, VIDEO_PROVIDER_PRESETS)
       const durationSeconds = args.durationSeconds === undefined
         ? 5
         : Math.max(1, Math.min(maxVideoDurationSeconds, Math.round(args.durationSeconds)))

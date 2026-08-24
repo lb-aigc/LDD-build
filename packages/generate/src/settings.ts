@@ -17,11 +17,13 @@ export const VIDEO_SETTINGS_NS = 'generate-video'
 
 /** User-editable image-generation configuration. */
 export interface ImageGenerationSettings {
-  /** Provider id registered in the plugin's provider table (e.g. `mock`, later `seedream`). */
+  /** Provider preset id (e.g. `mock`, `gpt-image`, `seedream`) or `custom`. */
   provider?: string
-  /** Model name the provider should run. */
+  /** Wire protocol, used only when `provider === 'custom'`. */
+  protocol?: string
+  /** Model name the provider should run; blank inherits the preset default. */
   model?: string
-  /** Provider endpoint; blank inherits the provider default. */
+  /** Provider endpoint; blank inherits the preset default. */
   baseURL?: string
   /** Credential reference naming the API key the provider resolves. */
   apiKeyEnv?: string
@@ -30,6 +32,7 @@ export interface ImageGenerationSettings {
 /** User-editable video-generation configuration. */
 export interface VideoGenerationSettings {
   provider?: string
+  protocol?: string
   model?: string
   baseURL?: string
   apiKeyEnv?: string
@@ -37,6 +40,7 @@ export interface VideoGenerationSettings {
 
 export const ImageGenerationSettingsSchema: z<ImageGenerationSettings> = z.object({
   provider: z.string(),
+  protocol: z.string(),
   model: z.string(),
   baseURL: z.string(),
   apiKeyEnv: z.string(),
@@ -44,6 +48,7 @@ export const ImageGenerationSettingsSchema: z<ImageGenerationSettings> = z.objec
 
 export const VideoGenerationSettingsSchema: z<VideoGenerationSettings> = z.object({
   provider: z.string(),
+  protocol: z.string(),
   model: z.string(),
   baseURL: z.string(),
   apiKeyEnv: z.string(),
