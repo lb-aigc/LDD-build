@@ -38,7 +38,7 @@ function Field(props: {
   hint?: string
   value: string
   disabled: boolean
-  type?: string
+  type?: 'text' | 'password'
   onEdit: (text: string) => void
 }): ReactElement {
   return (
@@ -50,7 +50,7 @@ function Field(props: {
         value={props.value}
         disabled={props.disabled}
         placeholder={props.hint}
-        onChange={(event) => { props.onEdit(event.currentTarget.value) }}
+        onChange={(event) => { props.onEdit(event.target.value) }}
       />
     </div>
   )
