@@ -1,0 +1,76 @@
+--- a/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
++++ b/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
+@@ -139,18 +139,6 @@
+               <span className={css.brandMark}>
+                 {renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
+               </span>
+-              <span className={css.brandName}>
+-                {renderSlot('sidebar.brand.name', {}, {
+-                  fallback: (
+-                    <>
+-                      <span className={css.fallbackBrandName}>DSH Local Build</span>
+-                      {process.env.DSH_CLIENT_COMMIT_HASH
+-                        ? <span className={css.buildRevision}>{process.env.DSH_CLIENT_COMMIT_HASH}</span>
+-                        : null}
+-                    </>
+-                  ),
+-                })}
+-              </span>
+             </span>
+           </button>
+         )}
+--- a/packages/client/ui-conversation/src/client/skeleton/EmptyHero.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/EmptyHero.tsx
+@@ -125,8 +125,6 @@
+               fallback: <FishLogo size={34} className={css.fish} />,
+             })}
+           </span>
+-          <span className={css.headlineText}>{t('hero.headline')}</span>
+-          <span className={css.previewBadge}>{t('hero.preview')}</span>
+         </div>
+         <div className={css.body}>
+           {/* The resident composer (ConversationRoot's root-owned scrollport;
+--- a/packages/client/ui-brand-official/src/client/Brand.tsx
++++ b/packages/client/ui-brand-official/src/client/Brand.tsx
+@@ -21,7 +21,7 @@
+  * @returns the LDD wordmark.
+  */
+ export function OfficialBrandMark({ size, className }: OfficialBrandMarkProps) {
+-  const height = size >= 34 ? 22 : 18
++  const height = size >= 34 ? 48 : 18
+   const width = (height * LDD_WORDMARK_VIEWBOX_WIDTH) / LDD_WORDMARK_VIEWBOX_HEIGHT
+   return (
+     <svg
+--- a/packages/client/ui-conversation/src/client/skeleton/HeroShell.module.css
++++ b/packages/client/ui-conversation/src/client/skeleton/HeroShell.module.css
+@@ -27,9 +27,7 @@
+    badge is a product addition outside that source: a mono superscript pill
+    riding the title's top-right. */
+ .headline {
+-  display: grid;
+-  grid-template-columns: 47px auto auto;
+-  column-gap: 10px;
++  display: flex;
+   align-items: center;
+   justify-content: center;
+   font-size: 26px;
+@@ -63,8 +61,6 @@
+ 
+ /* Keep hover detection on a stationary box; the wordmark does not animate. */
+ .fishHitbox {
+-  grid-row: 1;
+-  grid-column: 1;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+--- a/scripts/client-build-environment.ts
++++ b/scripts/client-build-environment.ts
+@@ -19,7 +19,7 @@
+ /** Public client environment required by official DSH artifacts. */
+ const OFFICIAL_CLIENT_BUILD_ENVIRONMENT = {
+   DSH_CLIENT_BUILD_PROFILE: 'official',
+-  DSH_CLIENT_TITLE: 'DeepSeek Harness',
++  DSH_CLIENT_TITLE: 'LDD',
+ } as const
+ 
+ /** Public variable carrying the source commit embedded in client artifacts. */

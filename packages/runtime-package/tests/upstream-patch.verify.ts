@@ -60,6 +60,36 @@ const officialHeroShell = join(
   'skeleton',
   'HeroShell.module.css',
 )
+const officialSidebarRoot = join(
+  repositoryRoot,
+  'upstream',
+  'deepseek-harness',
+  'packages',
+  'client',
+  'ui-sidebar',
+  'src',
+  'client',
+  'SidebarRoot.tsx',
+)
+const officialEmptyHero = join(
+  repositoryRoot,
+  'upstream',
+  'deepseek-harness',
+  'packages',
+  'client',
+  'ui-conversation',
+  'src',
+  'client',
+  'skeleton',
+  'EmptyHero.tsx',
+)
+const officialClientBuildEnvironment = join(
+  repositoryRoot,
+  'upstream',
+  'deepseek-harness',
+  'scripts',
+  'client-build-environment.ts',
+)
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2')
 
 test('tracked Harness patches add LDD compatibility changes and apply exactly once', async () => {
@@ -84,16 +114,31 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedHeroShell = join(
       copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'HeroShell.module.css',
     )
+    const copiedSidebarRoot = join(
+      copiedRoot, 'packages', 'client', 'ui-sidebar', 'src', 'client', 'SidebarRoot.tsx',
+    )
+    const copiedEmptyHero = join(
+      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'EmptyHero.tsx',
+    )
+    const copiedClientBuildEnvironment = join(
+      copiedRoot, 'scripts', 'client-build-environment.ts',
+    )
     await mkdir(dirname(copiedCatalog), { recursive: true })
     await mkdir(dirname(copiedReleaseProcess), { recursive: true })
     await mkdir(dirname(copiedBrand), { recursive: true })
     await mkdir(dirname(copiedLocales), { recursive: true })
     await mkdir(dirname(copiedHeroShell), { recursive: true })
+    await mkdir(dirname(copiedSidebarRoot), { recursive: true })
+    await mkdir(dirname(copiedEmptyHero), { recursive: true })
+    await mkdir(dirname(copiedClientBuildEnvironment), { recursive: true })
     await writeFile(copiedCatalog, await readFile(officialCatalog))
     await writeFile(copiedReleaseProcess, await readFile(officialReleaseProcess))
     await writeFile(copiedBrand, await readFile(officialBrand))
     await writeFile(copiedLocales, await readFile(officialLocales))
     await writeFile(copiedHeroShell, await readFile(officialHeroShell))
+    await writeFile(copiedSidebarRoot, await readFile(officialSidebarRoot))
+    await writeFile(copiedEmptyHero, await readFile(officialEmptyHero))
+    await writeFile(copiedClientBuildEnvironment, await readFile(officialClientBuildEnvironment))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
     const result = await readFile(copiedCatalog, 'utf8')
@@ -117,15 +162,27 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0001-register-video-analysis-input-session-event.patch',
       '0002-launch-package-manager-shims-on-windows.patch',
       '0003-rebrand-ldd.patch',
+      '0004-rebrand-ldd-trim.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
+    assert.match(brand, /size >= 34 \? 48 : 18/u)
     assert.doesNotMatch(brand, /FishLogo/u)
     const locales = await readFile(copiedLocales, 'utf8')
     assert.match(locales, /'hero\.headline': 'LDD'/u)
     assert.doesNotMatch(locales, /探索未至之境/u)
     const heroShell = await readFile(copiedHeroShell, 'utf8')
-    assert.match(heroShell, /grid-template-columns: 47px auto auto/u)
+    assert.match(heroShell, /\.headline \{[\s\S]*?display: flex/u)
+    assert.doesNotMatch(heroShell, /grid-template-columns/u)
+    const sidebarRoot = await readFile(copiedSidebarRoot, 'utf8')
+    assert.doesNotMatch(sidebarRoot, /sidebar\.brand\.name/u)
+    assert.match(sidebarRoot, /sidebar\.brand\.mark/u)
+    const emptyHero = await readFile(copiedEmptyHero, 'utf8')
+    assert.doesNotMatch(emptyHero, /hero\.headline/u)
+    assert.doesNotMatch(emptyHero, /hero\.preview/u)
+    const buildEnvironment = await readFile(copiedClientBuildEnvironment, 'utf8')
+    assert.match(buildEnvironment, /DSH_CLIENT_TITLE: 'LDD'/u)
+    assert.doesNotMatch(buildEnvironment, /DeepSeek Harness/u)
     await assert.rejects(
       applyTrackedUpstreamPatches(copiedRoot, patchRoot),
       /does not match the official source/,

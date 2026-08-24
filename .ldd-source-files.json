@@ -185,6 +185,7 @@
     "patches/deepseek-harness/0.1.1-rc.2/0001-register-video-analysis-input-session-event.patch",
     "patches/deepseek-harness/0.1.1-rc.2/0002-launch-package-manager-shims-on-windows.patch",
     "patches/deepseek-harness/0.1.1-rc.2/0003-rebrand-ldd.patch",
+    "patches/deepseek-harness/0.1.1-rc.2/0004-rebrand-ldd-trim.patch",
     "patches/deepseek-harness/0.1.1-rc.2/README.md",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",

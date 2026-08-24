@@ -20,6 +20,12 @@ headline becomes `LDD`, and the hero mark column widens from 34px to 47px while
 the fish "swim" hover animation is dropped. The wordmark path is inlined into
 `Brand.tsx` because the tracked-patch runner only edits existing files.
 
+`0004-rebrand-ldd-trim.patch` pares the brand back to a single centered wordmark.
+It drops the sidebar brand name (keeping only the mark), removes the hero
+headline and preview badge, enlarges the hero mark from 22px to 48px tall, turns
+the hero headline grid into a centered flex row, and changes the client document
+title from `DeepSeek Harness` to `LDD`.
+
 The runtime builder applies this patch only to its copied official source tree.
 It fails closed when the expected source context changes or the patch was
 already applied. Remove it once Harness provides a supported downstream event
