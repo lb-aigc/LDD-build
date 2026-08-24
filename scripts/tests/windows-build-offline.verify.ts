@@ -164,5 +164,12 @@ test('Windows release smoke-tests the installed Harness before artifact upload',
     workflow,
     /dist\/runtime\/0\.1\.1-rc\.2\/node_modules\/@deepseek-ai\/dsh\/lib\/bin\.js/u,
   )
-  assert.match(workflow, /& node \$dshEntry --help/u)
+  // The smoke test must really load the plugin tree — start `dsh web` with the
+  // LDD-managed patch (not just print --help) and gate on the identity endpoint
+  // the video-frame-analyzer plugin registers, so a probe hit proves the plugin
+  // tree activated. A --help-only gate ships blank windows, so forbid it.
+  assert.match(workflow, /'web', '--patch'/u)
+  assert.match(workflow, /__ldd\/identity/u)
+  assert.match(workflow, /renderManagedImagePatch/u)
+  assert.doesNotMatch(workflow, /& node \$dshEntry --help/u)
 })
