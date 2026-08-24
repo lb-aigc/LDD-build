@@ -21,6 +21,15 @@
          )}
 --- a/packages/client/ui-conversation/src/client/skeleton/EmptyHero.tsx
 +++ b/packages/client/ui-conversation/src/client/skeleton/EmptyHero.tsx
+@@ -114,7 +114,7 @@
+  * @param props - see {@link HeroShellProps}.
+  * @returns the centered hero element tree.
+  */
+-export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
++export function HeroShell({ renderSlot, children }: HeroShellProps) {
+   return (
+     <div className={css.root}>
+       <div className={css.stack}>
 @@ -125,8 +125,6 @@
                fallback: <FishLogo size={34} className={css.fish} />,
              })}
