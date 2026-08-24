@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import {
   copyFile,
   cp,
@@ -166,6 +167,12 @@ export async function buildRuntime(
     await mkdir(lddTarballs, { recursive: true })
     for (const pluginWorkspace of pluginWorkspaces) {
       await run(pnpm, ['--dir', pluginWorkspace, 'build'], { cwd: copiedSource, env: environment })
+      // A plugin that ships a browser settings card bundles it with tsdown
+      // (the tsc build above only emits the node half). The bundle script and
+      // tsdown.config.ts travel with the plugin; plugins without one skip this.
+      if (existsSync(join(pluginWorkspace, 'tsdown.config.ts'))) {
+        await run(pnpm, ['--dir', pluginWorkspace, 'bundle'], { cwd: copiedSource, env: environment })
+      }
       await run(pnpm, ['--dir', pluginWorkspace, 'pack', '--pack-destination', lddTarballs], {
         cwd: copiedSource,
         env: environment,
@@ -426,13 +433,14 @@ async function rewriteCopiedPluginTsconfig(pluginWorkspace: string): Promise<voi
       useUnknownInCatchVariables: true,
       verbatimModuleSyntax: true,
       skipLibCheck: true,
+      jsx: 'react-jsx',
       declaration: true,
       declarationMap: true,
       sourceMap: true,
       rootDir: 'src',
       outDir: 'lib',
     },
-    include: ['src/**/*.ts'],
+    include: ['src/**/*.ts', 'src/**/*.tsx'],
   }, null, 2)}\n`, { mode: 0o600 })
 }
 
