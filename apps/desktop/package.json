@@ -8,8 +8,9 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build:main": "tsc -p tsconfig.main.json",
+    "build:preload": "esbuild src/preload/index.ts --bundle --format=cjs --platform=node --external:electron --outfile=dist/main/preload/index.cjs",
     "build:renderer": "vite build",
-    "build": "pnpm build:main && pnpm build:renderer",
+    "build": "pnpm build:main && pnpm build:preload && pnpm build:renderer",
     "dist:win": "electron-builder --win nsis --x64"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
     "@vitejs/plugin-react": "5.0.0",
     "electron": "37.0.0",
     "electron-builder": "26.0.0",
+    "esbuild": "0.25.12",
     "jsdom": "26.1.0",
     "vite": "7.0.0",
     "vitest": "4.0.0"
@@ -37,6 +39,7 @@
     "productName": "LDD",
     "artifactName": "LDD-Setup-${version}-x64.${ext}",
     "asar": true,
+    "afterPack": "./build/afterPack.cjs",
     "directories": {
       "output": "../../release"
     },

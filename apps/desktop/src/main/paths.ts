@@ -47,7 +47,7 @@ export function resolveLddPaths(
     runtimeHostRoot: join(normalizedResources, 'runtime-host'),
     fallbackRoot: join(normalizedResources, 'runtime-fallback'),
     rendererHtml: join(normalizedResources, 'app.asar', 'dist', 'renderer', 'index.html'),
-    preloadScript: join(normalizedResources, 'app.asar', 'dist', 'main', 'src', 'preload', 'index.js'),
+    preloadScript: join(normalizedResources, 'app.asar', 'dist', 'main', 'preload', 'index.cjs'),
   }
 }
 

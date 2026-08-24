@@ -11,6 +11,7 @@
     "Push-to-GitHub.ps1",
     "README.md",
     "WINDOWS-BUILD-README.txt",
+    "apps/desktop/build/afterPack.cjs",
     "apps/desktop/build/installer.nsh",
     "apps/desktop/index.html",
     "apps/desktop/package.json",
