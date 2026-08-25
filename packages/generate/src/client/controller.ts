@@ -27,6 +27,13 @@ export interface ModelDraft {
 /** A draft row plus a stable front-end id so per-row API keys survive reorder. */
 export interface ModelRow extends ModelDraft {
   readonly uid: number
+  /** Current per-row API-key input (never persisted to settings). */
+  apiKeyText: string
+}
+
+/** Internal edit shape: a persisted row plus its front-end id. */
+interface StagedModel extends ModelDraft {
+  readonly uid: number
 }
 
 /** The settings namespace shape this card edits. */
@@ -75,7 +82,7 @@ function textOf(value: unknown): string {
 }
 
 /** Normalize a stored (possibly partial) model entry into a full row. */
-function toRow(entry: unknown, uid: number): ModelRow {
+function toRow(entry: unknown, uid: number): StagedModel {
   const e = (entry ?? {}) as Record<string, unknown>
   const provider = typeof e.provider === 'string' && e.provider !== '' ? e.provider : DEFAULT_PROVIDER
   return {
@@ -90,12 +97,12 @@ function toRow(entry: unknown, uid: number): ModelRow {
 
 /** Read the current settings snapshot into a staged list plus default key. */
 function readOriginal(snapshot: SettingsScopeSnapshot<GenerationCardSettings>): {
-  models: ModelRow[]
+  models: StagedModel[]
   defaultKey: string
 } {
   const value = (snapshot.value ?? {}) as Record<string, unknown>
   let uid = 0
-  let models: ModelRow[]
+  let models: StagedModel[]
   const stored = value.models
   if (Array.isArray(stored) && stored.length > 0) {
     models = stored.map((entry) => toRow(entry, uid++))
@@ -129,7 +136,7 @@ function persistOf(model: ModelRow): ModelDraft {
 
 export class GenerateSettingsController {
   private readonly store: SnapshotStore<GenerationCardState>
-  private readonly staged: { models: ModelRow[]; defaultKey: string }
+  private readonly staged: { models: StagedModel[]; defaultKey: string }
   private readonly original: { models: ModelDraft[]; defaultKey: string }
   /** Per-row API-key text, keyed by the row's stable uid (never persisted to settings). */
   private readonly apiKeys = new Map<number, string>()
@@ -165,7 +172,7 @@ export class GenerateSettingsController {
       dirty: this.isDirty(),
       saving: this.saving,
       failed: this.failed,
-      models: this.staged.models,
+      models: this.staged.models.map((m) => ({ ...m, apiKeyText: this.apiKeys.get(m.uid) ?? '' })),
       defaultKey: this.staged.defaultKey,
     }
   }
