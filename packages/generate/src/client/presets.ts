@@ -23,10 +23,12 @@ export const IMAGE_PRESETS: readonly ClientPreset[] = [
   { id: 'nano-banana', label: 'Nano Banana（Gemini 2.5 Flash Image）' },
   { id: 'midjourney', label: 'Midjourney' },
   { id: 'seedream', label: 'Seedream（火山方舟）' },
+  { id: 'kie', label: 'KIE（聚合中转）' },
 ]
 
 export const VIDEO_PRESETS: readonly ClientPreset[] = [
   { id: 'mock', label: 'Mock（占位）' },
+  { id: 'kie', label: 'KIE（聚合中转）' },
 ]
 
 /**

@@ -6,6 +6,7 @@ import { OpenAICompatibleProvider } from './openai-compatible.ts'
 import { GeminiImageProvider } from './gemini.ts'
 import { MidjourneyProvider } from './midjourney.ts'
 import { VolcengineProvider } from './volcengine.ts'
+import { KieProvider } from './kie.ts'
 
 /**
  * Protocol → adapter factory. A preset (or a custom selection) resolves to one
@@ -27,6 +28,8 @@ export function createProvider(
       return new MidjourneyProvider(options)
     case 'volcengine':
       return new VolcengineProvider(options)
+    case 'kie':
+      return new KieProvider(options)
     default:
       throw new Error(
         `unknown generation protocol "${protocol}" (available: ${PROVIDER_PROTOCOLS.join(', ')})`,

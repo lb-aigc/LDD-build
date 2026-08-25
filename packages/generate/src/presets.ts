@@ -22,6 +22,7 @@ export const PROVIDER_PROTOCOLS = [
   'gemini',
   'midjourney',
   'volcengine',
+  'kie',
 ] as const
 
 export type ProviderProtocol = (typeof PROVIDER_PROTOCOLS)[number]
@@ -83,6 +84,14 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultModel: '',
     strengths: '中文场景、写实人像、电商产品图',
   },
+  {
+    id: 'kie',
+    label: 'KIE（聚合中转）',
+    protocol: 'kie',
+    defaultBaseURL: 'https://api.kie.ai',
+    defaultModel: 'bytedance/seedream',
+    strengths: '聚合中转：一个 key 调 Seedream/Nano Banana/GPT Image 等几十个图像模型',
+  },
 ]
 
 export const VIDEO_PROVIDER_PRESETS: readonly ProviderPreset[] = [
@@ -93,6 +102,14 @@ export const VIDEO_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: '',
     defaultModel: 'mock-video',
     strengths: '占位模型，返回占位视频，用于验证链路',
+  },
+  {
+    id: 'kie',
+    label: 'KIE（聚合中转）',
+    protocol: 'kie',
+    defaultBaseURL: 'https://api.kie.ai',
+    defaultModel: 'bytedance/seedance-2-5',
+    strengths: '聚合中转：一个 key 调 Seedance/Kling/Wan/Hailuo 等几十个视频模型',
   },
 ]
 

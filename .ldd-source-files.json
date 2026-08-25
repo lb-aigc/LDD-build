@@ -129,6 +129,7 @@
     "packages/generate/src/provider.ts",
     "packages/generate/src/providers/gemini.ts",
     "packages/generate/src/providers/index.ts",
+    "packages/generate/src/providers/kie.ts",
     "packages/generate/src/providers/midjourney.ts",
     "packages/generate/src/providers/openai-compatible.ts",
     "packages/generate/src/providers/volcengine.ts",
