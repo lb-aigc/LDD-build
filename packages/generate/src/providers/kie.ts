@@ -4,6 +4,8 @@ import type { GenerationProvider, ProviderOptions } from '../provider.ts'
 
 const POLL_INTERVAL_MS = 3000
 const MAX_POLLS = 200
+const RETRY_ATTEMPTS = 3
+const RETRY_BASE_MS = 1000
 const MIN_VIDEO_DURATION = 4
 const MAX_VIDEO_DURATION = 30
 
@@ -91,12 +93,11 @@ export class KieProvider implements GenerationProvider {
   private async submit(signal: AbortSignal, model: string, input: Record<string, unknown>): Promise<string> {
     const { baseURL, apiKey } = this.options
     const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }
-    const response = await fetch(`${trimSlash(baseURL)}/api/v1/jobs/createTask`, {
+    const response = await fetchWithRetry(`${trimSlash(baseURL)}/api/v1/jobs/createTask`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ model, input }),
-      signal,
-    })
+    }, signal)
     if (!response.ok) {
       const body = await response.text().catch(() => '')
       throw new Error(`${this.id} createTask 失败 ${response.status}${body ? `: ${body}` : ''}`)
@@ -126,12 +127,11 @@ export class KieProvider implements GenerationProvider {
   private async downloadUrl(url: string, signal: AbortSignal): Promise<string> {
     const { baseURL, apiKey } = this.options
     try {
-      const response = await fetch(`${trimSlash(baseURL)}/api/v1/common/download-url`, {
+      const response = await fetchWithRetry(`${trimSlash(baseURL)}/api/v1/common/download-url`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({ url }),
-        signal,
-      })
+      }, signal)
       if (!response.ok) return url
       const payload = (await response.json()) as { code?: number; data?: string | { downloadUrl?: string } }
       if (payload.code !== 200) return url
@@ -152,10 +152,9 @@ export class KieProvider implements GenerationProvider {
     const headers = { Authorization: `Bearer ${apiKey}` }
     for (let attempt = 0; attempt < MAX_POLLS; attempt++) {
       signal.throwIfAborted()
-      const response = await fetch(`${trimSlash(baseURL)}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
+      const response = await fetchWithRetry(`${trimSlash(baseURL)}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
         headers,
-        signal,
-      })
+      }, signal)
       if (!response.ok) {
         const body = await response.text().catch(() => '')
         throw new Error(`${this.id} recordInfo 轮询失败 ${response.status}${body ? `: ${body}` : ''}`)
@@ -183,6 +182,33 @@ export class KieProvider implements GenerationProvider {
     }
     throw new Error(`${this.id}: 轮询超时（超过 ${MAX_POLLS} 次）`)
   }
+}
+
+/** Fetch with bounded exponential-backoff retry for transient server errors
+ *  (5xx, 429, 408) and network failures. Client errors (4xx) are returned
+ *  as-is (the caller surfaces them) and user aborts rethrow immediately —
+ *  retrying either cannot help. */
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  signal: AbortSignal,
+  attempts = RETRY_ATTEMPTS,
+): Promise<Response> {
+  let lastError: unknown
+  for (let i = 0; i < attempts; i++) {
+    signal.throwIfAborted()
+    try {
+      const response = await fetch(url, { ...init, signal })
+      const retryable = response.status >= 500 || response.status === 429 || response.status === 408
+      if (!retryable) return response
+      lastError = new Error(`HTTP ${response.status}`)
+    } catch (error) {
+      if ((error as { name?: string }).name === 'AbortError') throw error
+      lastError = error
+    }
+    if (i < attempts - 1) await sleep(RETRY_BASE_MS * 2 ** i, signal)
+  }
+  throw lastError
 }
 
 function trimSlash(baseURL: string): string {
