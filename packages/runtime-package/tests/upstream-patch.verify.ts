@@ -182,6 +182,18 @@ const officialDeleteFixture = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'connection', 'src', 'client', 'fixture.ts',
 )
+const officialDeleteTestSupportWorkspaces = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'test-support', 'client-runtime', 'src', 'workspaces.ts',
+)
+const officialDeleteRowsSpec = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'tests', 'rows.client.spec.tsx',
+)
+const officialDeleteWorkspaceBrowserSpec = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'tests', 'workspace-browser.client.spec.tsx',
+)
 const officialDeleteRuntimeFake = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'tests', 'fake-api.client.ts',
@@ -320,6 +332,15 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedDeleteFixture = join(
       copiedRoot, 'packages', 'client', 'connection', 'src', 'client', 'fixture.ts',
     )
+    const copiedDeleteTestSupportWorkspaces = join(
+      copiedRoot, 'packages', 'test-support', 'client-runtime', 'src', 'workspaces.ts',
+    )
+    const copiedDeleteRowsSpec = join(
+      copiedRoot, 'packages', 'client', 'ui-workspace', 'tests', 'rows.client.spec.tsx',
+    )
+    const copiedDeleteWorkspaceBrowserSpec = join(
+      copiedRoot, 'packages', 'client', 'ui-workspace', 'tests', 'workspace-browser.client.spec.tsx',
+    )
     const copiedDeleteRuntimeFake = join(
       copiedRoot, 'packages', 'client', 'runtime', 'tests', 'fake-api.client.ts',
     )
@@ -378,6 +399,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await mkdir(dirname(copiedDeleteFetchCarrierSpec), { recursive: true })
     await mkdir(dirname(copiedDeleteConnectionFake), { recursive: true })
     await mkdir(dirname(copiedDeleteFixture), { recursive: true })
+    await mkdir(dirname(copiedDeleteTestSupportWorkspaces), { recursive: true })
+    await mkdir(dirname(copiedDeleteRowsSpec), { recursive: true })
+    await mkdir(dirname(copiedDeleteWorkspaceBrowserSpec), { recursive: true })
     await mkdir(dirname(copiedDeleteRuntimeFake), { recursive: true })
     await mkdir(dirname(copiedDeleteWorkspacesContract), { recursive: true })
     await mkdir(dirname(copiedDeleteWorkspacesManager), { recursive: true })
@@ -418,6 +442,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedDeleteFetchCarrierSpec, await readFile(officialDeleteFetchCarrierSpec))
     await writeFile(copiedDeleteConnectionFake, await readFile(officialDeleteConnectionFake))
     await writeFile(copiedDeleteFixture, await readFile(officialDeleteFixture))
+    await writeFile(copiedDeleteTestSupportWorkspaces, await readFile(officialDeleteTestSupportWorkspaces))
+    await writeFile(copiedDeleteRowsSpec, await readFile(officialDeleteRowsSpec))
+    await writeFile(copiedDeleteWorkspaceBrowserSpec, await readFile(officialDeleteWorkspaceBrowserSpec))
     await writeFile(copiedDeleteRuntimeFake, await readFile(officialDeleteRuntimeFake))
     await writeFile(copiedDeleteWorkspacesContract, await readFile(officialDeleteWorkspacesContract))
     await writeFile(copiedDeleteWorkspacesManager, await readFile(officialDeleteWorkspacesManager))

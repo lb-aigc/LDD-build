@@ -429,6 +429,14 @@
      },
      subagents: {
        list: request => ok(request, { entries: [], parentAvailable: true }),
+@@ -3187,6 +3200,7 @@
+       case 'session.attachment': return this.api.sessions.attachment(request)
+       case 'session.updateQueue': return this.api.sessions.updateQueue(request)
+       case 'session.cancel': return this.api.sessions.cancel(request)
++      case 'session.delete': return this.api.sessions.delete(request)
+       case 'subagent.list': return this.api.subagents.list(request)
+       case 'subagent.history': return this.api.subagents.history(request)
+       case 'subagent.prompt': return this.api.subagents.prompt(request, signal)
 --- a/packages/client/runtime/tests/fake-api.client.ts
 +++ b/packages/client/runtime/tests/fake-api.client.ts
 @@ -103,6 +103,7 @@
@@ -447,6 +455,190 @@
    }
  
    onSubagentList: (payload: unknown) => Promise<RpcResponse<{ entries: never[]; parentAvailable: boolean }>>
+--- a/packages/test-support/client-runtime/src/workspaces.ts
++++ b/packages/test-support/client-runtime/src/workspaces.ts
+@@ -212,4 +212,14 @@
+       draft.archivedSessionIds = [...draft.archivedSessionIds, sessionId]
+     })
+   }
++
++  /**
++   * Permanently delete a session (recorded). The default is an inert echo;
++   * feature tests needing richer behavior replace it via {@link TestWorkspaces.stub}.
++   * @param sessionId - session to delete.
++   */
++  async deleteSession(sessionId: SessionId): Promise<void> {
++    this.calls.push({ method: 'deleteSession', args: [sessionId] })
++    await (this.stubs.get('deleteSession')?.(sessionId) as Promise<void> | undefined)
++  }
+ }
+--- a/packages/client/ui-workspace/tests/rows.client.spec.tsx
++++ b/packages/client/ui-workspace/tests/rows.client.spec.tsx
+@@ -63,12 +63,12 @@
+       runningSubagentCount: 0, completed: false, updatedAt: 0,
+     }
+     const view = render(<SessionNodeItem node={idle} currentId={undefined} now={0} onOpen={vi.fn()}
+-      onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} flat t={t} />)
++      onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} flat t={t} />)
+     const title = screen.getByText('Flat Session')
+     expect(title.previousElementSibling).toBeNull()
+ 
+     view.rerender(<SessionNodeItem node={{ ...idle, running: true }} currentId={undefined} now={0}
+-      onOpen={vi.fn()} onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} flat t={t} />)
++      onOpen={vi.fn()} onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} flat t={t} />)
+     expect(screen.getByText('Flat Session').previousElementSibling?.querySelector('[data-state="ongoing"]')).toBeTruthy()
+   })
+ 
+@@ -136,7 +136,7 @@
+     const onOpen = vi.fn()
+     render(
+       <SessionNodeItem node={node} currentId={node.id} now={0} onOpen={onOpen}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />,
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />,
+     )
+ 
+     const row = screen.getByRole('treeitem')
+@@ -155,7 +155,7 @@
+           runningSubagentCount: 0, completed: false, updatedAt: 0, ...over,
+         }}
+         currentId={undefined} now={0} onOpen={vi.fn()}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t}
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t}
+       />,
+     )
+     const stateDot = (view: ReturnType<typeof renderRow>) =>
+@@ -187,7 +187,7 @@
+         runningSubagentCount: 2, completed: false, updatedAt: 0,
+       }
+       render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
+       const row = screen.getByRole('treeitem')
+       expect(row.querySelector('[data-state="ongoing"]')).not.toBeNull()
+       expect(screen.getByText('2 个子代理运行中')).toBeTruthy()
+@@ -209,7 +209,7 @@
+         runningSubagentCount: 1, completed: false, updatedAt: 0,
+       }
+       render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
+       const row = screen.getByRole('treeitem')
+       expect(row.querySelectorAll('[data-state="ongoing"]')).toHaveLength(1)
+       expect(screen.getByText('进行中')).toBeTruthy()
+@@ -230,7 +230,7 @@
+       running: false, runningSubagentCount: 1, completed: false, updatedAt: 0,
+     }
+     render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
+-      onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
++      onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
+     const row = screen.getByRole('treeitem')
+     expect(row.querySelector('[data-state="warning"]')).not.toBeNull()
+     expect(row.querySelector('[data-state="ongoing"]')).toBeNull()
+@@ -377,7 +377,7 @@
+         runningSubagentCount: 0, completed: false, updatedAt: 0,
+       }
+       render(<SessionNodeItem node={node} currentId={node.id} now={0} onOpen={vi.fn()}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
+       // The placeholder has no content yet: no row verbs, no "now" stamp.
+       expect(screen.queryByRole('button', { name: /会话.*的操作/ })).toBeNull()
+       expect(screen.queryByText('刚刚')).toBeNull()
+@@ -399,12 +399,13 @@
+     const onRename = vi.fn()
+     const onFork = vi.fn()
+     const onArchive = vi.fn()
++    const onDelete = vi.fn()
+     const node: SessionNode = {
+       id: sid('s1'), title: 'One', blank: false, running: false,
+       runningSubagentCount: 0, completed: false, updatedAt: 0,
+     }
+     render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={onOpen}
+-      onRename={onRename} onFork={onFork} onArchive={onArchive} t={t} />)
++      onRename={onRename} onFork={onFork} onArchive={onArchive} onDelete={onDelete} t={t} />)
+     fireEvent.click(screen.getByRole('button', { name: '会话“One”的操作' }))
+     expect(onOpen).not.toHaveBeenCalled()
+     // Archive is not destructive (log and accounting slot remain): no danger styling.
+@@ -438,7 +439,7 @@
+         runningSubagentCount: 0, completed: false, updatedAt: 0,
+       }
+       render(<SessionNodeItem node={node} currentId={undefined} now={60_000} onOpen={vi.fn()}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
+       const wrapper = screen.getByRole('treeitem').parentElement as HTMLElement
+       fireEvent.pointerEnter(wrapper)
+       act(() => { vi.advanceTimersByTime(500) })
+@@ -469,14 +470,14 @@
+         pendingInteraction, running: true, runningSubagentCount: 0, completed: false, updatedAt: 0,
+       }
+       const view = render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
+       const row = screen.getByRole('treeitem')
+       expect(row.querySelector('[data-state="warning"]')).toBeTruthy()
+       expect(row.querySelector('[data-state="ongoing"]')).toBeNull()
+       expect(screen.getByText(label)).toBeTruthy()
+ 
+       view.rerender(<SessionNodeItem node={{ ...node, running: false }} currentId={undefined} now={0}
+-        onOpen={vi.fn()} onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
++        onOpen={vi.fn()} onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
+       expect(screen.getByRole('treeitem').querySelector('[data-state="warning"]')).toBeTruthy()
+ 
+       fireEvent.pointerEnter(screen.getByRole('treeitem').parentElement as HTMLElement)
+@@ -496,7 +497,7 @@
+         runningSubagentCount: 0, completed: false, updatedAt: 0,
+       }
+       render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
+       fireEvent.pointerEnter(screen.getByRole('treeitem').parentElement as HTMLElement)
+       act(() => { vi.advanceTimersByTime(500) })
+       expect(screen.getByText('空闲')).toBeTruthy()
+@@ -514,7 +515,7 @@
+         runningSubagentCount: 0, completed: true, updatedAt: 0,
+       }
+       render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} t={t} />)
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
+       fireEvent.pointerEnter(screen.getByRole('treeitem').parentElement as HTMLElement)
+       act(() => { vi.advanceTimersByTime(500) })
+       // Row's visually-hidden reminder label plus the hover card's status line.
+@@ -532,7 +533,7 @@
+     const inactive = dragProps()
+     const { rerender } = render(
+       <SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} drag={inactive} t={t} />,
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} drag={inactive} t={t} />,
+     )
+     const row = screen.getByRole('treeitem')
+     stubRect(row)
+@@ -550,7 +551,7 @@
+     const active = dragProps({ active: true, marker: 'before' })
+     rerender(
+       <SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} drag={active} t={t} />,
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} drag={active} t={t} />,
+     )
+     stubRect(screen.getByRole('treeitem'))
+     // Top half hovers/drops 'before'; bottom half 'after' (row mid = 117).
+@@ -564,7 +565,7 @@
+     const after = dragProps({ active: true, marker: 'after' })
+     rerender(
+       <SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()}
+-        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} drag={after} t={t} />,
++        onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} drag={after} t={t} />,
+     )
+     expect(screen.getByRole('treeitem').className).toMatch(/dropAfter/)
+   })
+--- a/packages/client/ui-workspace/tests/workspace-browser.client.spec.tsx
++++ b/packages/client/ui-workspace/tests/workspace-browser.client.spec.tsx
+@@ -76,6 +76,7 @@
+     renameWorkspace: vi.fn(async () => {}),
+     deleteWorkspace: vi.fn(async () => {}),
+     archiveSession: vi.fn(async () => {}),
++    deleteSession: vi.fn(async () => {}),
+     insertWorkspaceBefore: vi.fn(async () => {}),
+     insertSessionBefore: vi.fn(async () => {}),
+     createWorkspace: vi.fn(async () => workspace('created', [])),
 --- a/packages/client/runtime/src/client/contract/workspaces.ts
 +++ b/packages/client/runtime/src/client/contract/workspaces.ts
 @@ -91,4 +91,12 @@
@@ -464,7 +656,7 @@
  }
 --- a/packages/client/runtime/src/client/workspaces/manager.ts
 +++ b/packages/client/runtime/src/client/workspaces/manager.ts
-@@ -232,6 +232,17 @@
+@@ -232,6 +232,18 @@
    }
  
    /**
@@ -475,7 +667,8 @@
 +   * @returns the wire result.
 +   */
 +  async deleteSession(sessionId: SessionId): Promise<RpcResult<{ deleted: true }>> {
-+    return this.api.sessions.delete({ sessionId })
++    const { result } = await this.api.sessions.delete({ sessionId })
++    return result
 +  }
 +
 +  /**
