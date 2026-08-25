@@ -6,8 +6,8 @@ import { imageSizes, maxImagesPerRequest, maxVideoDurationSeconds, videoAspectRa
 import type { GenerationConfig } from './config.ts'
 import { credentialsServiceResolver, environmentSecretResolver } from './credentials.ts'
 import type { SecretResolver } from './credentials.ts'
-import { attachImageFromUrl, imageBlockOf } from './attach.ts'
-import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
+import { attachImageFromUrl } from './attach.ts'
+import type { AttachmentStoreLike } from './attach.ts'
 import { IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS } from './presets.ts'
 import {
   buildProvider,
@@ -103,7 +103,8 @@ function defineImageTool(
   return defineTool({
     name: 'generate_image',
     description:
-      'Generate one or more images from a text prompt using an image-generation model. Call this when the user asks to create, draw, render, or imagine a picture, illustration, poster, avatar, or any visual asset. Returns image references (URL/data URI), dimensions, and the prompt used.\n\n'
+      'Generate one or more images from a text prompt using an image-generation model. Call this when the user asks to create, draw, render, or imagine a picture, illustration, poster, avatar, or any visual asset. Returns image references (URL), dimensions, and the prompt used.\n\n'
+      + 'IMPORTANT: after the tool returns, you MUST display each generated image to the user in your reply using markdown image syntax ![short description](url), so the user sees the picture inline in the chat. Do not only describe it in words — always include the markdown image.\n\n'
       + 'Available models (pick `provider` by need, or omit to use the default):\n'
       + modelCatalog(resolved, IMAGE_PROVIDER_PRESETS),
     parameters: {
@@ -116,20 +117,16 @@ function defineImageTool(
     output: {
       schema: imageResultSchema,
       render: (_args, value) => {
-        const blocks: Array<{ type: 'text'; text: string } | { type: 'image'; attachment: ImageMeta }> = []
+        // Emit each image's URL as TEXT (not an image block): the harness
+        // frontend has no image renderer for tool results, so an image block
+        // here would be flattened to JSON text. The model reads the URL and
+        // renders the picture inline via markdown (![alt](url)) in its reply,
+        // which the assistant-message markdown renderer displays as an <img>.
+        const blocks: Array<{ type: 'text'; text: string }> = []
         for (const image of value.images) {
-          if (image.attachment !== undefined) {
-            blocks.push({ type: 'text', text: `图片 ${image.index}（${image.width}x${image.height}）` })
-            blocks.push(imageBlockOf(image.attachment as ImageMeta))
-          } else {
-            blocks.push({ type: 'text', text: JSON.stringify(image) })
-          }
+          blocks.push({ type: 'text', text: `图片 ${image.index} 已生成（${image.width}x${image.height}）：${image.url}` })
         }
-        // The image block's `attachment` carries the harness's nominal
-        // ImageAttachmentRef brand (compile-time only; a plain string at
-        // runtime). This plugin shims the type to avoid a lockfile dependency,
-        // so the array is asserted to the tool's ContentBlock[] return type.
-        return blocks as any
+        return blocks
       },
     },
     isConcurrencySafe: () => true,
