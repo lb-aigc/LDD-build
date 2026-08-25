@@ -4,6 +4,8 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 
 import { imageSizes, maxImagesPerRequest, maxVideoDurationSeconds, videoAspectRatios, videoResolutions } from './config.ts'
 import type { GenerationConfig } from './config.ts'
+import { credentialsServiceResolver, environmentSecretResolver } from './credentials.ts'
+import type { SecretResolver } from './credentials.ts'
 import { IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS } from './presets.ts'
 import {
   buildProvider,
@@ -77,7 +79,7 @@ const videoResultSchema = {
   },
 } as const
 
-function defineImageTool(resolved: ResolvedModels, config: Config) {
+function defineImageTool(resolved: ResolvedModels, config: Config, secret: { resolve: SecretResolver }) {
   const providerKeys = resolved.entries.map((entry) => entry.key)
   return defineTool({
     name: 'generate_image',
@@ -99,7 +101,7 @@ function defineImageTool(resolved: ResolvedModels, config: Config) {
     isConcurrencySafe: () => true,
     async execute(args, exec) {
       const entry = pickProvider(resolved, args.provider)
-      const provider = buildProvider(entry, IMAGE_PROVIDER_PRESETS)
+      const provider = await buildProvider(entry, IMAGE_PROVIDER_PRESETS, secret.resolve)
       const count = args.count === undefined ? 1 : Math.max(1, Math.min(maxImagesPerRequest, args.count))
       const request = {
         prompt: args.prompt,
@@ -113,7 +115,7 @@ function defineImageTool(resolved: ResolvedModels, config: Config) {
   })
 }
 
-function defineVideoTool(resolved: ResolvedModels, config: Config) {
+function defineVideoTool(resolved: ResolvedModels, config: Config, secret: { resolve: SecretResolver }) {
   const providerKeys = resolved.entries.map((entry) => entry.key)
   return defineTool({
     name: 'generate_video',
@@ -135,7 +137,7 @@ function defineVideoTool(resolved: ResolvedModels, config: Config) {
     isConcurrencySafe: () => false,
     async execute(args, exec) {
       const entry = pickProvider(resolved, args.provider)
-      const provider = buildProvider(entry, VIDEO_PROVIDER_PRESETS)
+      const provider = await buildProvider(entry, VIDEO_PROVIDER_PRESETS, secret.resolve)
       const durationSeconds = args.durationSeconds === undefined
         ? 5
         : Math.max(1, Math.min(maxVideoDurationSeconds, Math.round(args.durationSeconds)))
@@ -162,11 +164,19 @@ export function apply(ctx: Context, config: Config): void {
   let disposeImage: (() => void) | undefined
   let disposeVideo: (() => void) | undefined
 
+  // Secret resolver: env-only by default, upgraded to the harness credentials
+  // service (env + store + .env) when it is present, so the settings card's
+  // "API Key" field (credentials store) actually reaches the provider.
+  const secret: { resolve: SecretResolver } = { resolve: environmentSecretResolver }
+  ctx.inject(['credentials'], (credCtx) => {
+    secret.resolve = credentialsServiceResolver(credCtx.credentials)
+  })
+
   const registerTools = (): void => {
     disposeImage?.()
     disposeVideo?.()
-    disposeImage = ctx.tools.register(defineImageTool(state.image, config))
-    disposeVideo = ctx.tools.register(defineVideoTool(state.video, config))
+    disposeImage = ctx.tools.register(defineImageTool(state.image, config, secret))
+    disposeVideo = ctx.tools.register(defineVideoTool(state.video, config, secret))
   }
   registerTools()
 

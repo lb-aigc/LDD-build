@@ -105,5 +105,6 @@ export interface GenerationSettingsProvider {
 declare module '@deepseek-ai/cordis' {
   interface Context {
     settings: GenerationSettingsProvider
+    credentials: import('./credentials.ts').CredentialsResolveLike
   }
 }

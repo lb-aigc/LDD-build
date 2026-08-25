@@ -3,7 +3,8 @@
  * cordis / dsh-tools) so `tests/routing.verify.ts` can exercise it directly
  * under the Node strip-only verify harness.
  */
-import { environmentSecretResolver } from './credentials.ts'
+import { DEFAULT_API_KEY_REF, environmentSecretResolver } from './credentials.ts'
+import type { SecretResolver } from './credentials.ts'
 import { CUSTOM_PROVIDER_ID, findPreset, presetIds } from './presets.ts'
 import type { ProviderPreset } from './presets.ts'
 import type { GenerationProvider } from './provider.ts'
@@ -86,8 +87,14 @@ export function resolveModels(raw: GenerationSettings | undefined): ResolvedMode
  * Resolve a routing key (the `provider` tool argument) to a concrete adapter.
  * `undefined` requested → the default entry; an unknown key is a model-visible
  * error listing the available keys, so a stale tool call fails informatively.
+ * The API key is resolved from its reference per call (async: the credentials
+ * service may read the store / .env).
  */
-export function buildProvider(entry: RoutedModel, presets: readonly ProviderPreset[]): GenerationProvider {
+export async function buildProvider(
+  entry: RoutedModel,
+  presets: readonly ProviderPreset[],
+  resolveSecret: SecretResolver = environmentSecretResolver,
+): Promise<GenerationProvider> {
   if (entry.provider === CUSTOM_PROVIDER_ID) {
     if (entry.protocol === '') {
       throw new Error('provider "custom" 需要配置 protocol（请在设置里配置 protocol）')
@@ -95,7 +102,7 @@ export function buildProvider(entry: RoutedModel, presets: readonly ProviderPres
     return createProvider(entry.protocol, {
       baseURL: entry.baseURL,
       model: entry.model,
-      apiKey: environmentSecretResolver(entry.apiKeyEnv),
+      apiKey: await resolveSecret(entry.apiKeyEnv === '' ? DEFAULT_API_KEY_REF : entry.apiKeyEnv),
     })
   }
   const preset = findPreset(presets, entry.provider)
@@ -107,7 +114,7 @@ export function buildProvider(entry: RoutedModel, presets: readonly ProviderPres
   return createProvider(preset.protocol, {
     baseURL: entry.baseURL || preset.defaultBaseURL,
     model: entry.model || preset.defaultModel,
-    apiKey: environmentSecretResolver(entry.apiKeyEnv),
+    apiKey: await resolveSecret(entry.apiKeyEnv === '' ? DEFAULT_API_KEY_REF : entry.apiKeyEnv),
   })
 }
 

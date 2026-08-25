@@ -83,16 +83,16 @@ test('routeKeyOf matches resolveModels keys', () => {
   assert.deepEqual([0, 1, 2].map((i) => routeKeyOf(raws, i)), ['a', 'a#2', 'b'])
 })
 
-test('buildProvider maps a preset id to its protocol adapter', () => {
+test('buildProvider maps a preset id to its protocol adapter', async () => {
   const resolved = resolveModels({ models: [{ provider: 'gpt-image' }] })
-  const provider = buildProvider(resolved.entries[0]!, IMAGE_PROVIDER_PRESETS)
+  const provider = await buildProvider(resolved.entries[0]!, IMAGE_PROVIDER_PRESETS)
   assert.equal(provider.id, 'openai-compatible')
 })
 
-test('buildProvider on custom requires a protocol', () => {
+test('buildProvider on custom requires a protocol', async () => {
   const resolved = resolveModels({ models: [{ provider: CUSTOM_PROVIDER_ID, protocol: '' }] })
-  assert.throws(
-    () => buildProvider(resolved.entries[0]!, IMAGE_PROVIDER_PRESETS),
+  await assert.rejects(
+    buildProvider(resolved.entries[0]!, IMAGE_PROVIDER_PRESETS),
     /provider "custom" 需要配置 protocol/,
   )
 })
