@@ -6,6 +6,8 @@ import { imageSizes, maxImagesPerRequest, maxVideoDurationSeconds, videoAspectRa
 import type { GenerationConfig } from './config.ts'
 import { credentialsServiceResolver, environmentSecretResolver } from './credentials.ts'
 import type { SecretResolver } from './credentials.ts'
+import { attachImageFromUrl, imageBlockOf } from './attach.ts'
+import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
 import { IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS } from './presets.ts'
 import {
   buildProvider,
@@ -46,6 +48,18 @@ const imageResultSchema = {
           width: { type: 'integer', required: true },
           height: { type: 'integer', required: true },
           prompt: { type: 'string', required: true },
+          attachment: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              attachmentId: { type: 'string', required: true },
+              mediaType: { type: 'string', required: true },
+              bytes: { type: 'integer', required: true },
+              width: { type: 'integer', required: true },
+              height: { type: 'integer', required: true },
+              name: { type: 'string' },
+            },
+          },
         },
       },
     },
@@ -79,7 +93,12 @@ const videoResultSchema = {
   },
 } as const
 
-function defineImageTool(resolved: ResolvedModels, config: Config, secret: { resolve: SecretResolver }) {
+function defineImageTool(
+  resolved: ResolvedModels,
+  config: Config,
+  secret: { resolve: SecretResolver },
+  attachments: { current?: AttachmentStoreLike },
+) {
   const providerKeys = resolved.entries.map((entry) => entry.key)
   return defineTool({
     name: 'generate_image',
@@ -96,7 +115,22 @@ function defineImageTool(resolved: ResolvedModels, config: Config, secret: { res
     },
     output: {
       schema: imageResultSchema,
-      render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
+      render: (_args, value) => {
+        const blocks: Array<{ type: 'text'; text: string } | { type: 'image'; attachment: ImageMeta }> = []
+        for (const image of value.images) {
+          if (image.attachment !== undefined) {
+            blocks.push({ type: 'text', text: `图片 ${image.index}（${image.width}x${image.height}）` })
+            blocks.push(imageBlockOf(image.attachment as ImageMeta))
+          } else {
+            blocks.push({ type: 'text', text: JSON.stringify(image) })
+          }
+        }
+        // The image block's `attachment` carries the harness's nominal
+        // ImageAttachmentRef brand (compile-time only; a plain string at
+        // runtime). This plugin shims the type to avoid a lockfile dependency,
+        // so the array is asserted to the tool's ContentBlock[] return type.
+        return blocks as any
+      },
     },
     isConcurrencySafe: () => true,
     async execute(args, exec) {
@@ -110,7 +144,23 @@ function defineImageTool(resolved: ResolvedModels, config: Config, secret: { res
         ...(args.style === undefined ? {} : { style: args.style }),
       }
       const taskSignal = AbortSignal.any([exec.signal, AbortSignal.timeout(config.timeoutMs)])
-      return await provider.generateImage(request, taskSignal)
+      const result = await provider.generateImage(request, taskSignal)
+      const store = attachments.current
+      const images = []
+      for (const image of result.images) {
+        const meta = store !== undefined
+          ? await attachImageFromUrl(image.url, store, taskSignal)
+          : undefined
+        images.push({
+          index: image.index,
+          url: image.url,
+          width: image.width,
+          height: image.height,
+          prompt: image.prompt,
+          ...(meta !== undefined ? { attachment: meta } : {}),
+        })
+      }
+      return { images, provider: result.provider, model: result.model }
     },
   })
 }
@@ -172,10 +222,18 @@ export function apply(ctx: Context, config: Config): void {
     secret.resolve = credentialsServiceResolver(credCtx.credentials)
   })
 
+  // Attachment store: optional. When mounted, generated image URLs are
+  // downloaded and stored so they render IN the conversation; without it the
+  // tools still work but return plain-text references.
+  const attachments: { current?: AttachmentStoreLike } = {}
+  ctx.inject(['attachments'], (attCtx) => {
+    attachments.current = (attCtx as unknown as { attachments: AttachmentStoreLike }).attachments
+  })
+
   const registerTools = (): void => {
     disposeImage?.()
     disposeVideo?.()
-    disposeImage = ctx.tools.register(defineImageTool(state.image, config, secret))
+    disposeImage = ctx.tools.register(defineImageTool(state.image, config, secret, attachments))
     disposeVideo = ctx.tools.register(defineVideoTool(state.video, config, secret))
   }
   registerTools()
