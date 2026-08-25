@@ -8,16 +8,17 @@
  import css from './ImageLightbox.module.css'
  
  /** Lightbox strings the owner resolves from its own locale namespace. */
-@@ -9,6 +9,8 @@
+@@ -9,6 +9,9 @@
    dialog: string
    /** Accessible label of the close control. */
    close: string
-+  /** Accessible label of the download (save-to-disk) control. */
-+  download: string
++  /** Accessible label of the download (save-to-disk) control. Optional: when
++   *  absent, the download control is not rendered (plain-browser fixtures). */
++  download?: string
  }
  
  /**
-@@ -20,18 +22,37 @@
+@@ -20,18 +23,37 @@
   *
   * @param props.src - the original image URL.
   * @param props.alt - the image's alt text.
@@ -57,7 +58,7 @@
  
    useEffect(() => {
      restoreRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-@@ -55,9 +76,14 @@
+@@ -55,9 +77,18 @@
      >
        <div className={css.mask} aria-hidden="true" onMouseDown={onClose} />
        <img className={css.image} src={src} alt={alt} />
@@ -65,9 +66,13 @@
 -        <IconCloseOutline16 size={16} />
 -      </button>
 +      <div className={css.actions}>
-+        <button type="button" className={css.action} title={labels.download} aria-label={labels.download} onClick={saveImage}>
-+          <IconDownloadOutline16 size={16} />
-+        </button>
++        {labels.download !== undefined
++          ? (
++            <button type="button" className={css.action} title={labels.download} aria-label={labels.download} onClick={saveImage}>
++              <IconDownloadOutline16 size={16} />
++            </button>
++          )
++          : null}
 +        <button ref={closeRef} type="button" className={css.action} aria-label={labels.close} onClick={onClose}>
 +          <IconCloseOutline16 size={16} />
 +        </button>
