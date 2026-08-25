@@ -14,7 +14,7 @@
    /** Inspect this call in the trajectory view when available. */
    inspect?: (() => void) | undefined
 +  /** Render a historical image group through the attachment slot (threaded from the chat node). */
-+  renderMessageImages: RenderMessageImages
++  renderMessageImages?: RenderMessageImages
  }
  
  /** Full props of a registered atomic Tool view. */
@@ -127,7 +127,7 @@
        onOpenFile={singleFile ? openFile : undefined}
        inspect={inspect}
      />
-+    {images.length > 0 && renderMessageImages({ images, align: 'start' })}
++    {images.length > 0 && renderMessageImages?.({ images, align: 'start' })}
 +    </>
    )
  }

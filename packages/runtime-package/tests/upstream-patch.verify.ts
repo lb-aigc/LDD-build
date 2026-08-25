@@ -221,11 +221,11 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(buildEnvironment, /DSH_CLIENT_TITLE: 'LDD'/u)
     assert.doesNotMatch(buildEnvironment, /DeepSeek Harness/u)
     const toolSlots = await readFile(copiedToolSlots, 'utf8')
-    assert.match(toolSlots, /renderMessageImages: RenderMessageImages/u)
+    assert.match(toolSlots, /renderMessageImages\?: RenderMessageImages/u)
     const toolCallModel = await readFile(copiedToolCallModel, 'utf8')
     assert.match(toolCallModel, /block\.type !== 'image'/u)
     const genericToolCard = await readFile(copiedGenericToolCard, 'utf8')
-    assert.match(genericToolCard, /renderMessageImages\(\{ images, align: 'start' \}\)/u)
+    assert.match(genericToolCard, /renderMessageImages\?\.\(\{ images, align: 'start' \}\)/u)
     await assert.rejects(
       applyTrackedUpstreamPatches(copiedRoot, patchRoot),
       /does not match the official source/,
