@@ -20,6 +20,7 @@ test('renderer API is narrow and rejects command/path injection', () => {
     'openPluginCenter',
     'retryBoot',
     'openLogDirectory',
+    'saveImage',
     'subscribeProgress',
   ])
   assert.throws(

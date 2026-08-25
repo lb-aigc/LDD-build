@@ -75,7 +75,6 @@ function ModelRow(props: {
   const { model, index, isDefault, disabled, presets, t } = props
   const isCustom = model.provider === CUSTOM_PROVIDER_ID
   const suggested = presets.find((preset) => preset.id === model.provider)?.suggestedModels ?? []
-  const modelListId = `generate-model-${model.uid}`
   return (
     <div style={{ border: '1px solid var(--dsh-border, #e4e7ec)', borderRadius: '6px', padding: '12px', marginBottom: '10px', background: 'var(--dsh-bg-field, #fff)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
@@ -119,18 +118,19 @@ function ModelRow(props: {
         ? (
           <div style={{ marginBottom: '10px' }}>
             <label style={labelStyle}>{t('model')}</label>
-            <input
-              type="text"
+            <select
               style={inputStyle}
               value={model.model}
               disabled={disabled}
-              placeholder={t('modelHint')}
-              list={modelListId}
               onChange={(event) => { props.onEditModel(index, 'model', event.target.value) }}
-            />
-            <datalist id={modelListId}>
-              {suggested.map((option) => <option key={option} value={option} />)}
-            </datalist>
+            >
+              {model.model && !suggested.some((option) => option.id === model.model)
+                ? <option value={model.model}>{model.model}</option>
+                : null}
+              {suggested.map((option) => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </select>
           </div>
         )
         : <Field label={t('model')} hint={t('modelHint')} value={model.model} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'model', text) }} />}
