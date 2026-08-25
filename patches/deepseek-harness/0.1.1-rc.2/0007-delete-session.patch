@@ -69,10 +69,10 @@
 +   * Durably delete one stored session and its coordinator-side state. The
 +   * default rejects: only backends that can erase a stored session override
 +   * it. A still-live session rejects — stop it before deleting.
-+   * @param id - persisted session to delete.
++   * @param _id - persisted session to delete.
 +   * @param signal - optional cancellation for backend delete work.
 +   */
-+  async delete(id: SessionId, signal?: AbortSignal): Promise<void> {
++  async delete(_id: SessionId, signal?: AbortSignal): Promise<void> {
 +    if (signal?.aborted === true) {
 +      return Promise.reject(signal.reason instanceof Error ? signal.reason : new Error('aborted'))
 +    }
@@ -377,6 +377,18 @@
        ...overrides.sessions,
      },
      subagents: {
+--- a/packages/host/apiproxy/tests/fetch-carrier.spec.ts
++++ b/packages/host/apiproxy/tests/fetch-carrier.spec.ts
+@@ -107,6 +107,9 @@
+       },
+       async cancel(request) {
+         return { rpcId: request.rpcId, result: { ok: true, value: { accepted: true as const } } }
++      },
++      async delete(request) {
++        return { rpcId: request.rpcId, result: { ok: true, value: { deleted: true as const } } }
+       },
+     },
+     subagents: {
 --- a/packages/client/connection/tests/fake-api.client.ts
 +++ b/packages/client/connection/tests/fake-api.client.ts
 @@ -70,6 +70,7 @@
@@ -395,6 +407,28 @@
    }
  
    readonly subagents: IApiClient['subagents'] = {
+--- a/packages/client/connection/src/client/fixture.ts
++++ b/packages/client/connection/src/client/fixture.ts
+@@ -2600,6 +2600,19 @@
+         }
+         return ok(request, { accepted: true as const })
+       },
++      delete: (request) => {
++        const { sessionId } = request.payload
++        const index = sessions.findIndex(session => session.sessionId === sessionId)
++        if (index !== -1) {
++          sessions.splice(index, 1)
++        }
++        const archivedIndex = archivedSessionIds.indexOf(sessionId)
++        if (archivedIndex !== -1) {
++          archivedSessionIds.splice(archivedIndex, 1)
++        }
++        emitHost({ type: 'host/session-removed', sessionId })
++        return ok(request, { deleted: true as const })
++      },
+     },
+     subagents: {
+       list: request => ok(request, { entries: [], parentAvailable: true }),
 --- a/packages/client/runtime/tests/fake-api.client.ts
 +++ b/packages/client/runtime/tests/fake-api.client.ts
 @@ -103,6 +103,7 @@
