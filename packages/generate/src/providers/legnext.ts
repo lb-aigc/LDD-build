@@ -28,8 +28,9 @@ const SIZE_ASPECT_RATIOS: Readonly<Record<ImageSize, string>> = {
  *
  * Midjourney version and style ride the `text` as `--v` / `--ar` / `--style`
  * flags (the service has no separate model/size fields). The `model` option is
- * repurposed as the default `--v` value (e.g. `v8.2`); the `size` option maps
- * to `--ar`; the optional `style` maps to `--style`.
+ * repurposed as the default `--v` value (e.g. `8.2`); the `size` option maps
+ * to `--ar`; the optional `style` maps to `--style`. A leading `v` on the model
+ * is stripped: Legnext rejects `--v v8.2` and expects `--v 8.2`.
  */
 export class LegnextProvider implements GenerationProvider {
   readonly id = 'legnext'
@@ -117,10 +118,16 @@ export class LegnextProvider implements GenerationProvider {
   }
 }
 
-function buildText(request: GenerateImageRequest, model: string): string {
+/** Strip a leading `v`/`V` from a Midjourney version token so both `v8.2` and
+ *  `8.2` emit `--v 8.2` (Legnext rejects the `v` prefix). */
+function mjVersionToken(model: string): string {
+  return model.replace(/^[vV]\s*/, '')
+}
+
+export function buildText(request: GenerateImageRequest, model: string): string {
   const parts = [request.prompt]
   if (model !== '' && model !== 'midjourney') {
-    parts.push(`--v ${model}`)
+    parts.push(`--v ${mjVersionToken(model)}`)
   }
   parts.push(`--ar ${SIZE_ASPECT_RATIOS[request.size] ?? '1:1'}`)
   if (request.style !== undefined && request.style !== '') {

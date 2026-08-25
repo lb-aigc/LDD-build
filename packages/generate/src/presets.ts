@@ -98,7 +98,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     label: 'Legnext（MJ 中转）',
     protocol: 'legnext',
     defaultBaseURL: 'https://api.legnext.ai/api',
-    defaultModel: 'v8.2',
+    defaultModel: '8.2',
     strengths: 'Midjourney 中转：艺术风格、概念插画、氛围感画面（V7/V8.1/V8.2）',
   },
 ]

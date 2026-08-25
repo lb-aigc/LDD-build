@@ -37,7 +37,7 @@ export const IMAGE_PRESETS: readonly ClientPreset[] = [
       'gpt-image-2-image-to-image',
     ],
   },
-  { id: 'legnext', label: 'Legnext（MJ 中转）', suggestedModels: ['v8.2', 'v8.1', 'v7'] },
+  { id: 'legnext', label: 'Legnext（MJ 中转）', suggestedModels: ['8.2', '8.1', '7'] },
 ]
 
 export const VIDEO_PRESETS: readonly ClientPreset[] = [

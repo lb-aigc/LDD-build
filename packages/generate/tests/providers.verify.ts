@@ -9,6 +9,7 @@ import {
   presetIds,
 } from '../src/presets.ts'
 import { createProvider } from '../src/providers/index.ts'
+import { buildText } from '../src/providers/legnext.ts'
 
 const emptyOptions = { baseURL: '', model: '', apiKey: undefined }
 
@@ -40,7 +41,7 @@ test('presets carry the expected protocol and defaults', () => {
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'kie')?.defaultModel, 'bytedance/seedream')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'legnext')?.protocol, 'legnext')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'legnext')?.defaultBaseURL, 'https://api.legnext.ai/api')
-  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'legnext')?.defaultModel, 'v8.2')
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'legnext')?.defaultModel, '8.2')
   assert.equal(findPreset(VIDEO_PROVIDER_PRESETS, 'kie')?.defaultModel, 'bytedance/seedance-2-5')
 })
 
@@ -86,9 +87,20 @@ test('kie fails fast without a model capability id', async () => {
 })
 
 test('legnext fails fast without an API key', async () => {
-  const provider = createProvider('legnext', { baseURL: 'https://api.legnext.ai/api', model: 'v8.2', apiKey: undefined })
+  const provider = createProvider('legnext', { baseURL: 'https://api.legnext.ai/api', model: '8.2', apiKey: undefined })
   await assert.rejects(
     provider.generateImage({ prompt: 'x', count: 1, size: '1024x1024' }, new AbortController().signal),
     /API key/,
   )
+})
+
+test('legnext buildText normalizes a v-prefixed version', () => {
+  const request = { prompt: 'a lonely landscape', count: 1, size: '1024x1024' as const }
+  // `v8.2` (and `V7`) must emit `--v 8.2` / `--v 7` — Legnext rejects the `v` prefix.
+  assert.ok(buildText(request, 'v8.2').includes('--v 8.2'))
+  assert.ok(buildText(request, 'V7').includes('--v 7'))
+  assert.ok(buildText(request, '8.1').includes('--v 8.1'))
+  // The blank/`midjourney` sentinel adds no `--v` flag at all.
+  assert.ok(!buildText(request, '').includes('--v'))
+  assert.ok(!buildText(request, 'midjourney').includes('--v'))
 })
