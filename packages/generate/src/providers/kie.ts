@@ -42,7 +42,7 @@ export class KieProvider implements GenerationProvider {
   async generateImage(request: GenerateImageRequest, signal: AbortSignal): Promise<GenerateImageResult> {
     const { model } = this.requireCredentials()
     const taskId = await this.submit(signal, model, { prompt: request.prompt })
-    const urls = await this.poll(signal, taskId)
+    const urls = await this.resolveDownloadUrls(await this.poll(signal, taskId), signal)
     const { width, height } = imageSizeOf(request.size)
     return {
       images: urls.map((url, index) => ({ index, url, width, height, prompt: request.prompt })),
@@ -60,7 +60,7 @@ export class KieProvider implements GenerationProvider {
       resolution: request.resolution,
       aspect_ratio: request.aspectRatio,
     })
-    const urls = await this.poll(signal, taskId)
+    const urls = await this.resolveDownloadUrls(await this.poll(signal, taskId), signal)
     return {
       videos: urls.map((url, index) => ({
         index,
@@ -110,6 +110,40 @@ export class KieProvider implements GenerationProvider {
       throw new Error(`${this.id}: createTask 响应缺少 taskId`)
     }
     return taskId
+  }
+
+  /** Resolve every result URL into a direct, fetchable download URL via the
+   *  common download-url endpoint. KIE result URLs are internal tempfile
+   *  references that cannot be fetched directly (cross-domain/auth), so each
+   *  must be converted — otherwise the attachment seam fails to download and
+   *  the image never renders in the conversation. A conversion failure keeps
+   *  the original URL so the call still degrades to text instead of throwing. */
+  private async resolveDownloadUrls(urls: readonly string[], signal: AbortSignal): Promise<string[]> {
+    return Promise.all(urls.map((url) => this.downloadUrl(url, signal)))
+  }
+
+  /** Convert one result URL into a temporary direct download link. */
+  private async downloadUrl(url: string, signal: AbortSignal): Promise<string> {
+    const { baseURL, apiKey } = this.options
+    try {
+      const response = await fetch(`${trimSlash(baseURL)}/api/v1/common/download-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ url }),
+        signal,
+      })
+      if (!response.ok) return url
+      const payload = (await response.json()) as { code?: number; data?: string | { downloadUrl?: string } }
+      if (payload.code !== 200) return url
+      const data = payload.data
+      if (typeof data === 'string' && data !== '') return data
+      if (data !== undefined && typeof data === 'object' && typeof data.downloadUrl === 'string' && data.downloadUrl !== '') {
+        return data.downloadUrl
+      }
+      return url
+    } catch {
+      return url
+    }
   }
 
   /** Poll the task until success (returns resultUrls) or failure. */
