@@ -1,0 +1,645 @@
+--- a/packages/session/session-persistence/src/coordinator.ts
++++ b/packages/session/session-persistence/src/coordinator.ts
+@@ -212,6 +212,16 @@
+    * backend omits it.
+    */
+   close?(): Promise<void>
++
++  /**
++   * Durably erase every stored artifact for one session id — the physical
++   * delete behind {@link SessionPersistence.delete}. A backend that cannot
++   * remove a stored session omits it, in which case deletion fails with a
++   * clear error instead of leaving a half-deleted id.
++   * @param id - persisted session to erase.
++   * @param signal - optional cancellation for backend delete work.
++   */
++  erase?(id: SessionId, signal?: AbortSignal): Promise<void>
+ }
+ 
+ /** Per-session write state held by the coordinator's in-memory bookkeeping. */
+@@ -642,6 +652,40 @@
+     return this.serialize(snapshot.id, () => this.createCore(snapshot))
+   }
+ 
++  /**
++   * Delete one session's durable artifact and every coordinator-side state.
++   * The caller stops any live owner first — a still-live session rejects
++   * (its write-behind would otherwise resurrect the artifact after erase).
++   * The in-memory bookkeeping is cleared and the backend erases its stored
++   * artifact; a backend without `erase` fails with a clear error. Unknown ids
++   * are the backend's to treat as a no-op.
++   * @param id - persisted session to delete.
++   * @param signal - optional cancellation for backend delete work.
++   */
++  delete(id: SessionId, signal?: AbortSignal): Promise<void> {
++    // Wait out any in-flight retirement (a disposed owner's final drain) before
++    // erasing, so the erase never races a write-behind flush. Same pattern as
++    // `readFrom`.
++    const retired = Promise.resolve(this.retirements.get(id))
++    const waited = signal === undefined ? retired : observeQueuedAbort(retired, signal, () => false)
++    return waited.then(() => this.serialize(id, () => this.deleteCore(id, signal), signal))
++  }
++
++  private async deleteCore(id: SessionId, signal?: AbortSignal): Promise<void> {
++    for (const session of this.live.keys()) {
++      if (session.id === id) {
++        throw new Error(`session "${id}" is still live; stop it before deleting`)
++      }
++    }
++    this.states.delete(id)
++    this.retirements.delete(id)
++    this.preparations.invalidate(id)
++    if (this.backend.erase === undefined) {
++      throw new Error(`${this.backend.name}: session deletion is not supported`)
++    }
++    await this.backend.erase(id, signal)
++  }
++
+   private async createCore(meta: SessionHeader): Promise<void> {
+     // Do NOT clobber an existing session: the SessionId IS the identity.
+     if (this.states.has(meta.id) || this.preparations.has(meta.id)) {
+--- a/packages/session/session-persistence/src/index.ts
++++ b/packages/session/session-persistence/src/index.ts
+@@ -238,6 +238,20 @@
+    * @returns one header and opaque revision per materialized session without loading full logs.
+    */
+   abstract listSnapshots(signal?: AbortSignal): Promise<SessionPersistenceSnapshot[]>
++
++  /**
++   * Durably delete one stored session and its coordinator-side state. The
++   * default rejects: only backends that can erase a stored session override
++   * it. A still-live session rejects — stop it before deleting.
++   * @param id - persisted session to delete.
++   * @param signal - optional cancellation for backend delete work.
++   */
++  async delete(id: SessionId, signal?: AbortSignal): Promise<void> {
++    if (signal?.aborted === true) {
++      return Promise.reject(signal.reason instanceof Error ? signal.reason : new Error('aborted'))
++    }
++    return Promise.reject(new Error('this session persistence backend does not support deletion'))
++  }
+ }
+ 
+ export default SessionPersistence
+--- a/packages/session/session-persistence-jsonl/src/index.ts
++++ b/packages/session/session-persistence-jsonl/src/index.ts
+@@ -199,6 +199,19 @@
+     return this.coordinator.readFrom(id, fromSeq, signal)
+   }
+ 
++  /** Delete one session's artifact and coordinator state (physical delete). */
++  override delete(id: SessionId, signal?: AbortSignal): Promise<void> {
++    return this.coordinator.delete(id, signal)
++  }
++
++  /** PersistenceBackend.erase: remove this session's log file(s). */
++  async erase(id: SessionId, signal?: AbortSignal): Promise<void> {
++    signal?.throwIfAborted()
++    const path = await this.findLog(id, signal)
++    if (path === undefined) return // unknown id: idempotent no-op
++    await rm(path, { force: true })
++  }
++
+   // One method serves both public `list` and the backend hook; delegating it to
+   // the coordinator would call this hook recursively.
+ 
+--- a/packages/session/session-persistence-sqlite/src/index.ts
++++ b/packages/session/session-persistence-sqlite/src/index.ts
+@@ -122,6 +122,11 @@
+     return this.coordinator.readFrom(id, fromSeq, signal)
+   }
+ 
++  /** Delete one session's rows and coordinator state (physical delete). */
++  override delete(id: SessionId, signal?: AbortSignal): Promise<void> {
++    return this.coordinator.delete(id, signal)
++  }
++
+   list(signal?: AbortSignal): Promise<SessionHeader[]> {
+     return this.store.list(signal)
+   }
+--- a/packages/session/session-persistence-sqlite/src/store.ts
++++ b/packages/session/session-persistence-sqlite/src/store.ts
+@@ -271,6 +271,23 @@
+     this.db.close()
+   }
+ 
++  /** PersistenceBackend.erase: delete this session's metadata and event rows.
++   *  The event rows also cascade on `ON DELETE CASCADE`; deleting both
++   *  explicitly stays robust if the foreign-keys pragma is ever off. */
++  async erase(id: SessionId, signal?: AbortSignal): Promise<void> {
++    await this.observe(signal)
++    this.db.exec(sql('begin-immediate'))
++    try {
++      // Inline (not a resource) so the delete never depends on adding a new
++      // SQL file; the schema owns these exact table/column names.
++      this.db.prepare('DELETE FROM events WHERE session_id = ?').run(id)
++      this.db.prepare('DELETE FROM sessions WHERE id = ?').run(id)
++      this.db.exec(sql('commit'))
++    } catch (error: unknown) {
++      this.rollback(error, 'erase')
++    }
++  }
++
+   private rowFor(id: SessionId): SessionRow | undefined {
+     const value = this.db.prepare(sql('select-session')).get(id)
+     return value === undefined ? undefined : decodeSessionRow(value)
+--- a/packages/host/apiproxy/src/api/sessions.ts
++++ b/packages/host/apiproxy/src/api/sessions.ts
+@@ -374,4 +374,14 @@
+    */
+   cancel(request: RpcRequest<{ sessionId: SessionId }>): Promise<RpcResponse<{ accepted: true }>>
+ 
+-}
++  /**
++   * Permanently deletes a session: stops any live owner, erases its durable
++   * log from persistence, removes it from its workspace account and the
++   * registry archive set, and clears its durable attachments. A live session
++   * is stopped first (its buffered writes are drained before erase); a
++   * session that is neither live nor persisted fails with `session-not-found`.
++   */
++  delete(request: RpcRequest<{ sessionId: SessionId }>):
++  Promise<RpcResponse<{ deleted: true }>>
++
++}
+--- a/packages/host/apiproxy/src/api/rpc-map.ts
++++ b/packages/host/apiproxy/src/api/rpc-map.ts
+@@ -34,6 +34,7 @@
+   'session.attachment': SessionsApi['attachment']
+   'session.updateQueue': SessionsApi['updateQueue']
+   'session.cancel': SessionsApi['cancel']
++  'session.delete': SessionsApi['delete']
+   'subagent.list': SubagentsApi['list']
+   'subagent.history': SubagentsApi['history']
+   'subagent.prompt': SubagentsApi['prompt']
+--- a/packages/host/apiproxy/src/api/sessions.schema.ts
++++ b/packages/host/apiproxy/src/api/sessions.schema.ts
+@@ -352,3 +352,13 @@
+ export const sessionCancelValueSchema = z.object({
+   accepted: z.literal(true),
+ }) satisfies z.ZodType<Wire<ResponseValue<'session.cancel'>>>
++
++/** session.delete request payload. */
++export const sessionDeleteRequestSchema = z.object({
++  sessionId: sessionIdSchema,
++}) satisfies z.ZodType<Wire<RequestPayload<'session.delete'>>>
++
++/** session.delete response value. */
++export const sessionDeleteValueSchema = z.object({
++  deleted: z.literal(true),
++}) satisfies z.ZodType<Wire<ResponseValue<'session.delete'>>>
+--- a/packages/host/apiproxy/src/api-proxy.ts
++++ b/packages/host/apiproxy/src/api-proxy.ts
+@@ -1066,6 +1066,9 @@
+   const presetSwitches = new Map<SessionId, Promise<unknown>>()
+   /** Client-chosen identity creation/resume, deduplicated across concurrent retries. */
+   const sessionCreations = new Map<SessionId, Promise<Agent>>()
++  /** Live agent teardown capabilities, recorded at create/resume so a delete
++   *  can stop and unwind the exact owner. Keyed by session id. */
++  const agentHandles = new Map<SessionId, () => Promise<void>>()
+   /** Serializes path ownership and explicit title checks with Workspace mutations. */
+   let workspaceCreationChain = Promise.resolve()
+   const pendingQuestions = new Map<RpcId, PendingQuestion>()
+@@ -1595,11 +1598,13 @@
+           // session's history was produced under that composition, and
+           // rebuilding it differently would replay tool calls the model can no
+           // longer make.
+-          return (await ctx.agents.resume({
++          const handle = await ctx.agents.resume({
+             resumeSessionId: sessionId,
+             agentOptions: agentOptions(),
+             setup: (await composeAgent(storedPreset)).setup,
+-          })).agent
++          })
++          agentHandles.set(sessionId, () => handle.dispose())
++          return handle.agent
+         }
+ 
+         try {
+@@ -1608,7 +1613,7 @@
+           throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
+         }
+         const composition = await composeAgent(presetId)
+-        return (await ctx.agents.create({
++        const handle = await ctx.agents.create({
+           sessionId,
+           agentOptions: agentOptions(),
+           meta: {
+@@ -1616,7 +1621,9 @@
+             ...composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset },
+           },
+           setup: composition.setup,
+-        })).agent
++        })
++        agentHandles.set(sessionId, () => handle.dispose())
++        return handle.agent
+       })().catch((error: unknown) => {
+         // Another Host entry path may have published the same identity while
+         // this operation crossed an asynchronous persistence/filesystem step.
+@@ -2320,7 +2327,7 @@
+         // plane, composing nothing would leave the child with no tools at all.
+         const forkComposition = await composeAgent(resolveSessionPreset(source))
+         try {
+-          await ctx.agents.create({
++          const handle = await ctx.agents.create({
+             sessionId: childId,
+             seed: events.slice(0, cut),
+             meta: {
+@@ -2334,6 +2341,7 @@
+             agentOptions: agentOptions(),
+             setup: forkComposition.setup,
+           })
++          agentHandles.set(childId, () => handle.dispose())
+         } catch (error: unknown) {
+           return err(request, {
+             code: 'internal',
+@@ -2530,6 +2538,62 @@
+         }
+         agent.cancel({ kind: 'user' }, { keepInbox: true })
+         return Promise.resolve(ok(request, { accepted: true as const }))
++      },
++
++      async delete(request) {
++        const { sessionId } = request.payload
++        // 1. Tear down a live owner through the handle recorded at
++        //    create/resume. dispose() stops the loop and unregisters the agent,
++        //    which triggers the coordinator's retirement (final drain); the
++        //    persistence.delete below waits that drain out.
++        const dispose = agentHandles.get(sessionId)
++        if (dispose !== undefined) {
++          agentHandles.delete(sessionId)
++          try {
++            await dispose()
++          } catch (error: unknown) {
++            return err(request, {
++              code: 'internal',
++              message: `failed to stop session "${sessionId}": ${String(error)}`,
++              details: {},
++            })
++          }
++        }
++        // 2. Drop the session from its workspace account (loose sessions are
++        //    absent from every workspace, so this is a no-op for them).
++        for (const workspace of ctx.workspaceRegistry.list()) {
++          if (!workspace.sessionIds.includes(sessionId)) continue
++          try {
++            await workspace.detachSession(sessionId)
++          } catch (error: unknown) {
++            return err(request, {
++              code: 'internal',
++              message: `failed to detach session "${sessionId}" from workspace "${workspace.id}": ${String(error)}`,
++              details: {},
++            })
++          }
++        }
++        // 3. Erase the durable log (and coordinator state). A session neither
++        //    live nor persisted surfaces here as the backend treating the
++        //    unknown id as an idempotent no-op.
++        const persistence = ctx.get('sessionPersistence')
++        if (persistence === undefined) {
++          return err(request, {
++            code: 'internal',
++            message: 'deletion is unavailable: no session persistence backend is mounted',
++            details: {},
++          })
++        }
++        try {
++          await persistence.delete(sessionId)
++        } catch (error: unknown) {
++          return err(request, {
++            code: 'internal',
++            message: `failed to delete session "${sessionId}": ${String(error)}`,
++            details: {},
++          })
++        }
++        return ok(request, { deleted: true as const })
+       },
+     },
+ 
+--- a/packages/host/apiproxy/src/fetch/client.ts
++++ b/packages/host/apiproxy/src/fetch/client.ts
+@@ -21,6 +21,7 @@
+   sessionCancelValueSchema,
+   sessionAttachmentValueSchema,
+   sessionCreateValueSchema,
++  sessionDeleteValueSchema,
+   sessionForkValueSchema,
+   sessionHistoryValueSchema,
+   sessionListValueSchema,
+@@ -98,6 +99,7 @@
+     attachment(payload: RequestPayload<'session.attachment'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'session.attachment'>>>
+     updateQueue(payload: RequestPayload<'session.updateQueue'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'session.updateQueue'>>>
+     cancel(payload: RequestPayload<'session.cancel'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'session.cancel'>>>
++    delete(payload: RequestPayload<'session.delete'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'session.delete'>>>
+   }
+   subagents: {
+     list(payload: RequestPayload<'subagent.list'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'subagent.list'>>>
+@@ -182,6 +184,7 @@
+   'session.attachment': sessionAttachmentValueSchema,
+   'session.updateQueue': sessionUpdateQueueValueSchema,
+   'session.cancel': sessionCancelValueSchema,
++  'session.delete': sessionDeleteValueSchema,
+   'subagent.list': subagentListValueSchema,
+   'subagent.history': subagentHistoryValueSchema,
+   'subagent.prompt': subagentPromptValueSchema,
+@@ -422,6 +425,7 @@
+     attachment: (payload, signal) => this.callUnary('session.attachment', payload, signal),
+     updateQueue: (payload, signal) => this.callUnary('session.updateQueue', payload, signal),
+     cancel: (payload, signal) => this.callUnary('session.cancel', payload, signal),
++    delete: (payload, signal) => this.callUnary('session.delete', payload, signal),
+   }
+ 
+   readonly subagents: IApiClient['subagents'] = {
+--- a/packages/host/apiproxy/src/fetch/handler.ts
++++ b/packages/host/apiproxy/src/fetch/handler.ts
+@@ -17,6 +17,7 @@
+ import { clientRequestSchema, clientResponseSchema } from '../api/rpc.schema.ts'
+ import {
+   sessionCancelRequestSchema,
++  sessionDeleteRequestSchema,
+   sessionAttachmentRequestSchema,
+   sessionCreateRequestSchema,
+   sessionForkRequestSchema,
+@@ -100,6 +101,7 @@
+   'session.attachment': { schema: sessionAttachmentRequestSchema, invoke: (api, r) => api.sessions.attachment(r) },
+   'session.updateQueue': { schema: sessionUpdateQueueRequestSchema, invoke: (api, r) => api.sessions.updateQueue(r) },
+   'session.cancel': { schema: sessionCancelRequestSchema, invoke: (api, r) => api.sessions.cancel(r) },
++  'session.delete': { schema: sessionDeleteRequestSchema, invoke: (api, r) => api.sessions.delete(r) },
+   'subagent.list': { schema: subagentListRequestSchema, invoke: (api, r, signal) => api.subagents.list(r, signal) },
+   'subagent.history': { schema: subagentHistoryRequestSchema, invoke: (api, r, signal) => api.subagents.history(r, signal) },
+   'subagent.prompt': { schema: subagentPromptRequestSchema, invoke: (api, r, signal) => api.subagents.prompt(r, signal) },
+--- a/packages/host/apiproxy/tests/client-handler.spec.ts
++++ b/packages/host/apiproxy/tests/client-handler.spec.ts
+@@ -61,6 +61,7 @@
+       }),
+       updateQueue: r => ok(r, { accepted: true as const }),
+       cancel: r => ok(r, { accepted: true as const }),
++      delete: r => ok(r, { deleted: true as const }),
+       ...overrides.sessions,
+     },
+     subagents: {
+--- a/packages/client/connection/tests/fake-api.client.ts
++++ b/packages/client/connection/tests/fake-api.client.ts
+@@ -70,6 +70,7 @@
+     () => Promise.resolve(ok({ attachment: { attachmentId: 'a' as never, mediaType: 'image/png', bytes: 1, width: 1, height: 1 }, data: 'AA==' }))
+   onUpdateQueue: (payload: unknown) => Promise<RpcResponse<{ accepted: true }>> = () => Promise.resolve(ok({ accepted: true as const }))
+   onCancel: (payload: unknown) => Promise<RpcResponse<{ accepted: true }>> = () => Promise.resolve(ok({ accepted: true as const }))
++  onDelete: (payload: unknown) => Promise<RpcResponse<{ deleted: true }>> = () => Promise.resolve(ok({ deleted: true as const }))
+   onDescribe: (payload: unknown) => Promise<RpcResponse<{
+     version: string
+     cwd: string
+@@ -122,6 +123,7 @@
+     attachment: (payload: unknown) => this.record('session.attachment', payload, this.onAttachment(payload)),
+     updateQueue: (payload: unknown) => this.record('session.updateQueue', payload, this.onUpdateQueue(payload)),
+     cancel: (payload: unknown) => this.record('session.cancel', payload, this.onCancel(payload)),
++    delete: (payload: unknown) => this.record('session.delete', payload, this.onDelete(payload)),
+   }
+ 
+   readonly subagents: IApiClient['subagents'] = {
+--- a/packages/client/runtime/tests/fake-api.client.ts
++++ b/packages/client/runtime/tests/fake-api.client.ts
+@@ -103,6 +103,7 @@
+     () => Promise.resolve(ok({ attachment: { attachmentId: 'a' as never, mediaType: 'image/png', bytes: 1, width: 1, height: 1 }, data: 'AA==' }))
+   onUpdateQueue: (payload: unknown) => Promise<RpcResponse<{ accepted: true }>> = () => Promise.resolve(ok({ accepted: true as const }))
+   onCancel: (payload: unknown) => Promise<RpcResponse<{ accepted: true }>> = () => Promise.resolve(ok({ accepted: true as const }))
++  onDelete: (payload: unknown) => Promise<RpcResponse<{ deleted: true }>> = () => Promise.resolve(ok({ deleted: true as const }))
+ 
+   onDescribe: (payload: unknown) => Promise<RpcResponse<{
+     version: string
+@@ -156,6 +157,7 @@
+     attachment: (payload: unknown) => this.record('session.attachment', payload, this.onAttachment(payload)),
+     updateQueue: (payload: unknown) => this.record('session.updateQueue', payload, this.onUpdateQueue(payload)),
+     cancel: (payload: unknown) => this.record('session.cancel', payload, this.onCancel(payload)),
++    delete: (payload: unknown) => this.record('session.delete', payload, this.onDelete(payload)),
+   }
+ 
+   onSubagentList: (payload: unknown) => Promise<RpcResponse<{ entries: never[]; parentAvailable: boolean }>>
+--- a/packages/client/runtime/src/client/contract/workspaces.ts
++++ b/packages/client/runtime/src/client/contract/workspaces.ts
+@@ -91,4 +91,12 @@
+    * @param sessionId - session to archive.
+    */
+   archiveSession(sessionId: SessionId): Promise<void>
++  /**
++   * Permanently delete a session: the Host stops any live owner, erases its
++   * durable log, and drops it from every Workspace account and the archive
++   * set. Deleting the current session clears the selection into the New
++   * Session view state.
++   * @param sessionId - session to delete.
++   */
++  deleteSession(sessionId: SessionId): Promise<void>
+ }
+--- a/packages/client/runtime/src/client/workspaces/manager.ts
++++ b/packages/client/runtime/src/client/workspaces/manager.ts
+@@ -232,6 +232,17 @@
+   }
+ 
+   /**
++   * Permanently delete one session. The Host stops any live owner, erases the
++   * durable log, and drops the session from its Workspace account; the session
++   * list refresh rides the next host frame.
++   * @param sessionId - session to delete.
++   * @returns the wire result.
++   */
++  async deleteSession(sessionId: SessionId): Promise<RpcResult<{ deleted: true }>> {
++    return this.api.sessions.delete({ sessionId })
++  }
++
++  /**
+    * Host-frame entry. Non-workspace frames are ignored so the runtime can
+    * fan one host stream out to both object managers.
+    * @param envelope - host stream envelope.
+--- a/packages/client/runtime/src/client/workspaces/service.ts
++++ b/packages/client/runtime/src/client/workspaces/service.ts
+@@ -293,6 +293,16 @@
+   }
+ 
+   /**
++   * Permanently delete a session. The current-selection sweep is the
++   * projection's job (one rule for the local echo and a remote frame alike).
++   * @param sessionId - session to delete.
++   */
++  async deleteSession(sessionId: SessionId): Promise<void> {
++    const result = await this.manager.deleteSession(sessionId)
++    if (!result.ok) throw new Error(`session delete failed: ${result.error.code}: ${result.error.message}`)
++  }
++
++  /**
+    * Move a session within its Workspace's manual order (DOM-insertBefore-like).
+    * @param workspaceId - owning workspace.
+    * @param sessionId - accounted session to move.
+--- a/packages/client/ui-workspace/src/client/contract/slots.ts
++++ b/packages/client/ui-workspace/src/client/contract/slots.ts
+@@ -130,6 +130,13 @@
+    */
+   archiveSession: (sessionId: SessionId) => Promise<void>
+   /**
++   * Permanently delete a Session: the Host stops any live owner, erases its
++   * durable log, and drops it from every Workspace account and the archive
++   * set. Deleting the current session clears the selection into the New
++   * Session view state.
++   */
++  deleteSession: (sessionId: SessionId) => Promise<void>
++  /**
+    * Reorder a session inside its Workspace account (DOM-insertBefore
+    * semantics: omitted anchor appends to the end). The view refreshes from
+    * the Host response/changed frame; failures leave the order unchanged.
+--- a/packages/client/ui-workspace/src/client/index.ts
++++ b/packages/client/ui-workspace/src/client/index.ts
+@@ -98,6 +98,7 @@
+       await ctx.workspaces.insertBefore(workspaceId, beforeWorkspaceId)
+     },
+     archiveSession: async (sessionId) => { await ctx.workspaces.archiveSession(sessionId) },
++    deleteSession: async (sessionId) => { await ctx.workspaces.deleteSession(sessionId) },
+     insertSessionBefore: async (workspaceId, sessionId, beforeSessionId) => {
+       await ctx.workspaces.insertSessionBefore(workspaceId, sessionId, beforeSessionId)
+     },
+--- a/packages/client/ui-workspace/src/client/WorkspaceBrowser.tsx
++++ b/packages/client/ui-workspace/src/client/WorkspaceBrowser.tsx
+@@ -243,6 +243,8 @@
+   onSessionRename: (sessionId: SessionNode['id'], currentTitle: string) => void
+   /** Archive a session (row menu action; the row disappears on the state echo). */
+   onSessionArchive: (sessionId: SessionNode['id']) => void
++  /** Permanently delete a session (row menu action; confirm-then-commit). */
++  onSessionDelete: (sessionId: SessionNode['id']) => void
+   /** Session order behavior: fixed after edits, or additionally promoted by user activity. */
+   orderBy: SessionOrderBy
+ }
+@@ -250,7 +252,7 @@
+ /** The scrolling session tree; unmounting drops the sessions subscription and expand-all state. */
+ function SessionTree({
+   useSessions, startSession, open, forkSession, workspaces, archivedSessionIds,
+-  onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive,
++  onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, onSessionDelete,
+   insertWorkspaceBefore, insertSessionBefore, orderBy,
+   groupExpansion, setGroupExpanded,
+   sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, home, t,
+@@ -519,6 +521,7 @@
+                     onRename={onSessionRename}
+                     onFork={forkSession}
+                     onArchive={onSessionArchive}
++                    onDelete={onSessionDelete}
+                     drag={dragProps}
+                     t={t}
+                   />
+@@ -547,7 +550,7 @@
+ 
+ /** The flat "In one list" body: every session is one draggable top-level row. */
+ function FlatList({
+-  useSessions, open, forkSession, onSessionRename, onSessionArchive, archivedSessionIds,
++  useSessions, open, forkSession, onSessionRename, onSessionArchive, onSessionDelete, archivedSessionIds,
+   orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t,
+ }: Pick<
+   SessionTreeProps,
+@@ -556,6 +559,7 @@
+   | 'forkSession'
+   | 'onSessionRename'
+   | 'onSessionArchive'
++  | 'onSessionDelete'
+   | 'archivedSessionIds'
+   | 'orderBy'
+   | 'sessionOrderByAccount'
+@@ -635,6 +639,7 @@
+               onRename={onSessionRename}
+               onFork={forkSession}
+               onArchive={onSessionArchive}
++              onDelete={onSessionDelete}
+               flat
+               drag={{
+                 start: () => {
+@@ -756,6 +761,7 @@
+   deleteWorkspace,
+   insertWorkspaceBefore,
+   archiveSession,
++  deleteSession,
+   insertSessionBefore,
+   createWorkspace,
+   searchSessions,
+@@ -969,6 +975,15 @@
+   const onSessionArchive = (sessionId: SessionNode['id']) => {
+     archiveSession(sessionId).catch((reason: unknown) => {
+       console.warn('session archive rejected:', reason)
++    })
++  }
++
++  // Delete IS destructive (the durable log is erased), so it needs a
++  // confirmation before committing; the row disappears on the next list echo.
++  const onSessionDelete = (sessionId: SessionNode['id']) => {
++    if (!window.confirm(t('delete.session.confirm'))) return
++    deleteSession(sessionId).catch((reason: unknown) => {
++      console.warn('session delete rejected:', reason)
+     })
+   }
+ 
+@@ -1158,7 +1173,7 @@
+             ? (
+               <FlatList
+                 useSessions={useSessions} open={open} forkSession={forkSession}
+-                onSessionRename={onSessionRename} onSessionArchive={onSessionArchive}
++                onSessionRename={onSessionRename} onSessionArchive={onSessionArchive} onSessionDelete={onSessionDelete}
+                 archivedSessionIds={archivedSessionIds}
+                 orderBy={orderBy}
+                 sessionOrderByAccount={sessionOrderByAccount}
+@@ -1173,6 +1188,7 @@
+                 useSessions={useSessions}
+                 onSessionRename={onSessionRename}
+                 onSessionArchive={onSessionArchive}
++                onSessionDelete={onSessionDelete}
+                 forkSession={forkSession}
+                 workspaces={workspaces}
+                 groupExpansion={groupExpansion}
+--- a/packages/client/ui-workspace/src/client/rows/Rows.tsx
++++ b/packages/client/ui-workspace/src/client/rows/Rows.tsx
+@@ -359,7 +359,7 @@
+  * @param props.t - the browser root's locale seat.
+  * @returns the session row.
+  */
+-export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork, onArchive, drag, flat = false, t }: {
++export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork, onArchive, onDelete, drag, flat = false, t }: {
+   node: SessionNode
+   currentId: string | undefined
+   now: number
+@@ -370,6 +370,8 @@
+   onFork: (id: SessionNode['id']) => void
+   /** Archive this session (row menu action; commits without a dialog). */
+   onArchive: (id: SessionNode['id']) => void
++  /** Permanently delete this session (row menu action; confirm-then-commit). */
++  onDelete: (id: SessionNode['id']) => void
+   /** Present only on draggable rows (workspace-group sessions outside search). */
+   drag?: RowDragProps | undefined
+   /** The row is rendered without a parent Workspace header. */
+@@ -391,6 +393,7 @@
+     { id: 'fork', label: t('menu.fork'), icon: <IconBranchOutline16 /> },
+     // 20-native glyph in the menu's 16px icon slot (Menu.module.css .itemIcon).
+     { id: 'archive', label: t('menu.archiveSession'), icon: <IconArchiveOutline20 size={16} /> },
++    { id: 'delete', label: t('menu.deleteSession'), icon: <IconTrashOutline16 />, danger: true },
+   ]
+   // Figma session cell: pad 8, status slot 16, then a 4px title gap.
+   const ownRow = (
+@@ -453,6 +456,7 @@
+               if (id === 'rename') onRename(node.id, row.title)
+               if (id === 'fork') onFork(node.id)
+               if (id === 'archive') onArchive(node.id)
++              if (id === 'delete') onDelete(node.id)
+             }}
+             portal
+             closeOnPointerLeave
+--- a/packages/client/ui-workspace/src/client/locales.ts
++++ b/packages/client/ui-workspace/src/client/locales.ts
+@@ -45,6 +45,8 @@
+   'delete.pending': '正在删除工作区…',
+   'menu.fork': '分叉会话',
+   'menu.archiveSession': '归档会话',
++  'menu.deleteSession': '删除会话',
++  'delete.session.confirm': '确定要删除这个会话吗？此操作不可恢复，会话记录将被永久删除。',
+   'sessions.count.one': '{n} 个会话',
+   'sessions.count.other': '{n} 个会话',
+   'actions.workspace.aria': '工作区“{name}”的操作',
+@@ -114,6 +116,8 @@
+   'delete.pending': 'Deleting workspace…',
+   'menu.fork': 'Fork session',
+   'menu.archiveSession': 'Archive session',
++  'menu.deleteSession': 'Delete session',
++  'delete.session.confirm': 'Delete this session? This cannot be undone and the session log will be permanently erased.',
+   'sessions.count.one': '{n} session',
+   'sessions.count.other': '{n} sessions',
+   'actions.workspace.aria': 'Workspace actions for {name}',

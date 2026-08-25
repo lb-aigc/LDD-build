@@ -122,6 +122,94 @@ const officialAttachmentLabels = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts',
 )
+const officialDeleteCoordinator = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence', 'src', 'coordinator.ts',
+)
+const officialDeletePersistenceIndex = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence', 'src', 'index.ts',
+)
+const officialDeleteJsonlIndex = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence-jsonl', 'src', 'index.ts',
+)
+const officialDeleteSqliteIndex = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence-sqlite', 'src', 'index.ts',
+)
+const officialDeleteSqliteStore = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence-sqlite', 'src', 'store.ts',
+)
+const officialDeleteSessionsApi = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'api', 'sessions.ts',
+)
+const officialDeleteRpcMap = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'api', 'rpc-map.ts',
+)
+const officialDeleteSessionsSchema = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'api', 'sessions.schema.ts',
+)
+const officialDeleteApiProxy = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'api-proxy.ts',
+)
+const officialDeleteClient = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'fetch', 'client.ts',
+)
+const officialDeleteHandler = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'fetch', 'handler.ts',
+)
+const officialDeleteClientHandlerSpec = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'tests', 'client-handler.spec.ts',
+)
+const officialDeleteConnectionFake = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'connection', 'tests', 'fake-api.client.ts',
+)
+const officialDeleteRuntimeFake = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'tests', 'fake-api.client.ts',
+)
+const officialDeleteWorkspacesContract = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'src', 'client', 'contract', 'workspaces.ts',
+)
+const officialDeleteWorkspacesManager = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'src', 'client', 'workspaces', 'manager.ts',
+)
+const officialDeleteWorkspacesService = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'src', 'client', 'workspaces', 'service.ts',
+)
+const officialDeleteWorkspaceSlots = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'src', 'client', 'contract', 'slots.ts',
+)
+const officialDeleteWorkspaceIndex = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'src', 'client', 'index.ts',
+)
+const officialDeleteWorkspaceBrowser = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'src', 'client', 'WorkspaceBrowser.tsx',
+)
+const officialDeleteRows = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'src', 'client', 'rows', 'Rows.tsx',
+)
+const officialDeleteWorkspaceLocales = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'src', 'client', 'locales.ts',
+)
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2')
 
 test('tracked Harness patches add LDD compatibility changes and apply exactly once', async () => {
@@ -179,6 +267,72 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedAttachmentLabels = join(
       copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts',
     )
+    const copiedDeleteCoordinator = join(
+      copiedRoot, 'packages', 'session', 'session-persistence', 'src', 'coordinator.ts',
+    )
+    const copiedDeletePersistenceIndex = join(
+      copiedRoot, 'packages', 'session', 'session-persistence', 'src', 'index.ts',
+    )
+    const copiedDeleteJsonlIndex = join(
+      copiedRoot, 'packages', 'session', 'session-persistence-jsonl', 'src', 'index.ts',
+    )
+    const copiedDeleteSqliteIndex = join(
+      copiedRoot, 'packages', 'session', 'session-persistence-sqlite', 'src', 'index.ts',
+    )
+    const copiedDeleteSqliteStore = join(
+      copiedRoot, 'packages', 'session', 'session-persistence-sqlite', 'src', 'store.ts',
+    )
+    const copiedDeleteSessionsApi = join(
+      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'api', 'sessions.ts',
+    )
+    const copiedDeleteRpcMap = join(
+      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'api', 'rpc-map.ts',
+    )
+    const copiedDeleteSessionsSchema = join(
+      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'api', 'sessions.schema.ts',
+    )
+    const copiedDeleteApiProxy = join(
+      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'api-proxy.ts',
+    )
+    const copiedDeleteClient = join(
+      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'fetch', 'client.ts',
+    )
+    const copiedDeleteHandler = join(
+      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'fetch', 'handler.ts',
+    )
+    const copiedDeleteClientHandlerSpec = join(
+      copiedRoot, 'packages', 'host', 'apiproxy', 'tests', 'client-handler.spec.ts',
+    )
+    const copiedDeleteConnectionFake = join(
+      copiedRoot, 'packages', 'client', 'connection', 'tests', 'fake-api.client.ts',
+    )
+    const copiedDeleteRuntimeFake = join(
+      copiedRoot, 'packages', 'client', 'runtime', 'tests', 'fake-api.client.ts',
+    )
+    const copiedDeleteWorkspacesContract = join(
+      copiedRoot, 'packages', 'client', 'runtime', 'src', 'client', 'contract', 'workspaces.ts',
+    )
+    const copiedDeleteWorkspacesManager = join(
+      copiedRoot, 'packages', 'client', 'runtime', 'src', 'client', 'workspaces', 'manager.ts',
+    )
+    const copiedDeleteWorkspacesService = join(
+      copiedRoot, 'packages', 'client', 'runtime', 'src', 'client', 'workspaces', 'service.ts',
+    )
+    const copiedDeleteWorkspaceSlots = join(
+      copiedRoot, 'packages', 'client', 'ui-workspace', 'src', 'client', 'contract', 'slots.ts',
+    )
+    const copiedDeleteWorkspaceIndex = join(
+      copiedRoot, 'packages', 'client', 'ui-workspace', 'src', 'client', 'index.ts',
+    )
+    const copiedDeleteWorkspaceBrowser = join(
+      copiedRoot, 'packages', 'client', 'ui-workspace', 'src', 'client', 'WorkspaceBrowser.tsx',
+    )
+    const copiedDeleteRows = join(
+      copiedRoot, 'packages', 'client', 'ui-workspace', 'src', 'client', 'rows', 'Rows.tsx',
+    )
+    const copiedDeleteWorkspaceLocales = join(
+      copiedRoot, 'packages', 'client', 'ui-workspace', 'src', 'client', 'locales.ts',
+    )
     await mkdir(dirname(copiedCatalog), { recursive: true })
     await mkdir(dirname(copiedReleaseProcess), { recursive: true })
     await mkdir(dirname(copiedBrand), { recursive: true })
@@ -195,6 +349,28 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await mkdir(dirname(copiedMessageImage), { recursive: true })
     await mkdir(dirname(copiedImageLightboxCss), { recursive: true })
     await mkdir(dirname(copiedAttachmentLabels), { recursive: true })
+    await mkdir(dirname(copiedDeleteCoordinator), { recursive: true })
+    await mkdir(dirname(copiedDeletePersistenceIndex), { recursive: true })
+    await mkdir(dirname(copiedDeleteJsonlIndex), { recursive: true })
+    await mkdir(dirname(copiedDeleteSqliteIndex), { recursive: true })
+    await mkdir(dirname(copiedDeleteSqliteStore), { recursive: true })
+    await mkdir(dirname(copiedDeleteSessionsApi), { recursive: true })
+    await mkdir(dirname(copiedDeleteRpcMap), { recursive: true })
+    await mkdir(dirname(copiedDeleteSessionsSchema), { recursive: true })
+    await mkdir(dirname(copiedDeleteApiProxy), { recursive: true })
+    await mkdir(dirname(copiedDeleteClient), { recursive: true })
+    await mkdir(dirname(copiedDeleteHandler), { recursive: true })
+    await mkdir(dirname(copiedDeleteClientHandlerSpec), { recursive: true })
+    await mkdir(dirname(copiedDeleteConnectionFake), { recursive: true })
+    await mkdir(dirname(copiedDeleteRuntimeFake), { recursive: true })
+    await mkdir(dirname(copiedDeleteWorkspacesContract), { recursive: true })
+    await mkdir(dirname(copiedDeleteWorkspacesManager), { recursive: true })
+    await mkdir(dirname(copiedDeleteWorkspacesService), { recursive: true })
+    await mkdir(dirname(copiedDeleteWorkspaceSlots), { recursive: true })
+    await mkdir(dirname(copiedDeleteWorkspaceIndex), { recursive: true })
+    await mkdir(dirname(copiedDeleteWorkspaceBrowser), { recursive: true })
+    await mkdir(dirname(copiedDeleteRows), { recursive: true })
+    await mkdir(dirname(copiedDeleteWorkspaceLocales), { recursive: true })
     await writeFile(copiedCatalog, await readFile(officialCatalog))
     await writeFile(copiedReleaseProcess, await readFile(officialReleaseProcess))
     await writeFile(copiedBrand, await readFile(officialBrand))
@@ -211,6 +387,28 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedMessageImage, await readFile(officialMessageImage))
     await writeFile(copiedImageLightboxCss, await readFile(officialImageLightboxCss))
     await writeFile(copiedAttachmentLabels, await readFile(officialAttachmentLabels))
+    await writeFile(copiedDeleteCoordinator, await readFile(officialDeleteCoordinator))
+    await writeFile(copiedDeletePersistenceIndex, await readFile(officialDeletePersistenceIndex))
+    await writeFile(copiedDeleteJsonlIndex, await readFile(officialDeleteJsonlIndex))
+    await writeFile(copiedDeleteSqliteIndex, await readFile(officialDeleteSqliteIndex))
+    await writeFile(copiedDeleteSqliteStore, await readFile(officialDeleteSqliteStore))
+    await writeFile(copiedDeleteSessionsApi, await readFile(officialDeleteSessionsApi))
+    await writeFile(copiedDeleteRpcMap, await readFile(officialDeleteRpcMap))
+    await writeFile(copiedDeleteSessionsSchema, await readFile(officialDeleteSessionsSchema))
+    await writeFile(copiedDeleteApiProxy, await readFile(officialDeleteApiProxy))
+    await writeFile(copiedDeleteClient, await readFile(officialDeleteClient))
+    await writeFile(copiedDeleteHandler, await readFile(officialDeleteHandler))
+    await writeFile(copiedDeleteClientHandlerSpec, await readFile(officialDeleteClientHandlerSpec))
+    await writeFile(copiedDeleteConnectionFake, await readFile(officialDeleteConnectionFake))
+    await writeFile(copiedDeleteRuntimeFake, await readFile(officialDeleteRuntimeFake))
+    await writeFile(copiedDeleteWorkspacesContract, await readFile(officialDeleteWorkspacesContract))
+    await writeFile(copiedDeleteWorkspacesManager, await readFile(officialDeleteWorkspacesManager))
+    await writeFile(copiedDeleteWorkspacesService, await readFile(officialDeleteWorkspacesService))
+    await writeFile(copiedDeleteWorkspaceSlots, await readFile(officialDeleteWorkspaceSlots))
+    await writeFile(copiedDeleteWorkspaceIndex, await readFile(officialDeleteWorkspaceIndex))
+    await writeFile(copiedDeleteWorkspaceBrowser, await readFile(officialDeleteWorkspaceBrowser))
+    await writeFile(copiedDeleteRows, await readFile(officialDeleteRows))
+    await writeFile(copiedDeleteWorkspaceLocales, await readFile(officialDeleteWorkspaceLocales))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
     const result = await readFile(copiedCatalog, 'utf8')
@@ -237,6 +435,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0004-rebrand-ldd-trim.patch',
       '0005-render-tool-result-images.patch',
       '0006-image-download-button.patch',
+      '0007-delete-session.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -269,6 +468,20 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const messageImage = await readFile(copiedMessageImage, 'utf8')
     assert.match(messageImage, /downloadNameFor\(attachment\)/u)
     const imageLightboxCss = await readFile(copiedImageLightboxCss, 'utf8')
+    const deleteCoordinator = await readFile(copiedDeleteCoordinator, 'utf8')
+    assert.match(deleteCoordinator, /erase\?\(id: SessionId/u)
+    assert.match(deleteCoordinator, /delete\(id: SessionId, signal\?: AbortSignal\)/u)
+    const deleteApiProxy = await readFile(copiedDeleteApiProxy, 'utf8')
+    assert.match(deleteApiProxy, /async delete\(request\)/u)
+    assert.match(deleteApiProxy, /agentHandles\.get\(sessionId\)/u)
+    const deleteRows = await readFile(copiedDeleteRows, 'utf8')
+    assert.match(deleteRows, /menu\.deleteSession/u)
+    assert.match(deleteRows, /onDelete\(node\.id\)/u)
+    const deleteLocales = await readFile(copiedDeleteWorkspaceLocales, 'utf8')
+    assert.match(deleteLocales, /'menu\.deleteSession': '删除会话'/u)
+    const deleteClient = await readFile(copiedDeleteClient, 'utf8')
+    assert.match(deleteClient, /'session\.delete': sessionDeleteValueSchema/u)
+
     assert.match(imageLightboxCss, /\.actions \{/u)
     const attachmentLabels = await readFile(copiedAttachmentLabels, 'utf8')
     assert.match(attachmentLabels, /download: t\('image\.download'\)/u)
