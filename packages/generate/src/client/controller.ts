@@ -124,7 +124,7 @@ function readOriginal(snapshot: SettingsScopeSnapshot<GenerationCardSettings>): 
 }
 
 /** Strip the front-end uid, leaving only persisted fields. */
-function persistOf(model: ModelRow): ModelDraft {
+function persistOf(model: ModelDraft): ModelDraft {
   return {
     provider: model.provider,
     protocol: model.protocol,
