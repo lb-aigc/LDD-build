@@ -12,7 +12,7 @@ import { createProvider } from '../src/providers/index.ts'
 
 const emptyOptions = { baseURL: '', model: '', apiKey: undefined }
 
-test('image presets offer five real providers plus custom', () => {
+test('image presets offer six real providers plus custom', () => {
   assert.deepEqual(presetIds(IMAGE_PROVIDER_PRESETS), [
     'mock',
     'gpt-image',
@@ -20,6 +20,7 @@ test('image presets offer five real providers plus custom', () => {
     'midjourney',
     'seedream',
     'kie',
+    'legnext',
     CUSTOM_PROVIDER_ID,
   ])
 })
@@ -37,6 +38,9 @@ test('presets carry the expected protocol and defaults', () => {
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'kie')?.protocol, 'kie')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'kie')?.defaultBaseURL, 'https://api.kie.ai')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'kie')?.defaultModel, 'bytedance/seedream')
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'legnext')?.protocol, 'legnext')
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'legnext')?.defaultBaseURL, 'https://api.legnext.ai/api')
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'legnext')?.defaultModel, 'v8.2')
   assert.equal(findPreset(VIDEO_PROVIDER_PRESETS, 'kie')?.defaultModel, 'bytedance/seedance-2-5')
 })
 
@@ -47,12 +51,13 @@ test('createProvider constructs the matching adapter per protocol', () => {
   assert.equal(createProvider('midjourney', emptyOptions).id, 'midjourney')
   assert.equal(createProvider('volcengine', emptyOptions).id, 'volcengine')
   assert.equal(createProvider('kie', emptyOptions).id, 'kie')
+  assert.equal(createProvider('legnext', emptyOptions).id, 'legnext')
 })
 
 test('an unknown protocol throws with the available list', () => {
   assert.throws(
     () => createProvider('nope', emptyOptions),
-    /unknown generation protocol "nope" \(available: mock, openai-compatible, gemini, midjourney, volcengine, kie\)/,
+    /unknown generation protocol "nope" \(available: mock, openai-compatible, gemini, midjourney, volcengine, kie, legnext\)/,
   )
 })
 
@@ -73,9 +78,17 @@ test('kie fails fast without an API key', async () => {
 })
 
 test('kie fails fast without a model capability id', async () => {
-  const provider = createProvider('kie', { baseURL: 'https://api.kie.ai', model: '', apiKey: 'sk-test' })
+  const provider = createProvider('kie', { baseURL: 'https://api.kie.ai', model: '', apiKey: 'test-key' })
   await assert.rejects(
     provider.generateVideo({ prompt: 'x', durationSeconds: 5, resolution: '720p', aspectRatio: '9:16' }, new AbortController().signal),
     /模型能力名/,
+  )
+})
+
+test('legnext fails fast without an API key', async () => {
+  const provider = createProvider('legnext', { baseURL: 'https://api.legnext.ai/api', model: 'v8.2', apiKey: undefined })
+  await assert.rejects(
+    provider.generateImage({ prompt: 'x', count: 1, size: '1024x1024' }, new AbortController().signal),
+    /API key/,
   )
 })

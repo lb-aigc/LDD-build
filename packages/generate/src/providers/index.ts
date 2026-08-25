@@ -7,6 +7,7 @@ import { GeminiImageProvider } from './gemini.ts'
 import { MidjourneyProvider } from './midjourney.ts'
 import { VolcengineProvider } from './volcengine.ts'
 import { KieProvider } from './kie.ts'
+import { LegnextProvider } from './legnext.ts'
 
 /**
  * Protocol → adapter factory. A preset (or a custom selection) resolves to one
@@ -30,6 +31,8 @@ export function createProvider(
       return new VolcengineProvider(options)
     case 'kie':
       return new KieProvider(options)
+    case 'legnext':
+      return new LegnextProvider(options)
     default:
       throw new Error(
         `unknown generation protocol "${protocol}" (available: ${PROVIDER_PROTOCOLS.join(', ')})`,

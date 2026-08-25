@@ -24,6 +24,7 @@ export const IMAGE_PRESETS: readonly ClientPreset[] = [
   { id: 'midjourney', label: 'Midjourney' },
   { id: 'seedream', label: 'Seedream（火山方舟）' },
   { id: 'kie', label: 'KIE（聚合中转）' },
+  { id: 'legnext', label: 'Legnext（MJ 中转）' },
 ]
 
 export const VIDEO_PRESETS: readonly ClientPreset[] = [

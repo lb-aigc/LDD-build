@@ -23,6 +23,7 @@ export const PROVIDER_PROTOCOLS = [
   'midjourney',
   'volcengine',
   'kie',
+  'legnext',
 ] as const
 
 export type ProviderProtocol = (typeof PROVIDER_PROTOCOLS)[number]
@@ -91,6 +92,14 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: 'https://api.kie.ai',
     defaultModel: 'bytedance/seedream',
     strengths: '聚合中转：一个 key 调 Seedream/Nano Banana/GPT Image 等几十个图像模型',
+  },
+  {
+    id: 'legnext',
+    label: 'Legnext（MJ 中转）',
+    protocol: 'legnext',
+    defaultBaseURL: 'https://api.legnext.ai/api',
+    defaultModel: 'v8.2',
+    strengths: 'Midjourney 中转：艺术风格、概念插画、氛围感画面（V7/V8.1/V8.2）',
   },
 ]
 
