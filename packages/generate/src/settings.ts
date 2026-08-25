@@ -15,10 +15,14 @@ import z from '@deepseek-ai/schemastery'
 export const IMAGE_SETTINGS_NS = 'generate-image'
 export const VIDEO_SETTINGS_NS = 'generate-video'
 
-/** User-editable image-generation configuration. */
-export interface ImageGenerationSettings {
-  /** Provider preset id (e.g. `mock`, `gpt-image`, `seedream`) or `custom`. */
-  provider?: string
+/**
+ * One configured generation model. `provider` is the preset id (or `custom`)
+ * and doubles as the ROUTING KEY: the agent picks a model by naming its
+ * `provider` in the `provider` tool argument, and `default` references it.
+ */
+export interface GenerationModelEntry {
+  /** Provider preset id (mock/gpt-image/nano-banana/midjourney/seedream) or `custom`. */
+  provider: string
   /** Wire protocol, used only when `provider === 'custom'`. */
   protocol?: string
   /** Model name the provider should run; blank inherits the preset default. */
@@ -29,8 +33,18 @@ export interface ImageGenerationSettings {
   apiKeyEnv?: string
 }
 
-/** User-editable video-generation configuration. */
-export interface VideoGenerationSettings {
+/**
+ * User-editable generation configuration: an ordered model list plus a default
+ * routing key. The legacy flat fields (pre-multi-model) are retained so an
+ * existing settings.yaml upgrades in place instead of erroring — `sync()`
+ * promotes them to a single-entry list when `models` is absent.
+ */
+export interface GenerationSettings {
+  /** Routing key (one model's `provider`) of the default model. */
+  default?: string
+  /** Configured models, in preference order. */
+  models?: GenerationModelEntry[]
+  /** @deprecated legacy flat field, auto-upgraded when `models` is empty. */
   provider?: string
   protocol?: string
   model?: string
@@ -38,7 +52,10 @@ export interface VideoGenerationSettings {
   apiKeyEnv?: string
 }
 
-export const ImageGenerationSettingsSchema: z<ImageGenerationSettings> = z.object({
+export type ImageGenerationSettings = GenerationSettings
+export type VideoGenerationSettings = GenerationSettings
+
+const modelEntrySchema = z.object({
   provider: z.string(),
   protocol: z.string(),
   model: z.string(),
@@ -46,13 +63,18 @@ export const ImageGenerationSettingsSchema: z<ImageGenerationSettings> = z.objec
   apiKeyEnv: z.string(),
 })
 
-export const VideoGenerationSettingsSchema: z<VideoGenerationSettings> = z.object({
+const generationSettingsSchema = z.object({
+  default: z.string(),
+  models: z.array(modelEntrySchema),
   provider: z.string(),
   protocol: z.string(),
   model: z.string(),
   baseURL: z.string(),
   apiKeyEnv: z.string(),
 })
+
+export const ImageGenerationSettingsSchema: z<ImageGenerationSettings> = generationSettingsSchema
+export const VideoGenerationSettingsSchema: z<VideoGenerationSettings> = generationSettingsSchema
 
 /** Provider id used when settings carry none (headless boot or unconfigured). */
 export const DEFAULT_PROVIDER = 'mock'

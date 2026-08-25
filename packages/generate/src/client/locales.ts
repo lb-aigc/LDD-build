@@ -2,18 +2,24 @@
 
 export type GenerateLocaleKey =
   | 'imageTitle' | 'videoTitle'
-  | 'provider' | 'providerHint'
+  | 'defaultLabel' | 'custom' | 'remove' | 'addModel'
+  | 'provider' | 'protocol' | 'protocolHint'
   | 'model' | 'modelHint'
   | 'baseURL' | 'baseURLHint'
   | 'apiKeyEnv' | 'apiKeyEnvHint'
-  | 'apiKey' | 'apiKeySet' | 'apiKeyUnset'
+  | 'apiKey' | 'apiKeyHint'
   | 'unsaved' | 'save' | 'saving' | 'discard' | 'readOnly' | 'saveFailed'
 
 export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
   videoTitle: '生视频模型',
+  defaultLabel: '默认',
+  custom: '自定义',
+  remove: '删除',
+  addModel: '+ 添加模型',
   provider: '服务预设',
-  providerHint: 'mock / gpt-image / nano-banana / midjourney / seedream / custom',
+  protocol: '协议',
+  protocolHint: 'openai-compatible / gemini / midjourney / volcengine',
   model: '模型',
   modelHint: '留空继承预设默认',
   baseURL: '接口地址',
@@ -21,8 +27,7 @@ export const zh: Record<GenerateLocaleKey, string> = {
   apiKeyEnv: '密钥引用名',
   apiKeyEnvHint: '环境变量名或凭证引用，默认 GENERATE_API_KEY',
   apiKey: 'API Key',
-  apiKeySet: '已配置',
-  apiKeyUnset: '未配置',
+  apiKeyHint: '留空则不修改',
   unsaved: '未保存',
   save: '保存',
   saving: '保存中…',
@@ -34,8 +39,13 @@ export const zh: Record<GenerateLocaleKey, string> = {
 export const en: Record<GenerateLocaleKey, string> = {
   imageTitle: 'Image model',
   videoTitle: 'Video model',
+  defaultLabel: 'Default',
+  custom: 'Custom',
+  remove: 'Remove',
+  addModel: '+ Add model',
   provider: 'Provider',
-  providerHint: 'mock / gpt-image / nano-banana / midjourney / seedream / custom',
+  protocol: 'Protocol',
+  protocolHint: 'openai-compatible / gemini / midjourney / volcengine',
   model: 'Model',
   modelHint: 'Blank inherits the preset default',
   baseURL: 'Endpoint',
@@ -43,8 +53,7 @@ export const en: Record<GenerateLocaleKey, string> = {
   apiKeyEnv: 'Key reference',
   apiKeyEnvHint: 'Env var or credential reference; defaults to GENERATE_API_KEY',
   apiKey: 'API Key',
-  apiKeySet: 'Configured',
-  apiKeyUnset: 'Not configured',
+  apiKeyHint: 'Leave blank to keep unchanged',
   unsaved: 'Unsaved',
   save: 'Save',
   saving: 'Saving…',

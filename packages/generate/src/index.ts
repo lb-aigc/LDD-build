@@ -4,21 +4,15 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 
 import { imageSizes, maxImagesPerRequest, maxVideoDurationSeconds, videoAspectRatios, videoResolutions } from './config.ts'
 import type { GenerationConfig } from './config.ts'
-import type { GenerationProvider } from './provider.ts'
-import { environmentSecretResolver } from './credentials.ts'
+import { IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS } from './presets.ts'
 import {
-  CUSTOM_PROVIDER_ID,
-  IMAGE_PROVIDER_PRESETS,
-  VIDEO_PROVIDER_PRESETS,
-  findPreset,
-  presetIds,
-} from './presets.ts'
-import type { ProviderPreset } from './presets.ts'
-import { createProvider } from './providers/index.ts'
+  buildProvider,
+  modelCatalog,
+  pickProvider,
+  resolveModels,
+} from './routing.ts'
+import type { ResolvedModels } from './routing.ts'
 import {
-  DEFAULT_IMAGE_MODEL,
-  DEFAULT_PROVIDER,
-  DEFAULT_VIDEO_MODEL,
   IMAGE_SETTINGS_NS,
   VIDEO_SETTINGS_NS,
   ImageGenerationSettingsSchema,
@@ -83,98 +77,17 @@ const videoResultSchema = {
   },
 } as const
 
-/** Resolved user selection for one generation half (mirrors the settings ns). */
-interface GenerationSelection {
-  provider: string
-  protocol: string
-  model: string
-  baseURL: string
-  apiKeyEnv: string
-}
-
-/**
- * Resolve a settings selection into a concrete adapter. Built per call (no
- * cache) so every request reads the latest selection and secret — a preset
- * inherits its protocol/default endpoint/default model; `custom` takes them
- * verbatim from settings. The API key is resolved from its reference here.
- */
-function buildProvider(selection: GenerationSelection, presets: readonly ProviderPreset[]): GenerationProvider {
-  if (selection.provider === CUSTOM_PROVIDER_ID) {
-    if (selection.protocol === '') {
-      throw new Error(`provider "custom" 需要配置 protocol（请在设置里配置 protocol）`)
-    }
-    return createProvider(selection.protocol, {
-      baseURL: selection.baseURL,
-      model: selection.model,
-      apiKey: environmentSecretResolver(selection.apiKeyEnv),
-    })
-  }
-  const preset = findPreset(presets, selection.provider)
-  if (preset === undefined) {
-    throw new Error(
-      `unknown generation provider "${selection.provider}" (available: ${presetIds(presets).join(', ')})`,
-    )
-  }
-  return createProvider(preset.protocol, {
-    baseURL: selection.baseURL || preset.defaultBaseURL,
-    model: selection.model || preset.defaultModel,
-    apiKey: environmentSecretResolver(selection.apiKeyEnv),
-  })
-}
-
-export function apply(ctx: Context, config: Config): void {
-  // Live selections. They default to the mock preset and are overwritten by the
-  // settings namespaces below whenever the settings service is present.
-  const imageSelection: GenerationSelection = {
-    provider: DEFAULT_PROVIDER,
-    protocol: '',
-    model: DEFAULT_IMAGE_MODEL,
-    baseURL: '',
-    apiKeyEnv: '',
-  }
-  const videoSelection: GenerationSelection = {
-    provider: DEFAULT_PROVIDER,
-    protocol: '',
-    model: DEFAULT_VIDEO_MODEL,
-    baseURL: '',
-    apiKeyEnv: '',
-  }
-
-  // Best-effort settings registration: without a settings provider (headless
-  // boot) the selections keep their mock defaults and the tools still work.
-  ctx.inject(['settings'], (settingsCtx) => {
-    const imageScope = settingsCtx.settings.register(
-      IMAGE_SETTINGS_NS,
-      ImageGenerationSettingsSchema,
-    )
-    const videoScope = settingsCtx.settings.register(
-      VIDEO_SETTINGS_NS,
-      VideoGenerationSettingsSchema,
-    )
-    const sync = () => {
-      const image = imageScope.get()
-      imageSelection.provider = image.provider ?? DEFAULT_PROVIDER
-      imageSelection.protocol = image.protocol ?? ''
-      imageSelection.model = image.model ?? DEFAULT_IMAGE_MODEL
-      imageSelection.baseURL = image.baseURL ?? ''
-      imageSelection.apiKeyEnv = image.apiKeyEnv ?? ''
-      const video = videoScope.get()
-      videoSelection.provider = video.provider ?? DEFAULT_PROVIDER
-      videoSelection.protocol = video.protocol ?? ''
-      videoSelection.model = video.model ?? DEFAULT_VIDEO_MODEL
-      videoSelection.baseURL = video.baseURL ?? ''
-      videoSelection.apiKeyEnv = video.apiKeyEnv ?? ''
-    }
-    sync()
-    imageScope.watch(sync)
-    videoScope.watch(sync)
-  })
-
-  ctx.tools.register(defineTool({
+function defineImageTool(resolved: ResolvedModels, config: Config) {
+  const providerKeys = resolved.entries.map((entry) => entry.key)
+  return defineTool({
     name: 'generate_image',
-    description: 'Generate one or more images from a text prompt using an image-generation model. Call this when the user asks to create, draw, render, or imagine a picture, illustration, poster, avatar, or any visual asset. Returns image references (URL/data URI), dimensions, and the prompt used.',
+    description:
+      'Generate one or more images from a text prompt using an image-generation model. Call this when the user asks to create, draw, render, or imagine a picture, illustration, poster, avatar, or any visual asset. Returns image references (URL/data URI), dimensions, and the prompt used.\n\n'
+      + 'Available models (pick `provider` by need, or omit to use the default):\n'
+      + modelCatalog(resolved, IMAGE_PROVIDER_PRESETS),
     parameters: {
       prompt: { type: 'string', required: true, description: 'The image description. Be concrete and detailed: subject, style, composition, lighting, palette, mood. Rewrite the user intent into a rich visual prompt.' },
+      provider: { type: 'string', enum: providerKeys, description: 'Which configured model to use. Match the request to the model whose strengths fit (see the catalog above); omit to use the default model.' },
       count: { type: 'integer', description: 'How many image variants to generate (1-4).' },
       size: { type: 'string', enum: [...imageSizes], description: 'Target image size/orientation.' },
       style: { type: 'string', description: 'Optional visual style keyword (e.g. photorealistic, anime, watercolor, cyberpunk).' },
@@ -185,7 +98,8 @@ export function apply(ctx: Context, config: Config): void {
     },
     isConcurrencySafe: () => true,
     async execute(args, exec) {
-      const provider = buildProvider(imageSelection, IMAGE_PROVIDER_PRESETS)
+      const entry = pickProvider(resolved, args.provider)
+      const provider = buildProvider(entry, IMAGE_PROVIDER_PRESETS)
       const count = args.count === undefined ? 1 : Math.max(1, Math.min(maxImagesPerRequest, args.count))
       const request = {
         prompt: args.prompt,
@@ -196,13 +110,20 @@ export function apply(ctx: Context, config: Config): void {
       const taskSignal = AbortSignal.any([exec.signal, AbortSignal.timeout(config.timeoutMs)])
       return await provider.generateImage(request, taskSignal)
     },
-  }))
+  })
+}
 
-  ctx.tools.register(defineTool({
+function defineVideoTool(resolved: ResolvedModels, config: Config) {
+  const providerKeys = resolved.entries.map((entry) => entry.key)
+  return defineTool({
     name: 'generate_video',
-    description: 'Generate a short video from a text prompt using a video-generation model. Call this when the user asks to create, produce, or imagine a video clip, animation, or moving scene. Returns a video reference, duration, resolution, and aspect ratio.',
+    description:
+      'Generate a short video from a text prompt using a video-generation model. Call this when the user asks to create, produce, or imagine a video clip, animation, or moving scene. Returns a video reference, duration, resolution, and aspect ratio.\n\n'
+      + 'Available models (pick `provider` by need, or omit to use the default):\n'
+      + modelCatalog(resolved, VIDEO_PROVIDER_PRESETS),
     parameters: {
       prompt: { type: 'string', required: true, description: 'The video description: subject, action, camera movement, scene, lighting, mood, pacing. Rewrite the user intent into a rich scene prompt.' },
+      provider: { type: 'string', enum: providerKeys, description: 'Which configured model to use; omit to use the default model.' },
       durationSeconds: { type: 'number', description: 'Target duration in seconds (1-30).' },
       resolution: { type: 'string', enum: [...videoResolutions], description: 'Target video resolution.' },
       aspectRatio: { type: 'string', enum: [...videoAspectRatios], description: 'Target frame aspect ratio; use 9:16 for vertical short-video.' },
@@ -213,7 +134,8 @@ export function apply(ctx: Context, config: Config): void {
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
-      const provider = buildProvider(videoSelection, VIDEO_PROVIDER_PRESETS)
+      const entry = pickProvider(resolved, args.provider)
+      const provider = buildProvider(entry, VIDEO_PROVIDER_PRESETS)
       const durationSeconds = args.durationSeconds === undefined
         ? 5
         : Math.max(1, Math.min(maxVideoDurationSeconds, Math.round(args.durationSeconds)))
@@ -226,5 +148,47 @@ export function apply(ctx: Context, config: Config): void {
       const taskSignal = AbortSignal.any([exec.signal, AbortSignal.timeout(config.timeoutMs)])
       return await provider.generateVideo(request, taskSignal)
     },
-  }))
+  })
+}
+
+export function apply(ctx: Context, config: Config): void {
+  // Live routing state. Defaults to a single mock entry and is re-resolved on
+  // every settings change. `registerTools` disposes and re-registers the two
+  // tools so the model-facing `provider` enum and catalog track the list.
+  const state = {
+    image: resolveModels(undefined),
+    video: resolveModels(undefined),
+  }
+  let disposeImage: (() => void) | undefined
+  let disposeVideo: (() => void) | undefined
+
+  const registerTools = (): void => {
+    disposeImage?.()
+    disposeVideo?.()
+    disposeImage = ctx.tools.register(defineImageTool(state.image, config))
+    disposeVideo = ctx.tools.register(defineVideoTool(state.video, config))
+  }
+  registerTools()
+
+  // Best-effort settings registration: without a settings provider (headless
+  // boot) the tools keep their mock defaults. When present, every edit
+  // re-resolves the routing view and re-registers the tools live.
+  ctx.inject(['settings'], (settingsCtx) => {
+    const imageScope = settingsCtx.settings.register(
+      IMAGE_SETTINGS_NS,
+      ImageGenerationSettingsSchema,
+    )
+    const videoScope = settingsCtx.settings.register(
+      VIDEO_SETTINGS_NS,
+      VideoGenerationSettingsSchema,
+    )
+    const sync = () => {
+      state.image = resolveModels(imageScope.get())
+      state.video = resolveModels(videoScope.get())
+      registerTools()
+    }
+    sync()
+    imageScope.watch(sync)
+    videoScope.watch(sync)
+  })
 }

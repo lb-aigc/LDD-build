@@ -1,8 +1,9 @@
 /**
  * Staged form model behind one generation card. Self-contained (the reference
- * ui-settings-plugins exports only types), trimmed to the fields a generation
- * card edits: provider/model/baseURL/apiKeyEnv in the settings namespace, plus
- * the API key written through the credentials domain so its literal never
+ * ui-settings-plugins exports only types). Edits a MODEL LIST (not one model):
+ * each row is a provider preset or `custom` host, one row is marked default,
+ * and the whole list plus the default key write back to the settings namespace
+ * on save. API keys ride the credentials domain per-row, so the literal never
  * rides a response.
  */
 import type { IApiClient } from '@deepseek-ai/dsh-client-connection/client'
@@ -12,25 +13,31 @@ import type {
   SnapshotStore,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import { DEFAULT_PROVIDER, routeKeyOf } from './presets.ts'
 
-/** The settings fields this card edits. */
+/** One model row's persisted fields (written to `settings.models`). */
+export interface ModelDraft {
+  provider: string
+  protocol: string
+  model: string
+  baseURL: string
+  apiKeyEnv: string
+}
+
+/** A draft row plus a stable front-end id so per-row API keys survive reorder. */
+export interface ModelRow extends ModelDraft {
+  readonly uid: number
+}
+
+/** The settings namespace shape this card edits. */
 export interface GenerationCardSettings {
+  default?: string
+  models?: ModelDraft[]
   provider?: string
+  protocol?: string
   model?: string
   baseURL?: string
   apiKeyEnv?: string
-}
-
-/** One section field's draft state. */
-export interface FieldState {
-  text: string
-  overridden: boolean
-}
-
-/** One credential reference's reported state. */
-export interface CredentialState {
-  configured: boolean
-  writable: boolean
 }
 
 /** The card's full render state. */
@@ -41,13 +48,8 @@ export interface GenerationCardState {
   dirty: boolean
   saving: boolean
   failed: boolean
-  provider: FieldState
-  model: FieldState
-  baseURL: FieldState
-  apiKeyEnv: FieldState
-  apiKey: FieldState
-  apiKeyConfigured: boolean
-  apiKeyWritable: boolean
+  models: ModelRow[]
+  defaultKey: string
 }
 
 /** Face the card's slot entry injects (hooks + actions). */
@@ -55,31 +57,83 @@ export interface GenerationCardFace {
   hooks: {
     generationCard: SnapshotStore<GenerationCardState>
   }
-  edit: (field: string, text: string) => void
-  resetField: (field: string) => void
+  editModel: (index: number, field: EditableModelField, text: string) => void
+  addModel: () => void
+  removeModel: (index: number) => void
+  setDefault: (index: number) => void
+  setApiKey: (index: number, text: string) => void
   save: () => void
   discard: () => void
 }
 
+export type EditableModelField = 'provider' | 'protocol' | 'model' | 'baseURL' | 'apiKeyEnv'
+
 const DEFAULT_API_KEY_REF = 'GENERATE_API_KEY'
-const FIELD_KEYS = ['provider', 'model', 'baseURL', 'apiKeyEnv'] as const
-const API_KEY_FIELD = 'apiKey'
 
 function textOf(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
-/** The credential reference the card addresses (explicit env ref or default). */
-function refOf(snapshot: SettingsScopeSnapshot<GenerationCardSettings>): string {
-  const declared = snapshot.value?.apiKeyEnv
-  return declared !== undefined && declared.length > 0 ? declared : DEFAULT_API_KEY_REF
+/** Normalize a stored (possibly partial) model entry into a full row. */
+function toRow(entry: unknown, uid: number): ModelRow {
+  const e = (entry ?? {}) as Record<string, unknown>
+  const provider = typeof e.provider === 'string' && e.provider !== '' ? e.provider : DEFAULT_PROVIDER
+  return {
+    uid,
+    provider,
+    protocol: textOf(e.protocol),
+    model: textOf(e.model),
+    baseURL: textOf(e.baseURL),
+    apiKeyEnv: textOf(e.apiKeyEnv),
+  }
+}
+
+/** Read the current settings snapshot into a staged list plus default key. */
+function readOriginal(snapshot: SettingsScopeSnapshot<GenerationCardSettings>): {
+  models: ModelRow[]
+  defaultKey: string
+} {
+  const value = (snapshot.value ?? {}) as Record<string, unknown>
+  let uid = 0
+  let models: ModelRow[]
+  const stored = value.models
+  if (Array.isArray(stored) && stored.length > 0) {
+    models = stored.map((entry) => toRow(entry, uid++))
+  } else if (typeof value.provider === 'string' && value.provider !== '') {
+    models = [toRow({
+      provider: value.provider,
+      protocol: value.protocol,
+      model: value.model,
+      baseURL: value.baseURL,
+      apiKeyEnv: value.apiKeyEnv,
+    }, uid++)]
+  } else {
+    models = [toRow({}, uid++)]
+  }
+  const defaultKey = typeof value.default === 'string' && value.default !== ''
+    ? value.default
+    : routeKeyOf(models, 0)
+  return { models, defaultKey }
+}
+
+/** Strip the front-end uid, leaving only persisted fields. */
+function persistOf(model: ModelRow): ModelDraft {
+  return {
+    provider: model.provider,
+    protocol: model.protocol,
+    model: model.model,
+    baseURL: model.baseURL,
+    apiKeyEnv: model.apiKeyEnv,
+  }
 }
 
 export class GenerateSettingsController {
-  private readonly staged = new Map<string, { text: string; clear: boolean }>()
   private readonly store: SnapshotStore<GenerationCardState>
-  private credential: CredentialState = { configured: false, writable: true }
-  private credentialRef = ''
+  private readonly staged: { models: ModelRow[]; defaultKey: string }
+  private readonly original: { models: ModelDraft[]; defaultKey: string }
+  /** Per-row API-key text, keyed by the row's stable uid (never persisted to settings). */
+  private readonly apiKeys = new Map<number, string>()
+  private nextUid = 1
   private saving = false
   private failed = false
 
@@ -88,42 +142,38 @@ export class GenerateSettingsController {
     private readonly api: Pick<IApiClient, 'credentials'>,
     private readonly kind: 'image' | 'video',
   ) {
+    const initial = readOriginal(scope.getSnapshot())
+    this.original = {
+      models: initial.models.map(persistOf),
+      defaultKey: initial.defaultKey,
+    }
+    this.staged = {
+      models: initial.models.map((m) => ({ ...m })),
+      defaultKey: initial.defaultKey,
+    }
+    this.nextUid = initial.models.reduce((max, m) => Math.max(max, m.uid + 1), 1)
     this.store = createSnapshotStore(this.projection())
     scope.subscribe(() => { this.store.set(this.projection()) })
-    scope.subscribe(() => { void this.readCredential() })
-    void this.readCredential()
   }
 
   private projection(): GenerationCardState {
     const snapshot = this.scope.getSnapshot()
-    const plan = [...this.staged.entries()].filter(([, e]) => e.text.trim() !== '' || e.clear)
-    const base: Record<string, unknown> = (snapshot.base ?? {}) as Record<string, unknown>
-    const user: Record<string, unknown> = (snapshot.user ?? {}) as Record<string, unknown>
-    const value: Record<string, unknown> = (snapshot.value ?? {}) as unknown as Record<string, unknown>
-
-    const field = (key: string): FieldState => {
-      const staged = this.staged.get(key)
-      if (staged !== undefined) {
-        return { text: staged.text, overridden: !staged.clear }
-      }
-      return { text: textOf(value[key]), overridden: Object.hasOwn(user, key) }
-    }
-
     return {
       kind: this.kind,
       available: snapshot.status === 'ready',
       writable: snapshot.writable,
-      dirty: plan.length > 0,
+      dirty: this.isDirty(),
       saving: this.saving,
       failed: this.failed,
-      provider: field('provider'),
-      model: field('model'),
-      baseURL: field('baseURL'),
-      apiKeyEnv: field('apiKeyEnv'),
-      apiKey: { text: this.staged.get(API_KEY_FIELD)?.text ?? '', overridden: false },
-      apiKeyConfigured: this.credential.configured,
-      apiKeyWritable: this.credential.writable,
+      models: this.staged.models,
+      defaultKey: this.staged.defaultKey,
     }
+  }
+
+  private isDirty(): boolean {
+    return JSON.stringify(this.staged.models.map(persistOf)) !== JSON.stringify(this.original.models)
+      || this.staged.defaultKey !== this.original.defaultKey
+      || [...this.apiKeys.values()].some((text) => text.trim() !== '')
   }
 
   private publish(): void {
@@ -133,12 +183,53 @@ export class GenerateSettingsController {
   inject(): GenerationCardFace {
     return {
       hooks: { generationCard: this.store },
-      edit: (field, text) => { this.staged.set(field, { text, clear: false }); this.failed = false; this.publish() },
-      resetField: (field) => { this.staged.set(field, { text: textOf((this.scope.getSnapshot().base as Record<string, unknown> | undefined)?.[field]), clear: true }); this.publish() },
+      editModel: (index, field, text) => {
+        const model = this.staged.models[index]
+        if (model === undefined) return
+        model[field] = text
+        this.failed = false
+        this.publish()
+      },
+      addModel: () => {
+        this.staged.models.push({
+          uid: this.nextUid++,
+          provider: DEFAULT_PROVIDER,
+          protocol: '',
+          model: '',
+          baseURL: '',
+          apiKeyEnv: '',
+        })
+        this.failed = false
+        this.publish()
+      },
+      removeModel: (index) => {
+        if (this.staged.models.length <= 1) return
+        const [removed] = this.staged.models.splice(index, 1)
+        if (removed !== undefined) this.apiKeys.delete(removed.uid)
+        this.failed = false
+        this.publish()
+      },
+      setDefault: (index) => {
+        const model = this.staged.models[index]
+        if (model === undefined) return
+        this.staged.defaultKey = routeKeyOf(this.staged.models, index)
+        this.failed = false
+        this.publish()
+      },
+      setApiKey: (index, text) => {
+        const model = this.staged.models[index]
+        if (model === undefined) return
+        this.apiKeys.set(model.uid, text)
+        this.failed = false
+        this.publish()
+      },
       save: () => { void this.save() },
       discard: () => {
-        if (this.staged.size === 0 && !this.failed) return
-        this.staged.clear()
+        if (!this.isDirty()) return
+        const initial = readOriginal(this.scope.getSnapshot())
+        this.staged.models = initial.models.map((m) => ({ ...m }))
+        this.staged.defaultKey = initial.defaultKey
+        this.apiKeys.clear()
         this.failed = false
         this.publish()
       },
@@ -146,53 +237,46 @@ export class GenerateSettingsController {
   }
 
   private async save(): Promise<void> {
-    const plan = [...this.staged.entries()].filter(([, e]) => e.text.trim() !== '' || e.clear)
-    if (plan.length === 0 || this.saving) return
+    if (!this.isDirty() || this.saving) return
     this.saving = true
     this.failed = false
     this.publish()
 
+    const persisted = this.staged.models.map(persistOf)
+    const modelsChanged = JSON.stringify(persisted) !== JSON.stringify(this.original.models)
+    const defaultChanged = this.staged.defaultKey !== this.original.defaultKey
+
     let landed = true
-    for (const [field, edit] of plan) {
-      try {
-        if (field === API_KEY_FIELD) {
-          await this.api.credentials.set({ ref: refOf(this.scope.getSnapshot()), value: edit.text.trim() })
-        } else if (edit.clear) {
-          await this.scope.unset(field)
-        } else {
-          await this.scope.set(field, edit.text.trim())
-        }
-      } catch {
-        landed = false
+    try {
+      if (modelsChanged) {
+        await this.scope.set('models', persisted)
+        // Drop the legacy flat fields so the Host never falls back to them.
+        await this.scope.unset('provider')
+        await this.scope.unset('protocol')
+        await this.scope.unset('model')
+        await this.scope.unset('baseURL')
+        await this.scope.unset('apiKeyEnv')
       }
+      if (defaultChanged) {
+        await this.scope.set('default', this.staged.defaultKey)
+      }
+      for (const model of this.staged.models) {
+        const text = this.apiKeys.get(model.uid)
+        if (text === undefined || text.trim() === '') continue
+        const ref = model.apiKeyEnv.trim() === '' ? DEFAULT_API_KEY_REF : model.apiKeyEnv.trim()
+        await this.api.credentials.set({ ref, value: text.trim() })
+      }
+    } catch {
+      landed = false
     }
 
-    if (landed) this.staged.clear()
+    if (landed) {
+      this.original.models = persisted
+      this.original.defaultKey = this.staged.defaultKey
+      this.apiKeys.clear()
+    }
     this.saving = false
     this.failed = !landed
-    await this.readCredential()
-    this.publish()
-  }
-
-  private async readCredential(): Promise<void> {
-    const ref = refOf(this.scope.getSnapshot())
-    if (ref !== this.credentialRef) {
-      this.credentialRef = ref
-      this.credential = { configured: false, writable: true }
-      this.publish()
-    }
-    let response: Awaited<ReturnType<IApiClient['credentials']['describe']>>
-    try {
-      response = await this.api.credentials.describe({ refs: [ref] })
-    } catch {
-      return
-    }
-    if (!response.result.ok || ref !== refOf(this.scope.getSnapshot())) return
-    const view = response.result.value.credentials[ref]
-    this.credential = {
-      configured: view?.configured ?? false,
-      writable: view?.writable ?? true,
-    }
     this.publish()
   }
 }

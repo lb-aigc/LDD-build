@@ -10,6 +10,10 @@
  * Protocol adapters implement the HTTP shape of a family of hosts, so one
  * adapter serves many aggregators: `openai-compatible` drives gpt-image-2, any
  * OpenAI-compatible aggregator, and (for video) SiliconFlow-style hosts.
+ *
+ * `strengths` is the routing hint the Host injects into the `generate_*` tool
+ * description so the agent can auto-route a request to the best model without
+ * the user switching anything. Keep it one short phrase per preset.
  */
 
 export const PROVIDER_PROTOCOLS = [
@@ -34,6 +38,8 @@ export interface ProviderPreset {
   readonly defaultBaseURL: string
   /** Default model id. Blank means the user must supply one. */
   readonly defaultModel: string
+  /** One-phrase routing hint fed to the agent's tool description. */
+  readonly strengths: string
 }
 
 export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
@@ -43,6 +49,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     protocol: 'mock',
     defaultBaseURL: '',
     defaultModel: 'mock-image',
+    strengths: '占位模型，返回占位图，用于验证链路',
   },
   {
     id: 'gpt-image',
@@ -50,6 +57,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     protocol: 'openai-compatible',
     defaultBaseURL: 'https://api.openai.com/v1',
     defaultModel: 'gpt-image-2',
+    strengths: '通用写实与风格化图像，指令遵循和文字渲染强',
   },
   {
     id: 'nano-banana',
@@ -57,6 +65,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     protocol: 'gemini',
     defaultBaseURL: 'https://generativelanguage.googleapis.com/v1beta',
     defaultModel: 'gemini-2.5-flash-image',
+    strengths: '带文字的设计：logo、UI 图标、信息图、排版',
   },
   {
     id: 'midjourney',
@@ -64,6 +73,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     protocol: 'midjourney',
     defaultBaseURL: '',
     defaultModel: '',
+    strengths: '艺术风格、概念插画、氛围感画面',
   },
   {
     id: 'seedream',
@@ -71,6 +81,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     protocol: 'volcengine',
     defaultBaseURL: 'https://ark.cn-beijing.volces.com/api/v3',
     defaultModel: '',
+    strengths: '中文场景、写实人像、电商产品图',
   },
 ]
 
@@ -81,6 +92,7 @@ export const VIDEO_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     protocol: 'mock',
     defaultBaseURL: '',
     defaultModel: 'mock-video',
+    strengths: '占位模型，返回占位视频，用于验证链路',
   },
 ]
 
