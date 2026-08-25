@@ -1,0 +1,157 @@
+--- a/packages/client/ui-attachment/src/ImageLightbox.tsx
++++ b/packages/client/ui-attachment/src/ImageLightbox.tsx
+@@ -1,6 +1,6 @@
+ import { useEffect, useRef } from 'react'
+ import { createPortal } from 'react-dom'
+-import { IconCloseOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
++import { IconCloseOutline16, IconDownloadOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+ import css from './ImageLightbox.module.css'
+ 
+ /** Lightbox strings the owner resolves from its own locale namespace. */
+@@ -9,6 +9,8 @@
+   dialog: string
+   /** Accessible label of the close control. */
+   close: string
++  /** Accessible label of the download (save-to-disk) control. */
++  download: string
+ }
+ 
+ /**
+@@ -20,18 +22,37 @@
+  *
+  * @param props.src - the original image URL.
+  * @param props.alt - the image's alt text.
+- * @param props.labels - dialog and close-control strings.
++ * @param props.downloadName - suggested filename for the save-to-disk control.
++ * @param props.labels - dialog, close, and download-control strings.
+  * @param props.onClose - dismiss callback owned by the opener.
+  * @returns the modal preview dialog.
+  */
+-export function ImageLightbox({ src, alt, labels, onClose }: {
++export function ImageLightbox({ src, alt, downloadName, labels, onClose }: {
+   src: string
+   alt: string
++  downloadName?: string | undefined
+   labels: ImageLightboxLabels
+   onClose: () => void
+ }) {
+   const closeRef = useRef<HTMLButtonElement | null>(null)
+   const restoreRef = useRef<HTMLElement | null>(null)
++
++  // Hand the image bytes to the desktop host's native save dialog. The
++  // capability is injected by the Electron shell as `window.ldd.saveImage`;
++  // absent (plain browser), the control is a no-op.
++  const saveImage = (): void => {
++    const saver = (globalThis as { ldd?: { saveImage?: (data: ArrayBuffer, name: string) => Promise<unknown> } }).ldd?.saveImage
++    if (saver === undefined) return
++    void (async () => {
++      try {
++        const response = await fetch(src)
++        const buffer = await response.arrayBuffer()
++        await saver(buffer, downloadName ?? 'image.png')
++      } catch {
++        // Save cancelled or failed — leave the preview open, nothing to surface.
++      }
++    })()
++  }
+ 
+   useEffect(() => {
+     restoreRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+@@ -55,9 +76,14 @@
+     >
+       <div className={css.mask} aria-hidden="true" onMouseDown={onClose} />
+       <img className={css.image} src={src} alt={alt} />
+-      <button ref={closeRef} type="button" className={css.close} aria-label={labels.close} onClick={onClose}>
+-        <IconCloseOutline16 size={16} />
+-      </button>
++      <div className={css.actions}>
++        <button type="button" className={css.action} title={labels.download} aria-label={labels.download} onClick={saveImage}>
++          <IconDownloadOutline16 size={16} />
++        </button>
++        <button ref={closeRef} type="button" className={css.action} aria-label={labels.close} onClick={onClose}>
++          <IconCloseOutline16 size={16} />
++        </button>
++      </div>
+     </div>,
+     document.body,
+   )
+--- a/packages/client/ui-attachment/src/MessageImage.tsx
++++ b/packages/client/ui-attachment/src/MessageImage.tsx
+@@ -38,6 +38,19 @@
+     height: Math.max(1, Math.round(box.height * scale)),
+     objectPosition: natural < 0.25 ? 'center top' : natural > 4 ? 'left center' : 'center',
+   }
++}
++
++/** Suggested download filename: `image.<ext>` derived from the media type. */
++function downloadNameFor(attachment: ImageAttachmentRef): string {
++  const extension = MEDIA_TYPE_EXTENSIONS[attachment.mediaType] ?? 'png'
++  return `image.${extension}`
++}
++
++const MEDIA_TYPE_EXTENSIONS: Readonly<Record<string, string>> = {
++  'image/png': 'png',
++  'image/jpeg': 'jpg',
++  'image/webp': 'webp',
++  'image/gif': 'gif',
+ }
+ 
+ /**
+@@ -95,7 +108,7 @@
+           ? <span className={css.loading}>{labels.loading}</span>
+           : <img src={src} alt={label} style={fit === undefined ? undefined : { objectPosition: fit.objectPosition }} />}
+       </button>
+-      {open && src !== null && <ImageLightbox src={src} alt={label} labels={labels.lightbox} onClose={close} />}
++      {open && src !== null && <ImageLightbox src={src} alt={label} downloadName={downloadNameFor(attachment)} labels={labels.lightbox} onClose={close} />}
+     </>
+   )
+ }
+--- a/packages/client/ui-attachment/src/ImageLightbox.module.css
++++ b/packages/client/ui-attachment/src/ImageLightbox.module.css
+@@ -27,11 +27,16 @@
+   box-shadow: var(--dsw-shadow-lv3);
+ }
+ 
+-.close {
++.actions {
+   position: fixed;
+   top: 20px;
+   right: 20px;
+   z-index: 1;
++  display: flex;
++  gap: 8px;
++}
++
++.action {
+   display: grid;
+   place-items: center;
+   width: 36px;
+--- a/packages/client/ui-attachment/src/client/labels.ts
++++ b/packages/client/ui-attachment/src/client/labels.ts
+@@ -10,7 +10,7 @@
+  * @returns translated lightbox labels.
+  */
+ export function lightboxLabels(t: TranslateNS<'conversation'>): ImageLightboxLabels {
+-  return { dialog: t('image.preview'), close: t('image.closePreview') }
++  return { dialog: t('image.preview'), close: t('image.closePreview'), download: t('image.download') }
+ }
+ 
+ /**
+--- a/packages/client/ui-conversation/src/client/locales.ts
++++ b/packages/client/ui-conversation/src/client/locales.ts
+@@ -40,6 +40,7 @@
+   'image.loading': '图片加载中…',
+   'image.preview': '原图预览',
+   'image.closePreview': '关闭原图预览',
++  'image.download': '下载图片',
+   'image.serviceUnavailable': '图片读取服务不可用',
+   'image.unsupportedType': '仅支持 PNG、JPG、WebP、GIF 格式的图片',
+   'image.tooMany': '一条消息最多添加 {count} 张图片',
+@@ -217,6 +218,7 @@
+   'image.loading': 'Loading image…',
+   'image.preview': 'Original image preview',
+   'image.closePreview': 'Close original image preview',
++  'image.download': 'Download image',
+   'image.serviceUnavailable': 'Image loading service unavailable',
+   'image.unsupportedType': 'Only PNG, JPG, WebP, and GIF images are supported',
+   'image.tooMany': 'A message can include up to {count} images',

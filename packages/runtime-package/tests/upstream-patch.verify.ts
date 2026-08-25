@@ -106,6 +106,22 @@ const officialGenericToolCard = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'toolviews', 'GenericToolCard.tsx',
 )
+const officialImageLightbox = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx',
+)
+const officialMessageImage = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx',
+)
+const officialImageLightboxCss = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css',
+)
+const officialAttachmentLabels = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts',
+)
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2')
 
 test('tracked Harness patches add LDD compatibility changes and apply exactly once', async () => {
@@ -151,6 +167,18 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedGenericToolCard = join(
       copiedRoot, 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'toolviews', 'GenericToolCard.tsx',
     )
+    const copiedImageLightbox = join(
+      copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx',
+    )
+    const copiedMessageImage = join(
+      copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx',
+    )
+    const copiedImageLightboxCss = join(
+      copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css',
+    )
+    const copiedAttachmentLabels = join(
+      copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts',
+    )
     await mkdir(dirname(copiedCatalog), { recursive: true })
     await mkdir(dirname(copiedReleaseProcess), { recursive: true })
     await mkdir(dirname(copiedBrand), { recursive: true })
@@ -163,6 +191,10 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await mkdir(dirname(copiedToolCallTree), { recursive: true })
     await mkdir(dirname(copiedToolCallModel), { recursive: true })
     await mkdir(dirname(copiedGenericToolCard), { recursive: true })
+    await mkdir(dirname(copiedImageLightbox), { recursive: true })
+    await mkdir(dirname(copiedMessageImage), { recursive: true })
+    await mkdir(dirname(copiedImageLightboxCss), { recursive: true })
+    await mkdir(dirname(copiedAttachmentLabels), { recursive: true })
     await writeFile(copiedCatalog, await readFile(officialCatalog))
     await writeFile(copiedReleaseProcess, await readFile(officialReleaseProcess))
     await writeFile(copiedBrand, await readFile(officialBrand))
@@ -175,6 +207,10 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedToolCallTree, await readFile(officialToolCallTree))
     await writeFile(copiedToolCallModel, await readFile(officialToolCallModel))
     await writeFile(copiedGenericToolCard, await readFile(officialGenericToolCard))
+    await writeFile(copiedImageLightbox, await readFile(officialImageLightbox))
+    await writeFile(copiedMessageImage, await readFile(officialMessageImage))
+    await writeFile(copiedImageLightboxCss, await readFile(officialImageLightboxCss))
+    await writeFile(copiedAttachmentLabels, await readFile(officialAttachmentLabels))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
     const result = await readFile(copiedCatalog, 'utf8')
@@ -200,6 +236,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0003-rebrand-ldd.patch',
       '0004-rebrand-ldd-trim.patch',
       '0005-render-tool-result-images.patch',
+      '0006-image-download-button.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -226,6 +263,17 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(toolCallModel, /block\.type !== 'image'/u)
     const genericToolCard = await readFile(copiedGenericToolCard, 'utf8')
     assert.match(genericToolCard, /renderMessageImages\?\.\(\{ images, align: 'start' \}\)/u)
+    const imageLightbox = await readFile(copiedImageLightbox, 'utf8')
+    assert.match(imageLightbox, /IconDownloadOutline16/u)
+    assert.match(imageLightbox, /downloadName\?/u)
+    const messageImage = await readFile(copiedMessageImage, 'utf8')
+    assert.match(messageImage, /downloadNameFor\(attachment\)/u)
+    const imageLightboxCss = await readFile(copiedImageLightboxCss, 'utf8')
+    assert.match(imageLightboxCss, /\.actions \{/u)
+    const attachmentLabels = await readFile(copiedAttachmentLabels, 'utf8')
+    assert.match(attachmentLabels, /download: t\('image\.download'\)/u)
+    const localesDownload = await readFile(copiedLocales, 'utf8')
+    assert.match(localesDownload, /'image\.download': '下载图片'/u)
     await assert.rejects(
       applyTrackedUpstreamPatches(copiedRoot, patchRoot),
       /does not match the official source/,

@@ -20,6 +20,8 @@ const api: LddRendererApi = {
   openPluginCenter: async () => ipcRenderer.invoke(ipcChannels.openPluginCenter),
   retryBoot: async () => ipcRenderer.invoke(ipcChannels.retryBoot),
   openLogDirectory: async () => ipcRenderer.invoke(ipcChannels.openLogDirectory),
+  saveImage: async (data, defaultName) =>
+    ipcRenderer.invoke(ipcChannels.saveImage, { data, defaultName }),
   subscribeProgress: (listener) => {
     const receive = (_event: Electron.IpcRendererEvent, value: unknown) => {
       listener(parseRuntimeProgress(value))

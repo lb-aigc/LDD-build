@@ -25,6 +25,7 @@ function apiFixture(): LddRendererApi {
     openPluginCenter: vi.fn(),
     retryBoot: vi.fn(),
     openLogDirectory: vi.fn(),
+    saveImage: vi.fn().mockResolvedValue({ saved: false }),
     subscribeProgress: vi.fn().mockReturnValue(() => undefined),
   }
 }

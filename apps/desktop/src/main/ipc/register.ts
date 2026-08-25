@@ -21,6 +21,7 @@ export interface DesktopIpcServices {
   openPluginCenter(): Promise<void>
   retryBoot(): Promise<unknown>
   openLogDirectory(): Promise<void>
+  saveImage(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
 }
 
 export function registerDesktopIpc(
@@ -43,6 +44,12 @@ export function registerDesktopIpc(
   register(ipcMain, 'openPluginCenter', async () => services.openPluginCenter())
   register(ipcMain, 'retryBoot', async () => services.retryBoot())
   register(ipcMain, 'openLogDirectory', async () => services.openLogDirectory())
+  register(ipcMain, 'saveImage', async (input) =>
+    services.saveImage(
+      (input.value as { data: ArrayBuffer; defaultName: string }).data,
+      (input.value as { data: ArrayBuffer; defaultName: string }).defaultName,
+    ),
+  )
 
   return () => {
     for (const channel of Object.values(ipcChannels)) {
@@ -70,7 +77,8 @@ function register(
     | 'setImageMode'
     | 'openPluginCenter'
     | 'retryBoot'
-    | 'openLogDirectory',
+    | 'openLogDirectory'
+    | 'saveImage',
   invoke: (input: ReturnType<typeof parseIpcRequest>) => Promise<unknown>,
 ): void {
   ipcMain.handle(ipcChannels[method], async (_event, value) => {

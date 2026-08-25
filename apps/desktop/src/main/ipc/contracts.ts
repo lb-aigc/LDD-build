@@ -11,6 +11,7 @@ export const rendererApiKeys = [
   'openPluginCenter',
   'retryBoot',
   'openLogDirectory',
+  'saveImage',
   'subscribeProgress',
 ] as const
 
@@ -28,6 +29,7 @@ export const ipcChannels: Readonly<Record<RendererApiKey, string>> = Object.free
   openPluginCenter: 'ldd:plugins:open-center',
   retryBoot: 'ldd:boot:retry',
   openLogDirectory: 'ldd:logs:open',
+  saveImage: 'ldd:image:save',
   subscribeProgress: 'ldd:progress',
 })
 
@@ -58,6 +60,7 @@ export interface LddRendererApi {
   openPluginCenter(): Promise<void>
   retryBoot(): Promise<unknown>
   openLogDirectory(): Promise<void>
+  saveImage(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
   subscribeProgress(listener: (event: RuntimeProgressEvent) => void): () => void
 }
 
@@ -72,6 +75,7 @@ export type IpcRequest =
   | { readonly method: 'openPluginCenter'; readonly value: undefined }
   | { readonly method: 'retryBoot'; readonly value: undefined }
   | { readonly method: 'openLogDirectory'; readonly value: undefined }
+  | { readonly method: 'saveImage'; readonly value: { readonly data: ArrayBuffer; readonly defaultName: string } }
 
 export function parseIpcRequest(method: InvokeApiKey, value: unknown): IpcRequest {
   switch (method) {
@@ -89,6 +93,8 @@ export function parseIpcRequest(method: InvokeApiKey, value: unknown): IpcReques
       return { method, value: parseVersionInput(value) }
     case 'setImageMode':
       return { method, value: parseImageModeInput(value) }
+    case 'saveImage':
+      return { method, value: parseSaveImageInput(value) }
   }
 }
 
@@ -141,6 +147,17 @@ function parseImageModeInput(value: unknown): { readonly mode: ImageMode } {
     throw new TypeError('image mode must be standard or large')
   }
   return { mode: record.mode }
+}
+
+function parseSaveImageInput(value: unknown): { readonly data: ArrayBuffer; readonly defaultName: string } {
+  const record = requireExactRecord(value, 'save-image request', ['data', 'defaultName'])
+  if (!(record.data instanceof ArrayBuffer)) {
+    throw new TypeError('save-image data must be an ArrayBuffer')
+  }
+  if (typeof record.defaultName !== 'string' || record.defaultName.length === 0 || record.defaultName.length > 256) {
+    throw new TypeError('save-image defaultName is invalid')
+  }
+  return { data: record.data, defaultName: record.defaultName }
 }
 
 function requireExactRecord(

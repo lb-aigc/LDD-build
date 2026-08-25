@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import {
   app,
@@ -118,6 +118,17 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     if (error.length > 0) throw new Error(`无法打开日志目录：${error}`)
   }
 
+  const saveImage = async (data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }> => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '保存图片',
+      defaultPath: defaultName,
+      filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }],
+    })
+    if (result.canceled || result.filePath === undefined) return { saved: false }
+    await writeFile(result.filePath, Buffer.from(data))
+    return { saved: true, path: result.filePath }
+  }
+
   const importOfflineRuntime = async (): Promise<unknown> => {
     const selected = await dialog.showOpenDialog(mainWindow, {
       title: '导入 LDD 离线内核包',
@@ -160,6 +171,7 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     openPluginCenter: async () => shell.openExternal(pluginCenterUrl),
     retryBoot: retryAndLoad,
     openLogDirectory: openLogs,
+    saveImage,
   })
 
   let destroyTray: () => void = () => undefined
