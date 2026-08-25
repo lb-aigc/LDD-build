@@ -90,6 +90,22 @@ const officialClientBuildEnvironment = join(
   'scripts',
   'client-build-environment.ts',
 )
+const officialToolSlots = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-tool', 'src', 'client', 'contract', 'slots.ts',
+)
+const officialToolCallTree = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'ToolCallTree.tsx',
+)
+const officialToolCallModel = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'models', 'tool-call-model.ts',
+)
+const officialGenericToolCard = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'toolviews', 'GenericToolCard.tsx',
+)
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2')
 
 test('tracked Harness patches add LDD compatibility changes and apply exactly once', async () => {
@@ -123,6 +139,18 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedClientBuildEnvironment = join(
       copiedRoot, 'scripts', 'client-build-environment.ts',
     )
+    const copiedToolSlots = join(
+      copiedRoot, 'packages', 'client', 'ui-tool', 'src', 'client', 'contract', 'slots.ts',
+    )
+    const copiedToolCallTree = join(
+      copiedRoot, 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'ToolCallTree.tsx',
+    )
+    const copiedToolCallModel = join(
+      copiedRoot, 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'models', 'tool-call-model.ts',
+    )
+    const copiedGenericToolCard = join(
+      copiedRoot, 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'toolviews', 'GenericToolCard.tsx',
+    )
     await mkdir(dirname(copiedCatalog), { recursive: true })
     await mkdir(dirname(copiedReleaseProcess), { recursive: true })
     await mkdir(dirname(copiedBrand), { recursive: true })
@@ -131,6 +159,10 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await mkdir(dirname(copiedSidebarRoot), { recursive: true })
     await mkdir(dirname(copiedEmptyHero), { recursive: true })
     await mkdir(dirname(copiedClientBuildEnvironment), { recursive: true })
+    await mkdir(dirname(copiedToolSlots), { recursive: true })
+    await mkdir(dirname(copiedToolCallTree), { recursive: true })
+    await mkdir(dirname(copiedToolCallModel), { recursive: true })
+    await mkdir(dirname(copiedGenericToolCard), { recursive: true })
     await writeFile(copiedCatalog, await readFile(officialCatalog))
     await writeFile(copiedReleaseProcess, await readFile(officialReleaseProcess))
     await writeFile(copiedBrand, await readFile(officialBrand))
@@ -139,6 +171,10 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedSidebarRoot, await readFile(officialSidebarRoot))
     await writeFile(copiedEmptyHero, await readFile(officialEmptyHero))
     await writeFile(copiedClientBuildEnvironment, await readFile(officialClientBuildEnvironment))
+    await writeFile(copiedToolSlots, await readFile(officialToolSlots))
+    await writeFile(copiedToolCallTree, await readFile(officialToolCallTree))
+    await writeFile(copiedToolCallModel, await readFile(officialToolCallModel))
+    await writeFile(copiedGenericToolCard, await readFile(officialGenericToolCard))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
     const result = await readFile(copiedCatalog, 'utf8')
@@ -163,6 +199,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0002-launch-package-manager-shims-on-windows.patch',
       '0003-rebrand-ldd.patch',
       '0004-rebrand-ldd-trim.patch',
+      '0005-render-tool-result-images.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -183,6 +220,12 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const buildEnvironment = await readFile(copiedClientBuildEnvironment, 'utf8')
     assert.match(buildEnvironment, /DSH_CLIENT_TITLE: 'LDD'/u)
     assert.doesNotMatch(buildEnvironment, /DeepSeek Harness/u)
+    const toolSlots = await readFile(copiedToolSlots, 'utf8')
+    assert.match(toolSlots, /renderMessageImages: RenderMessageImages/u)
+    const toolCallModel = await readFile(copiedToolCallModel, 'utf8')
+    assert.match(toolCallModel, /block\.type !== 'image'/u)
+    const genericToolCard = await readFile(copiedGenericToolCard, 'utf8')
+    assert.match(genericToolCard, /renderMessageImages\(\{ images, align: 'start' \}\)/u)
     await assert.rejects(
       applyTrackedUpstreamPatches(copiedRoot, patchRoot),
       /does not match the official source/,

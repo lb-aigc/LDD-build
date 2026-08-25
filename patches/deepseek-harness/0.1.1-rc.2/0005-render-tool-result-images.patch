@@ -1,0 +1,133 @@
+--- a/packages/client/ui-tool/src/client/contract/slots.ts
++++ b/packages/client/ui-tool/src/client/contract/slots.ts
+@@ -2,7 +2,7 @@
+ import type { HostDescriptionSource } from '@deepseek-ai/dsh-client-connection/client'
+ import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+ import type { ToolCallBlock } from '@deepseek-ai/dsh-client-runtime/client'
+-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
++import type { RenderMessageImages } from '@deepseek-ai/dsh-client-ui-conversation/client'
+ import type {} from '@deepseek-ai/dsh-client-locale/client'
+ 
+ declare module '@deepseek-ai/dsh-client-ui-slots' {
+@@ -41,6 +41,8 @@
+   openFile: (path: string) => void
+   /** Inspect this call in the trajectory view when available. */
+   inspect?: (() => void) | undefined
++  /** Render a historical image group through the attachment slot (threaded from the chat node). */
++  renderMessageImages: RenderMessageImages
+ }
+ 
+ /** Full props of a registered atomic Tool view. */
+--- a/packages/client/ui-tool/src/client/tool/ToolCallTree.tsx
++++ b/packages/client/ui-tool/src/client/tool/ToolCallTree.tsx
+@@ -12,8 +12,8 @@
+ 
+ /** One atomic call dispatched through the Tool-owned keyed slot. */
+ const ToolCall = memo(function ToolCall({
+-  renderSlot, callId, toolName, block, openFile, selected, cwd, home, inspectCall, t, children,
+-}: Pick<ToolTreeProps, 'renderSlot' | 'openFile' | 'cwd' | 'inspectCall' | 't'> & {
++  renderSlot, callId, toolName, block, openFile, selected, cwd, home, inspectCall, renderMessageImages, t, children,
++}: Pick<ToolTreeProps, 'renderSlot' | 'openFile' | 'cwd' | 'inspectCall' | 'renderMessageImages' | 't'> & {
+   callId: string
+   toolName: string
+   block: ToolCallBlock
+@@ -29,7 +29,8 @@
+     cwd,
+     home,
+     inspect: () => { inspectCall(callId) },
+-  }), [callId, toolName, block, openFile, cwd, home, inspectCall])
++    renderMessageImages,
++  }), [callId, toolName, block, openFile, cwd, home, inspectCall, renderMessageImages])
+   return (
+     <div
+       className={css.callRow}
+@@ -47,8 +48,8 @@
+ })
+ 
+ const ToolCallBranch = memo(function ToolCallBranch({
+-  renderSlot, block, selectedCallId, cwd, home, openFile, inspectCall, t,
+-}: Pick<ToolTreeProps, 'renderSlot' | 'selectedCallId' | 'cwd' | 'openFile' | 'inspectCall' | 't'> & {
++  renderSlot, block, selectedCallId, cwd, home, openFile, inspectCall, renderMessageImages, t,
++}: Pick<ToolTreeProps, 'renderSlot' | 'selectedCallId' | 'cwd' | 'openFile' | 'inspectCall' | 'renderMessageImages' | 't'> & {
+   block: ToolCallBlock
+   home?: string | undefined
+ }) {
+@@ -63,6 +64,7 @@
+       cwd={cwd}
+       home={home}
+       inspectCall={inspectCall}
++      renderMessageImages={renderMessageImages}
+       t={t}
+     >
+       {block.subCalls.length > 0 ? (
+@@ -77,6 +79,7 @@
+               home={home}
+               openFile={openFile}
+               inspectCall={inspectCall}
++              renderMessageImages={renderMessageImages}
+               t={t}
+             />
+           ))}
+@@ -93,7 +96,7 @@
+  * @returns the Tool call tree.
+  */
+ export function ToolCallTree({
+-  renderSlot, node, selectedCallId, cwd, openFile, inspectCall, useHostDescription, t,
++  renderSlot, node, selectedCallId, cwd, openFile, inspectCall, renderMessageImages, useHostDescription, t,
+ }: ToolTreeProps) {
+   const home = useHostDescription(description => description?.home)
+   const block = node.data.root
+@@ -106,6 +109,7 @@
+       home={home}
+       openFile={openFile}
+       inspectCall={inspectCall}
++      renderMessageImages={renderMessageImages}
+       t={t}
+     />
+   )
+--- a/packages/client/ui-tool/src/client/tool/models/tool-call-model.ts
++++ b/packages/client/ui-tool/src/client/tool/models/tool-call-model.ts
+@@ -109,7 +109,9 @@
+   const parts: string[] = []
+   for (const block of node.content) {
+     if (block.type === 'text') parts.push(block.text)
+-    else parts.push(JSON.stringify(block, null, 2))
++    // Image blocks render through the attachment slot (see GenericToolCard),
++    // not as flattened JSON — skip them so the OUT section stays prose.
++    else if (block.type !== 'image') parts.push(JSON.stringify(block, null, 2))
+   }
+   if (parts.length === 0 && node.error !== undefined) {
+     parts.push(`${node.error.name}: ${node.error.code}`)
+--- a/packages/client/ui-tool/src/client/tool/toolviews/GenericToolCard.tsx
++++ b/packages/client/ui-tool/src/client/tool/toolviews/GenericToolCard.tsx
+@@ -33,7 +33,7 @@
+   t: ToolTreeProps['t']
+ }
+ 
+-export function GenericToolCard({ toolName, block, cwd, home, openFile, inspect, t }: GenericToolCardProps) {
++export function GenericToolCard({ toolName, block, cwd, home, openFile, inspect, renderMessageImages, t }: GenericToolCardProps) {
+   const model = toolRowModel(toolName, block, cwd, home)
+   const terminal = terminalCardModel(block, cwd)
+   const read = readCardModel(block, cwd, home)
+@@ -46,7 +46,13 @@
+     ? 'error'
+     : model.state
+   const singleFile = model.filePath !== undefined
++  // Image content blocks from the settled result, rendered inline below the
++  // row through the attachment slot (the OUT text skips them; see resultText).
++  const images = 'kind' in block
++    ? block.content.filter(item => item.type === 'image').map(item => ({ attachment: item.attachment }))
++    : []
+   return (
++    <>
+     <ToolRow
+       t={t}
+       variant={model.variant}
+@@ -73,5 +79,7 @@
+       onOpenFile={singleFile ? openFile : undefined}
+       inspect={inspect}
+     />
++    {images.length > 0 && renderMessageImages({ images, align: 'start' })}
++    </>
+   )
+ }
