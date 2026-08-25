@@ -11,6 +11,7 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import type { EditableModelField, GenerationCardFace, ModelRow } from './controller.ts'
 import type { GenerateLocaleKey } from './locales.ts'
 import { CUSTOM_PROVIDER_ID, IMAGE_PRESETS, VIDEO_PRESETS, routeKeyOf } from './presets.ts'
+import type { ClientPreset } from './presets.ts'
 
 export type GenerationCardProps =
   PropsRuntime<'settings.plugin.item'>
@@ -64,7 +65,7 @@ function ModelRow(props: {
   index: number
   isDefault: boolean
   disabled: boolean
-  presets: readonly { id: string; label: string }[]
+  presets: readonly ClientPreset[]
   t: (key: GenerateLocaleKey) => string
   onEditModel: (index: number, field: EditableModelField, text: string) => void
   onRemove: (index: number) => void
@@ -73,6 +74,8 @@ function ModelRow(props: {
 }): ReactElement {
   const { model, index, isDefault, disabled, presets, t } = props
   const isCustom = model.provider === CUSTOM_PROVIDER_ID
+  const suggested = presets.find((preset) => preset.id === model.provider)?.suggestedModels ?? []
+  const modelListId = `generate-model-${model.uid}`
   return (
     <div style={{ border: '1px solid var(--dsh-border, #e4e7ec)', borderRadius: '6px', padding: '12px', marginBottom: '10px', background: 'var(--dsh-bg-field, #fff)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
@@ -112,7 +115,25 @@ function ModelRow(props: {
       {isCustom
         ? <Field label={t('baseURL')} hint={t('baseURLHint')} value={model.baseURL} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'baseURL', text) }} />
         : null}
-      <Field label={t('model')} hint={t('modelHint')} value={model.model} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'model', text) }} />
+      {suggested.length > 0
+        ? (
+          <div style={{ marginBottom: '10px' }}>
+            <label style={labelStyle}>{t('model')}</label>
+            <input
+              type="text"
+              style={inputStyle}
+              value={model.model}
+              disabled={disabled}
+              placeholder={t('modelHint')}
+              list={modelListId}
+              onChange={(event) => { props.onEditModel(index, 'model', event.target.value) }}
+            />
+            <datalist id={modelListId}>
+              {suggested.map((option) => <option key={option} value={option} />)}
+            </datalist>
+          </div>
+        )
+        : <Field label={t('model')} hint={t('modelHint')} value={model.model} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'model', text) }} />}
       <Field label={t('apiKeyEnv')} hint={t('apiKeyEnvHint')} value={model.apiKeyEnv} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'apiKeyEnv', text) }} />
       <Field label={t('apiKey')} hint={t('apiKeyHint')} value={model.apiKeyText} disabled={disabled} type="password" onEdit={(text) => { props.onSetApiKey(index, text) }} />
     </div>

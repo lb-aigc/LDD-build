@@ -160,7 +160,23 @@ export class GenerateSettingsController {
     }
     this.nextUid = initial.models.reduce((max, m) => Math.max(max, m.uid + 1), 1)
     this.store = createSnapshotStore(this.projection())
-    scope.subscribe(() => { this.store.set(this.projection()) })
+    scope.subscribe(() => {
+      // An external edit (an agent rewriting settings.yaml directly, or another
+      // tab) hot-publishes through the Host and lands here as a fresh snapshot.
+      // When the user has no unsaved work, re-read it into `staged` so the next
+      // save() writes the LATEST value instead of clobbering the external edit
+      // with the stale value captured at construction time.
+      if (!this.isDirty() && !this.saving) {
+        const latest = readOriginal(this.scope.getSnapshot())
+        this.staged.models = latest.models.map((m) => ({ ...m }))
+        this.staged.defaultKey = latest.defaultKey
+        this.original.models = latest.models.map(persistOf)
+        this.original.defaultKey = latest.defaultKey
+        this.nextUid = latest.models.reduce((max, m) => Math.max(max, m.uid + 1), 1)
+        this.apiKeys.clear()
+      }
+      this.store.set(this.projection())
+    })
   }
 
   private projection(): GenerationCardState {
