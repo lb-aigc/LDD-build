@@ -17,6 +17,7 @@ describe('renderer IPC contract', () => {
       'openPluginCenter',
       'retryBoot',
       'openLogDirectory',
+      'saveImage',
       'subscribeProgress',
     ])
   })
