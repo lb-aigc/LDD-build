@@ -492,6 +492,8 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0007-delete-session.patch',
       '0008-broadcast-session-removed.patch',
       '0009-clear-selection-on-delete.patch',
+      '0010-delete-flush-live.patch',
+      '0011-delete-log-broadcast.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -527,11 +529,15 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const deleteCoordinator = await readFile(copiedDeleteCoordinator, 'utf8')
     assert.match(deleteCoordinator, /erase\?\(id: SessionId/u)
     assert.match(deleteCoordinator, /delete\(id: SessionId, signal\?: AbortSignal\)/u)
+    assert.match(deleteCoordinator, /if \(session\.id !== id\) continue/u)
+    assert.match(deleteCoordinator, /await this\.flush\(session\)/u)
     const deleteApiProxy = await readFile(copiedDeleteApiProxy, 'utf8')
     assert.match(deleteApiProxy, /async delete\(request\)/u)
     assert.match(deleteApiProxy, /agentHandles\.get\(sessionId\)/u)
     assert.match(deleteApiProxy, /broadcastHost\(\{ type: 'host\/session-removed', sessionId \}\)/u)
     assert.match(deleteApiProxy, /hostQueues\.add\(queue\)/u)
+    assert.match(deleteApiProxy, /logDelete\('start'\)/u)
+    assert.match(deleteApiProxy, /persistence\.delete failed/u)
     const deleteSessionsManager = await readFile(copiedDeleteSessionsManager, 'utf8')
     assert.match(deleteSessionsManager, /!durableSubagent && this\.selected === frame\.sessionId/u)
     assert.match(deleteSessionsManager, /this\.clearSelection\(\)/u)

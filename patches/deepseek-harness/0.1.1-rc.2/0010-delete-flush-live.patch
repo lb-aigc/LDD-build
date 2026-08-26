@@ -1,0 +1,23 @@
+--- a/packages/session/session-persistence/src/coordinator.ts
++++ b/packages/session/session-persistence/src/coordinator.ts
+@@ -672,10 +672,17 @@
+   }
+ 
+   private async deleteCore(id: SessionId, signal?: AbortSignal): Promise<void> {
++    // A live owner whose retirement (session/disposed -> retire) has not yet
++    // landed is flushed and dropped here instead of rejected: session.delete
++    // already stopped the owner, so flushing the buffered tail is exactly the
++    // drain the old "still live" guard was protecting against. After that,
++    // erase cannot be resurrected by a write-behind flush.
+     for (const session of this.live.keys()) {
+-      if (session.id === id) {
+-        throw new Error(`session "${id}" is still live; stop it before deleting`)
+-      }
++      if (session.id !== id) continue
++      await this.flush(session)
++      this.live.delete(session)
++      if (this.states.get(id)?.owner === session) this.states.delete(id)
++      break
+     }
+     this.states.delete(id)
+     this.retirements.delete(id)

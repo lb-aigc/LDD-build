@@ -1,0 +1,63 @@
+--- a/packages/host/apiproxy/src/api-proxy.ts
++++ b/packages/host/apiproxy/src/api-proxy.ts
+@@ -2553,6 +2553,10 @@
+ 
+       async delete(request) {
+         const { sessionId } = request.payload
++        const logDelete = (msg: string): void => {
++          ctx.logger.info(`session.delete ${sessionId}: ${msg}`)
++        }
++        logDelete('start')
+         // 1. Tear down a live owner through the handle recorded at
+         //    create/resume. dispose() stops the loop and unregisters the agent,
+         //    which triggers the coordinator's retirement (final drain); the
+@@ -2562,7 +2566,9 @@
+           agentHandles.delete(sessionId)
+           try {
+             await dispose()
++            logDelete('owner disposed')
+           } catch (error: unknown) {
++            logDelete(`dispose failed: ${String(error)}`)
+             return err(request, {
+               code: 'internal',
+               message: `failed to stop session "${sessionId}": ${String(error)}`,
+@@ -2576,7 +2582,9 @@
+           if (!workspace.sessionIds.includes(sessionId)) continue
+           try {
+             await workspace.detachSession(sessionId)
++            logDelete(`detached from workspace ${workspace.id}`)
+           } catch (error: unknown) {
++            logDelete(`detach failed: ${String(error)}`)
+             return err(request, {
+               code: 'internal',
+               message: `failed to detach session "${sessionId}" from workspace "${workspace.id}": ${String(error)}`,
+@@ -2589,6 +2597,8 @@
+         //    unknown id as an idempotent no-op.
+         const persistence = ctx.get('sessionPersistence')
+         if (persistence === undefined) {
++          logDelete('no sessionPersistence service')
++          broadcastHost({ type: 'host/session-removed', sessionId })
+           return err(request, {
+             code: 'internal',
+             message: 'deletion is unavailable: no session persistence backend is mounted',
+@@ -2597,7 +2607,12 @@
+         }
+         try {
+           await persistence.delete(sessionId)
++          logDelete('persistence erased')
+         } catch (error: unknown) {
++          logDelete(`persistence.delete failed: ${String(error)}`)
++          // Even on a backend failure the row must leave every client's
++          // session list, so broadcast the removal frame before surfacing it.
++          broadcastHost({ type: 'host/session-removed', sessionId })
+           return err(request, {
+             code: 'internal',
+             message: `failed to delete session "${sessionId}": ${String(error)}`,
+@@ -2605,6 +2620,7 @@
+           })
+         }
+         broadcastHost({ type: 'host/session-removed', sessionId })
++        logDelete('done')
+         return ok(request, { deleted: true as const })
+       },
+     },
