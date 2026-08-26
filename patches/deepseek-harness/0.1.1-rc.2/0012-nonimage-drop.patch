@@ -1,0 +1,33 @@
+--- a/packages/client/ui-attachment/src/client/ComposerAttachments.tsx
++++ b/packages/client/ui-attachment/src/client/ComposerAttachments.tsx
+@@ -8,6 +8,13 @@
+ import { ImageLightbox } from '../ImageLightbox.tsx'
+ import { attachmentRailLabels, dropOverlayLabels, lightboxLabels } from './labels.ts'
+ import css from './ComposerAttachments.module.css'
++
++/** Image MIME types the draft-image rail accepts (mirrors service.ts imageMediaType). */
++const IMAGE_MEDIA_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
++
++function isImageType(type: string): boolean {
++  return IMAGE_MEDIA_TYPES.has(type)
++}
+ 
+ /** Rail item retaining its browser-owned attachment for callbacks. */
+ interface ComposerRailItem extends AttachmentRailItem {
+@@ -62,7 +69,15 @@
+       if (dataTransfer === null) return
+       event.preventDefault()
+       reset()
+-      if (canAcceptDrop) onAddImages([...dataTransfer.files])
++      const files = [...dataTransfer.files]
++      const images = files.filter((file) => isImageType(file.type))
++      const others = files.filter((file) => !isImageType(file.type))
++      if (canAcceptDrop && images.length > 0) onAddImages(images)
++      if (others.length > 0) {
++        // Non-image files are not the image rail's concern: re-emit them for
++        // whichever deployment-level handler imports them into the workspace.
++        window.dispatchEvent(new CustomEvent('dsh:non-image-drop', { detail: others }))
++      }
+     }
+     document.addEventListener('dragenter', onDragEnter)
+     document.addEventListener('dragover', onDragOver)

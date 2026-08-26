@@ -44,9 +44,10 @@ interface ConversationLike {
   input: { for(actx: ClientContext): SessionInputLike }
 }
 
-/** Minimal structural face of the sessions service (scope resolution). */
-interface SessionsLike {
+/** Minimal structural face of the sessions service (scope resolution + current selection). */
+export interface SessionsLike {
   scope(id: SessionId): ClientContext | undefined
+  list: { getSnapshot(): { current: SessionId | undefined } }
 }
 
 /** Minimal structural face of the connection's sessions api (list → cwd). */
@@ -101,6 +102,22 @@ function pickFiles(): Promise<File[]> {
  * @param sessionId - target session.
  */
 export async function importWorkspaceFiles(ctx: ClientContext, sessionId: SessionId): Promise<void> {
+  const files = await pickFiles()
+  if (files.length === 0) return
+  await importFilesIntoWorkspace(ctx, sessionId, files)
+}
+
+/**
+ * Import an already-obtained batch of files into one session's workspace and
+ * land a note in its draft. Shared by the "+" file-upload command (which picks
+ * first) and the composer's non-image drag-and-drop path (which already holds
+ * the dropped File objects).
+ */
+export async function importFilesIntoWorkspace(
+  ctx: ClientContext,
+  sessionId: SessionId,
+  files: readonly File[],
+): Promise<void> {
   const sessions = ctx.get('sessions') as SessionsLike | undefined
   const actx = sessions?.scope(sessionId)
   if (actx === undefined) return
@@ -123,9 +140,6 @@ export async function importWorkspaceFiles(ctx: ClientContext, sessionId: Sessio
     notify('error', '当前会话无工作区目录，无法导入文件')
     return
   }
-
-  const files = await pickFiles()
-  if (files.length === 0) return
 
   const landed: string[] = []
   for (const file of files) {

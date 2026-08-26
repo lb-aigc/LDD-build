@@ -229,6 +229,7 @@
     "patches/deepseek-harness/0.1.1-rc.2/0009-clear-selection-on-delete.patch",
     "patches/deepseek-harness/0.1.1-rc.2/0010-delete-flush-live.patch",
     "patches/deepseek-harness/0.1.1-rc.2/0011-delete-log-broadcast.patch",
+    "patches/deepseek-harness/0.1.1-rc.2/0012-nonimage-drop.patch",
     "patches/deepseek-harness/0.1.1-rc.2/README.md",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",

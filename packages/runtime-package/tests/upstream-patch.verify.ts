@@ -122,6 +122,10 @@ const officialAttachmentLabels = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts',
 )
+const officialComposerAttachments = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'ComposerAttachments.tsx',
+)
 const officialDeleteCoordinator = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence', 'src', 'coordinator.ts',
@@ -291,6 +295,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedAttachmentLabels = join(
       copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts',
     )
+    const copiedComposerAttachments = join(
+      copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'ComposerAttachments.tsx',
+    )
     const copiedDeleteCoordinator = join(
       copiedRoot, 'packages', 'session', 'session-persistence', 'src', 'coordinator.ts',
     )
@@ -391,6 +398,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await mkdir(dirname(copiedMessageImage), { recursive: true })
     await mkdir(dirname(copiedImageLightboxCss), { recursive: true })
     await mkdir(dirname(copiedAttachmentLabels), { recursive: true })
+    await mkdir(dirname(copiedComposerAttachments), { recursive: true })
     await mkdir(dirname(copiedDeleteCoordinator), { recursive: true })
     await mkdir(dirname(copiedDeletePersistenceIndex), { recursive: true })
     await mkdir(dirname(copiedDeleteJsonlIndex), { recursive: true })
@@ -435,6 +443,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedMessageImage, await readFile(officialMessageImage))
     await writeFile(copiedImageLightboxCss, await readFile(officialImageLightboxCss))
     await writeFile(copiedAttachmentLabels, await readFile(officialAttachmentLabels))
+    await writeFile(copiedComposerAttachments, await readFile(officialComposerAttachments))
     await writeFile(copiedDeleteCoordinator, await readFile(officialDeleteCoordinator))
     await writeFile(copiedDeletePersistenceIndex, await readFile(officialDeletePersistenceIndex))
     await writeFile(copiedDeleteJsonlIndex, await readFile(officialDeleteJsonlIndex))
@@ -494,6 +503,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0009-clear-selection-on-delete.patch',
       '0010-delete-flush-live.patch',
       '0011-delete-log-broadcast.patch',
+      '0012-nonimage-drop.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -550,6 +560,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(deleteClient, /'session\.delete': sessionDeleteValueSchema/u)
 
     assert.match(imageLightboxCss, /\.actions \{/u)
+    const composerAttachments = await readFile(copiedComposerAttachments, 'utf8')
+    assert.match(composerAttachments, /dsh:non-image-drop/u)
+    assert.match(composerAttachments, /isImageType\(file\.type\)/u)
     const attachmentLabels = await readFile(copiedAttachmentLabels, 'utf8')
     assert.match(attachmentLabels, /download: t\('image\.download'\)/u)
     const localesDownload = await readFile(copiedLocales, 'utf8')

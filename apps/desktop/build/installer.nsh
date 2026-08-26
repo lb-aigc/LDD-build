@@ -1,3 +1,11 @@
+!macro customInstall
+  ; The installer ships ZERO API keys. Model keys are only ever entered by the
+  ; user at runtime (settings UI -> harness credentials store, persisted under
+  ; %APPDATA%\LDD\harness\.credentials.yaml). A fresh or overwrite install
+  ; therefore clears any previously-configured key so the user re-enters it.
+  Delete "$APPDATA\LDD\harness\.credentials.yaml"
+!macroend
+
 !macro customUnInstall
   ; Runtime updates reuse the uninstaller internally and must never prompt or
   ; remove user state. Only a manual uninstall offers the destructive choice.

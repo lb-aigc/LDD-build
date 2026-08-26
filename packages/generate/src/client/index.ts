@@ -23,7 +23,8 @@ import type {} from './slot-contract.ts'
 
 import { GenerateSettingsCard } from './card.tsx'
 import { GenerateSettingsController } from './controller.ts'
-import { importWorkspaceFiles } from './file-import.ts'
+import { importFilesIntoWorkspace, importWorkspaceFiles } from './file-import.ts'
+import type { SessionsLike } from './file-import.ts'
 import { en, zh } from './locales.ts'
 
 /** Namespace strings the Host half registers (must match src/settings.ts). */
@@ -88,5 +89,26 @@ export function apply(ctx: ClientContext): void {
         },
       },
     }), 'generate: file-upload command')
+  }
+
+  // Non-image drag-and-drop → workspace import. The upstream composer's drop
+  // handler splits dropped files: images stay on the image rail, everything
+  // else is re-emitted as `dsh:non-image-drop` for the workspace import path
+  // (the same behaviour as the "+" file-upload command).
+  const sessionsService = ctx.get('sessions') as SessionsLike | undefined
+  if (sessionsService !== undefined) {
+    ctx.effect(() => {
+      const onNonImageDrop = (event: Event): void => {
+        const detail = (event as CustomEvent<unknown>).detail
+        if (!Array.isArray(detail)) return
+        const files = detail.filter((file): file is File => file instanceof File)
+        if (files.length === 0) return
+        const sessionId = sessionsService.list.getSnapshot().current
+        if (sessionId === undefined) return
+        void importFilesIntoWorkspace(ctx, sessionId, files)
+      }
+      window.addEventListener('dsh:non-image-drop', onNonImageDrop)
+      return () => window.removeEventListener('dsh:non-image-drop', onNonImageDrop)
+    }, 'generate: non-image drop import')
   }
 }
