@@ -17,11 +17,21 @@ import { registerDesktopIpc } from './ipc/register.ts'
 import { importWorkspaceFile } from './import-file.ts'
 import { createCompleteExit, createWindowCloseHandler, type ExitState } from './lifecycle.ts'
 import { createEditMenu, createFileMenu, createHelpMenu } from './menu.ts'
+import { GLASS_THEME_CSS } from './glass-theme.ts'
 import type { LddPaths } from './paths.ts'
 import { configureTray } from './tray.ts'
 import { installNavigationGuards, makeWindowOptions } from './window.ts'
 
 const pluginCenterUrl = 'https://github.com/topics/dsh-plugin'
+
+/** Inject the LDD glass theme once the harness page has loaded (splash and
+ * failure pages are LDD's own file:// documents and stay untouched). */
+function attachGlassTheme(target: BrowserWindow): void {
+  target.webContents.on('did-finish-load', () => {
+    if (!target.webContents.getURL().startsWith('http')) return
+    void target.webContents.insertCSS(GLASS_THEME_CSS).catch(() => undefined)
+  })
+}
 
 export type BootResult =
   | { readonly kind: 'ready'; readonly url: string }
@@ -68,6 +78,7 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     async (url) => shell.openExternal(url),
     rendererFileUrl(options.paths),
   )
+  attachGlassTheme(mainWindow)
 
   // 立即显示启动加载画面（LDD 字标 + 旋转指示），覆盖内核完整性校验
   // （首次启动可达数分钟）期间的等待，避免窗口停留在空白状态。
@@ -129,6 +140,7 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
       async (url) => shell.openExternal(url),
       rendererFileUrl(options.paths),
     )
+    attachGlassTheme(win)
     if (harnessUrl !== null) {
       await win.loadURL(harnessUrl)
     } else {

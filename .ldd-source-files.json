@@ -20,6 +20,7 @@
     "apps/desktop/package.json",
     "apps/desktop/public/splash.html",
     "apps/desktop/src/main/bootstrap.ts",
+    "apps/desktop/src/main/glass-theme.ts",
     "apps/desktop/src/main/harness/identity.ts",
     "apps/desktop/src/main/harness/supervisor.ts",
     "apps/desktop/src/main/harness/types.ts",
