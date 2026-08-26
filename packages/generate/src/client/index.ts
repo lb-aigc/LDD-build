@@ -92,7 +92,7 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: (sessionId) => ({
       importFiles: async (files: readonly File[]): Promise<string> => {
-        const ldd = globalThis.ldd
+        const ldd = window.ldd
         if (ldd === undefined) return t('fileUpload.failed')
         const { result } = await api.sessions.list({})
         const cwd = result.ok
