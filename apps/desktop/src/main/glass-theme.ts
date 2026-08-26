@@ -48,9 +48,10 @@ body {
   --dsw-alias-border-l1: var(--ldd-edge-soft);
 }
 
-/* The frosted backdrop: crisp colour blobs blurred with `filter`, so the
-   translucent panels above show a soft, out-of-focus colour field through them
-   (the "磨砂" depth) WITHOUT any backdrop-filter containing-block hazard. */
+/* The frosted backdrop: crisp colour blobs blurred with the CSS filter
+   property, so the translucent panels above show a soft, out-of-focus colour
+   field through them (the frosted depth) WITHOUT any backdrop-filter
+   containing-block hazard. */
 body::before {
   content: '';
   position: fixed;
