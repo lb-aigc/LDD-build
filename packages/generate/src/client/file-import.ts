@@ -32,16 +32,27 @@ declare global {
   }
 }
 
-/** Minimal structural face of the per-session input (setDraft / notify / state). */
+/** Minimal structural face of the per-session input (setDraft / notify / state / addImages). */
 interface SessionInputLike {
   setDraft(text: string): void
   notify(level: 'info' | 'error', text: string): void
   state: { getSnapshot(): { draft: string } }
+  addImages(ids: readonly string[]): boolean
 }
 
-/** Minimal structural face of the conversation service's input resolver. */
+/** Minimal structural face of the conversation service: the input resolver
+ * plus the draft-image rail (createDraftImages / releaseDraftImages). */
 interface ConversationLike {
   input: { for(actx: ClientContext): SessionInputLike }
+  createDraftImages(files: readonly File[]): readonly { id: string }[]
+  releaseDraftImages(attachments: readonly { id: string }[]): void
+}
+
+/** Image MIME types the draft-image rail accepts (mirrors service.ts imageMediaType). */
+const IMAGE_MEDIA_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
+
+function isImageType(type: string): boolean {
+  return IMAGE_MEDIA_TYPES.has(type)
 }
 
 /** Minimal structural face of the sessions service (scope resolution + current selection). */
@@ -125,6 +136,26 @@ export async function importFilesIntoWorkspace(
   const shell = conversation === undefined ? undefined : conversation.input.for(actx)
   const notify = (level: 'info' | 'error', text: string): void => { shell?.notify(level, text) }
 
+  // Split: images go on the draft-image rail (thumbnail preview, sent with the
+  // message), everything else is written into the workspace for the agent's
+  // tools to read. This mirrors the drag-and-drop split so "+" and drop agree.
+  const images = files.filter((file) => isImageType(file.type))
+  const others = files.filter((file) => !isImageType(file.type))
+
+  if (images.length > 0 && conversation !== undefined && shell !== undefined) {
+    try {
+      const attachments = conversation.createDraftImages(images)
+      if (!shell.addImages(attachments.map((attachment) => attachment.id))) {
+        // Busy admission phase refused the rail; release the object URLs.
+        conversation.releaseDraftImages(attachments)
+      }
+    } catch (error: unknown) {
+      notify('error', error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  if (others.length === 0) return
+
   const ldd = window.ldd
   if (ldd === undefined) {
     notify('error', '当前环境不支持文件上传')
@@ -142,7 +173,7 @@ export async function importFilesIntoWorkspace(
   }
 
   const landed: string[] = []
-  for (const file of files) {
+  for (const file of others) {
     const data = await file.arrayBuffer()
     const res = await ldd.importFile(data, file.name, cwd)
     if (!res.imported) continue
