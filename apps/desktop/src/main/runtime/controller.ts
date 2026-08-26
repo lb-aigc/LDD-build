@@ -344,8 +344,8 @@ export class DesktopRuntimeController implements DesktopRuntimePort {
       managedPatchPath: resolvedPatchPath,
       preferredPort: 3080,
       startupTimeoutMs: 45_000,
-      stopGraceMs: 5_000,
-      forceStopMs: 5_000,
+      stopGraceMs: 1_500,
+      forceStopMs: 1_500,
       environment: {},
       onDiagnostic: (line) => { void this.#log(line) },
     }

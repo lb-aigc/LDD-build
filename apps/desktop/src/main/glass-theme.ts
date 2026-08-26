@@ -1,15 +1,17 @@
 /**
  * LDD glass theme — injected by the Electron shell into the harness page as a
- * <style id="ldd-glass-theme"> appended to <head>. Neutral grey "liquid glass":
- * a grey-tone gradient + halo backdrop on <body>, translucent fills on the MAIN
- * surfaces only, hairline top highlight. No cyan, no purple.
+ * <style id="ldd-glass-theme"> appended to <head>. Neutral grey "liquid glass".
  *
  * HARD-WON RULES (each caused an on-device bug — do not reintroduce):
  * 1. NEVER put `backdrop-filter` on the frame / sidebar / details column (or
- *    any container that can hold a `position: fixed` descendant): it creates a
- *    containing block and breaks the settings modal's fixed overlay — the panel
- *    gets trapped in the narrow sidebar column and its text renders VERTICALLY
- *    (the "settings page shows vertical text" bug).
+ *    any container that can hold a `position: fixed`/`absolute` overlay
+ *    descendant): it creates a containing block and breaks the settings modal's
+ *    overlay — the panel gets trapped in the narrow sidebar column and its text
+ *    renders VERTICALLY (the "settings page shows vertical text" bug).
+ *    Instead, the frosted depth comes from a `body::before` layer that is
+ *    BLURRED WITH `filter` (not backdrop-filter) — `filter: blur()` blurs the
+ *    layer itself, so it never touches the overlay descendants' containing
+ *    block.
  * 2. ONLY the MAIN surfaces go translucent: `--dsw-alias-bg-base` (conversation
  *    column), `--dsw-specific-sidebar-fill`, `--dsw-specific-input-major`
  *    (composer card). Do NOT touch `--dsw-alias-bg-layer-1/2/3`,
@@ -24,67 +26,71 @@
 export const GLASS_THEME_CSS = `
 /* ================= LDD glass theme ================= */
 
-/* ---- light theme: grey backdrop, translucent white surfaces ---- */
+/* ---- light theme: grey backdrop (blurred body::before layer), translucent
+   white surfaces ---- */
 body {
-  /* grey-tone backdrop (visible grey steps, not white-on-white) */
-  --ldd-halo-a: rgba(140, 144, 152, 0.42);
-  --ldd-halo-b: rgba(110, 114, 122, 0.34);
-  --ldd-halo-c: rgba(168, 172, 180, 0.38);
-  --ldd-halo-d: rgba(96, 100, 108, 0.28);
-  --ldd-wall-0: #b6b6be;
-  --ldd-wall-1: #ceced5;
-  --ldd-wall-2: #e0e0e5;
+  position: relative;
+  z-index: 0;
+  /* flat fallback colour (the ::before layer paints the visible backdrop) */
+  background: #d4d4da;
 
-  /* translucent white fills */
-  --ldd-fill-base: rgba(255, 255, 255, 0.46);
-  --ldd-fill-sidebar: rgba(250, 250, 252, 0.50);
-  --ldd-fill-input: rgba(255, 255, 255, 0.66);
-  --ldd-edge: rgba(255, 255, 255, 0.62);
-  --ldd-edge-soft: rgba(0, 0, 0, 0.08);
-  --ldd-shadow: 0 8px 32px rgba(60, 62, 68, 0.18);
+  /* translucent white fills — MORE transparent so the backdrop really shows */
+  --ldd-fill-base: rgba(255, 255, 255, 0.30);
+  --ldd-fill-sidebar: rgba(250, 250, 252, 0.34);
+  --ldd-fill-input: rgba(255, 255, 255, 0.52);
+  --ldd-edge: rgba(255, 255, 255, 0.60);
+  --ldd-edge-soft: rgba(0, 0, 0, 0.10);
+  --ldd-shadow: 0 8px 32px rgba(60, 62, 68, 0.20);
 
-  background:
-    radial-gradient(900px 520px at 82% -12%, var(--ldd-halo-a), transparent 56%),
-    radial-gradient(720px 500px at -12% 24%, var(--ldd-halo-b), transparent 60%),
-    radial-gradient(1100px 720px at 50% 132%, var(--ldd-halo-c), transparent 64%),
-    radial-gradient(500px 340px at 30% 6%, var(--ldd-halo-d), transparent 70%),
-    linear-gradient(165deg, var(--ldd-wall-2) 0%, var(--ldd-wall-1) 55%, var(--ldd-wall-0) 100%) !important;
-
-  /* main surfaces only */
   --dsw-alias-bg-base: var(--ldd-fill-base);
   --dsw-specific-sidebar-fill: var(--ldd-fill-sidebar);
   --dsw-specific-input-major: var(--ldd-fill-input);
   --dsw-alias-border-l1: var(--ldd-edge-soft);
 }
 
+/* The frosted backdrop: crisp colour blobs blurred with `filter`, so the
+   translucent panels above show a soft, out-of-focus colour field through them
+   (the "磨砂" depth) WITHOUT any backdrop-filter containing-block hazard. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -120px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(260px 260px at 78% 12%, rgba(120, 124, 132, 0.60), transparent 70%),
+    radial-gradient(220px 220px at 14% 28%, rgba(138, 132, 124, 0.55), transparent 70%),
+    radial-gradient(300px 300px at 70% 84%, rgba(152, 148, 140, 0.52), transparent 72%),
+    radial-gradient(200px 200px at 28% 72%, rgba(112, 118, 126, 0.46), transparent 70%),
+    linear-gradient(165deg, #e6e6ea 0%, #d1d1d8 55%, #bcbcc4 100%);
+  filter: blur(48px) saturate(150%);
+}
+
 /* ---- dark theme: grey-black backdrop, translucent dark surfaces ---- */
 body[data-ds-dark-theme] {
-  --ldd-halo-a: rgba(255, 255, 255, 0.30);
-  --ldd-halo-b: rgba(255, 255, 255, 0.20);
-  --ldd-halo-c: rgba(168, 172, 182, 0.26);
-  --ldd-halo-d: rgba(255, 255, 255, 0.13);
-  --ldd-wall-0: #0a0a0c;
-  --ldd-wall-1: #141417;
-  --ldd-wall-2: #1b1b20;
+  background: #16161a;
 
-  --ldd-fill-base: rgba(22, 22, 26, 0.66);
-  --ldd-fill-sidebar: rgba(28, 28, 32, 0.72);
-  --ldd-fill-input: rgba(32, 32, 37, 0.72);
-  --ldd-edge: rgba(255, 255, 255, 0.18);
+  --ldd-fill-base: rgba(22, 22, 26, 0.62);
+  --ldd-fill-sidebar: rgba(28, 28, 32, 0.66);
+  --ldd-fill-input: rgba(32, 32, 37, 0.66);
+  --ldd-edge: rgba(255, 255, 255, 0.16);
   --ldd-edge-soft: rgba(255, 255, 255, 0.08);
   --ldd-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-
-  background:
-    radial-gradient(900px 520px at 82% -12%, var(--ldd-halo-a), transparent 56%),
-    radial-gradient(720px 500px at -12% 24%, var(--ldd-halo-b), transparent 60%),
-    radial-gradient(1100px 720px at 50% 132%, var(--ldd-halo-c), transparent 64%),
-    radial-gradient(500px 340px at 30% 6%, var(--ldd-halo-d), transparent 70%),
-    linear-gradient(165deg, var(--ldd-wall-2) 0%, var(--ldd-wall-1) 55%, var(--ldd-wall-0) 100%) !important;
 
   --dsw-alias-bg-base: var(--ldd-fill-base);
   --dsw-specific-sidebar-fill: var(--ldd-fill-sidebar);
   --dsw-specific-input-major: var(--ldd-fill-input);
   --dsw-alias-border-l1: var(--ldd-edge-soft);
+}
+
+body[data-ds-dark-theme]::before {
+  background:
+    radial-gradient(280px 280px at 78% 12%, rgba(255, 255, 255, 0.22), transparent 70%),
+    radial-gradient(220px 220px at 14% 28%, rgba(168, 172, 182, 0.20), transparent 70%),
+    radial-gradient(320px 320px at 70% 84%, rgba(150, 154, 164, 0.18), transparent 72%),
+    radial-gradient(200px 200px at 28% 72%, rgba(255, 255, 255, 0.12), transparent 70%),
+    linear-gradient(165deg, #1b1b20 0%, #141417 55%, #0a0a0c 100%);
+  filter: blur(48px) saturate(140%);
 }
 
 /* ---- composer card: hairline top highlight + soft drop shadow. No

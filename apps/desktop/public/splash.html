@@ -11,13 +11,16 @@
       html, body { height: 100%; margin: 0; }
       body {
         align-items: center;
-        /* grey-tone backdrop — the "wall" the glass card shows through */
+        /* grey-tone backdrop with crisp colour blobs — the frosted card blurs
+           these through its backdrop-filter, which is what makes the glass read. */
         background:
-          radial-gradient(900px 520px at 82% -12%, rgba(140, 144, 152, 0.46), transparent 56%),
-          radial-gradient(720px 500px at -12% 24%, rgba(110, 114, 122, 0.38), transparent 60%),
-          radial-gradient(1100px 720px at 50% 132%, rgba(168, 172, 180, 0.42), transparent 64%),
-          radial-gradient(520px 360px at 32% 8%, rgba(96, 100, 108, 0.28), transparent 70%),
-          linear-gradient(165deg, #e0e0e5 0%, #ceced5 55%, #b6b6be 100%);
+          radial-gradient(220px 220px at 78% 14%, rgba(120, 124, 132, 0.55), transparent 70%),
+          radial-gradient(180px 180px at 16% 30%, rgba(134, 128, 120, 0.50), transparent 70%),
+          radial-gradient(240px 240px at 68% 82%, rgba(150, 146, 138, 0.48), transparent 72%),
+          radial-gradient(160px 160px at 30% 74%, rgba(112, 118, 126, 0.42), transparent 70%),
+          radial-gradient(900px 520px at 82% -12%, rgba(140, 144, 152, 0.40), transparent 56%),
+          radial-gradient(720px 500px at -12% 24%, rgba(110, 114, 122, 0.32), transparent 60%),
+          linear-gradient(165deg, #e2e2e7 0%, #cfcfd6 55%, #b9b9c1 100%);
         display: flex;
         justify-content: center;
         font-family: Inter, "Segoe UI Variable", "Segoe UI", sans-serif;
@@ -28,16 +31,16 @@
       }
       .glass-card {
         align-items: center;
-        /* frosted glass: translucent white + real backdrop blur + saturated */
-        background: rgba(255, 255, 255, 0.44);
-        backdrop-filter: blur(28px) saturate(170%);
-        -webkit-backdrop-filter: blur(28px) saturate(170%);
-        border: 1px solid rgba(255, 255, 255, 0.55);
+        /* more transparent + stronger blur/saturation for a real frosted pane */
+        background: rgba(255, 255, 255, 0.26);
+        backdrop-filter: blur(36px) saturate(180%);
+        -webkit-backdrop-filter: blur(36px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.42);
         border-radius: 24px;
         box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.72),
-          inset 0 -1px 0 rgba(0, 0, 0, 0.06),
-          0 16px 48px rgba(60, 62, 68, 0.24);
+          inset 0 1px 0 rgba(255, 255, 255, 0.60),
+          inset 0 -1px 0 rgba(0, 0, 0, 0.05),
+          0 20px 56px rgba(60, 62, 68, 0.28);
         display: flex;
         flex-direction: column;
         gap: 40px;
@@ -51,7 +54,7 @@
         width: 220px;
       }
       .spinner {
-        border: 2px solid #d8d8d3;
+        border: 2px solid rgba(0, 0, 0, 0.10);
         border-top-color: #171717;
         border-radius: 50%;
         height: 26px;
