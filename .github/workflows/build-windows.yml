@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows-x64:
@@ -156,6 +156,7 @@ jobs:
 
       - name: Upload private build artifacts
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: LDD-0.2.0-windows-x64
           path: |
@@ -165,3 +166,18 @@ jobs:
             release/checksums.sha256
           if-no-files-found: error
           retention-days: 7
+
+      - name: Publish to GitHub Release (quota-proof fallback)
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v0.2.0
+          name: LDD 0.2.0
+          body: |
+            LDD 0.2.0 Windows x64（删除会话 + skill 按钮 + 文件上传）
+            Commit: ${{ github.sha }}
+          artifacts: "release/LDD-Setup-0.2.0-x64.exe,release/deepseek-harness-0.1.1-rc.2-windows-x64.lddruntime,release/LDD-0.2.0-source.zip,release/checksums.sha256"
+          allowUpdates: true
+          removeArtifacts: true
+          omitBodyDuringUpdate: true
+          omitNameDuringUpdate: true
+          omitPrereleaseDuringUpdate: true

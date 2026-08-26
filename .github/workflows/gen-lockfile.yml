@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   gen-lockfile:
@@ -29,10 +29,16 @@ jobs:
         shell: pwsh
         run: pnpm install --lockfile-only --no-frozen-lockfile --config.block-exotic-subdeps=false
 
-      - name: Upload regenerated lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: pnpm-lockfile
-          path: pnpm-lock.yaml
-          if-no-files-found: error
-          retention-days: 7
+      - name: Commit and push regenerated lockfile
+        shell: pwsh
+        run: |
+          git config user.name "LDD Windows Builder"
+          git config user.email "l386340171@gmail.com"
+          if (git diff --quiet -- pnpm-lock.yaml) {
+            Write-Host 'lockfile unchanged; nothing to commit'
+          } else {
+            git add pnpm-lock.yaml
+            git commit -m "chore: regenerate pnpm-lock.yaml (skill picker + file upload deps)"
+            git push
+            Write-Host 'pushed regenerated lockfile'
+          }
