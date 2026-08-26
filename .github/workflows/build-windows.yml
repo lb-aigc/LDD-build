@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-windows-x64:
-    runs-on: windows-2022
+    runs-on: windows-2025
     timeout-minutes: 180
     steps:
       - name: Check out approved source
