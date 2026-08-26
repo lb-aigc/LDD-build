@@ -224,8 +224,12 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
 
   let destroyTray: () => void = () => undefined
   const completeExit = createCompleteExit(exitState, {
-    disposeUpdater: options.runtime.disposeUpdater,
-    stopHarness: options.runtime.stopHarness,
+    // Arrow-wrapped: passing options.runtime.stopHarness bare detaches `this`
+    // from the controller, so the private-field read `this.#supervisor` throws
+    // "Cannot read private member #supervisor from an object whose class did
+    // not declare it". disposeUpdater is wrapped the same way for symmetry.
+    disposeUpdater: () => options.runtime.disposeUpdater(),
+    stopHarness: () => options.runtime.stopHarness(),
     quit: () => {
       unregisterIpc()
       destroyTray()
