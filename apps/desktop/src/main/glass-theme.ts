@@ -28,18 +28,18 @@
 export const GLASS_THEME_CSS = `
 /* ================= LDD glass theme ================= */
 
-/* ---- light theme: warm grey/brown colour-field backdrop + translucent
-   white surfaces ---- */
+/* ---- light theme: neutral cool-grey colour-field backdrop + translucent
+   white surfaces (subtle frost, not warm) ---- */
 html,
 body {
-  /* warm neutral blobs — visible shape + colour, not flat grey */
+  /* neutral cool-grey blobs — visible shape, neutral hue, restrained alpha */
   background:
-    radial-gradient(420px 420px at 12% 8%, rgba(226, 205, 180, 0.72), transparent 70%),
-    radial-gradient(360px 360px at 88% 22%, rgba(188, 160, 138, 0.60), transparent 70%),
-    radial-gradient(400px 400px at 78% 86%, rgba(214, 194, 172, 0.58), transparent 72%),
-    radial-gradient(320px 320px at 18% 78%, rgba(170, 158, 148, 0.55), transparent 70%),
-    radial-gradient(300px 300px at 50% 38%, rgba(236, 224, 206, 0.55), transparent 70%),
-    linear-gradient(160deg, #e8e1d8 0%, #d8cfc5 55%, #c6bcb2 100%) !important;
+    radial-gradient(420px 420px at 12% 8%, rgba(198, 204, 214, 0.40), transparent 70%),
+    radial-gradient(360px 360px at 88% 22%, rgba(160, 168, 178, 0.36), transparent 70%),
+    radial-gradient(400px 400px at 78% 86%, rgba(184, 192, 202, 0.38), transparent 72%),
+    radial-gradient(320px 320px at 18% 78%, rgba(148, 156, 166, 0.34), transparent 70%),
+    radial-gradient(300px 300px at 50% 38%, rgba(212, 218, 224, 0.38), transparent 70%),
+    linear-gradient(160deg, #e6e7ea 0%, #d6d8dc 55%, #c4c6cb 100%) !important;
 }
 
 body {
@@ -75,12 +75,12 @@ body[data-ds-dark-theme] {
 html:has(body[data-ds-dark-theme]),
 body[data-ds-dark-theme] {
   background:
-    radial-gradient(440px 440px at 12% 8%, rgba(66, 58, 52, 0.60), transparent 70%),
-    radial-gradient(360px 360px at 88% 22%, rgba(52, 48, 52, 0.55), transparent 70%),
-    radial-gradient(400px 400px at 78% 86%, rgba(58, 52, 48, 0.50), transparent 72%),
-    radial-gradient(320px 320px at 18% 78%, rgba(44, 42, 46, 0.50), transparent 70%),
-    radial-gradient(300px 300px at 50% 38%, rgba(62, 56, 52, 0.48), transparent 70%),
-    linear-gradient(160deg, #1c1b1e 0%, #161517 55%, #101012 100%) !important;
+    radial-gradient(440px 440px at 12% 8%, rgba(70, 74, 84, 0.45), transparent 70%),
+    radial-gradient(360px 360px at 88% 22%, rgba(52, 56, 64, 0.40), transparent 70%),
+    radial-gradient(400px 400px at 78% 86%, rgba(60, 64, 72, 0.38), transparent 72%),
+    radial-gradient(320px 320px at 18% 78%, rgba(46, 50, 58, 0.36), transparent 70%),
+    radial-gradient(300px 300px at 50% 38%, rgba(66, 70, 78, 0.38), transparent 70%),
+    linear-gradient(160deg, #1e1e22 0%, #17171a 55%, #111114 100%) !important;
 }
 
 /* ---- composer card: hairline top highlight + soft drop shadow. No

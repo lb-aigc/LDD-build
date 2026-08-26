@@ -7,7 +7,11 @@ export function makeWindowOptions(preloadPath: string): BrowserWindowConstructor
     minWidth: 960,
     minHeight: 640,
     show: false,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#e8e8ec',
+    // Progressive enhancement: on Windows 11 this gives the real acrylic/mica
+    // material; on Windows 10 it is silently ignored and falls back to
+    // backgroundColor. Safe on both.
+    backgroundMaterial: 'mica',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
