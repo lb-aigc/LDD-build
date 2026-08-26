@@ -1,0 +1,17 @@
+--- a/packages/client/runtime/src/client/sessions/manager.ts
++++ b/packages/client/runtime/src/client/sessions/manager.ts
+@@ -827,6 +827,14 @@
+         } else {
+           this.sessions.get(frame.sessionId)?.handleRemoved()
+         }
++        // Deleting the currently-viewed session must clear the selection
++        // so the layout falls back to the empty/new-session state instead
++        // of pinning a removed (grayed, input-disabled) conversation. A
++        // detached subagent keeps its lineage, so its removal is only a
++        // status change and must not clear the selection.
++        if (!durableSubagent && this.selected === frame.sessionId) {
++          this.clearSelection()
++        }
+         this.pendingBuffers.delete(frame.sessionId) // a removed session's buffered frames must not replay on a future instantiation
+         this.pendingInteractions.delete(frame.sessionId) // a removed session cannot wait on anyone
+         // Owner disposal already dropped these registry-side, but that lands on

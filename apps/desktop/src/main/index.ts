@@ -16,7 +16,7 @@ import type { RuntimeStatusView } from './ipc/contracts.ts'
 import { registerDesktopIpc } from './ipc/register.ts'
 import { importWorkspaceFile } from './import-file.ts'
 import { createCompleteExit, createWindowCloseHandler, type ExitState } from './lifecycle.ts'
-import { createHelpMenu } from './menu.ts'
+import { createEditMenu, createFileMenu, createHelpMenu } from './menu.ts'
 import type { LddPaths } from './paths.ts'
 import { configureTray } from './tray.ts'
 import { installNavigationGuards, makeWindowOptions } from './window.ts'
@@ -53,6 +53,7 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
   await mkdir(options.paths.logsRoot, { mode: 0o700, recursive: true })
   const exitState: ExitState = { exiting: false }
   let verifiedHarnessOrigin: string | null = null
+  let harnessUrl: string | null = null
   let hasTray = false
   let requestExit = () => undefined
 
@@ -76,6 +77,7 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
   const loadBootResult = async (result: BootResult): Promise<void> => {
     if (result.kind === 'ready') {
       verifiedHarnessOrigin = new URL(result.url).origin
+      harnessUrl = result.url
       await mainWindow.loadURL(result.url)
       return
     }
@@ -117,6 +119,23 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     await mkdir(options.paths.logsRoot, { mode: 0o700, recursive: true })
     const error = await shell.openPath(options.paths.logsRoot)
     if (error.length > 0) throw new Error(`无法打开日志目录：${error}`)
+  }
+
+  const newWindow = async (): Promise<void> => {
+    const win = new BrowserWindow(makeWindowOptions(options.paths.preloadScript))
+    installNavigationGuards(
+      win.webContents,
+      () => verifiedHarnessOrigin,
+      async (url) => shell.openExternal(url),
+      rendererFileUrl(options.paths),
+    )
+    if (harnessUrl !== null) {
+      await win.loadURL(harnessUrl)
+    } else {
+      await win.loadFile(options.paths.rendererHtml)
+    }
+    win.once('ready-to-show', () => win.show())
+    if (!win.isVisible()) win.show()
   }
 
   const saveImage = async (data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }> => {
@@ -217,7 +236,9 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
       click: () => void runAndReport(async () => item.activate()),
     })),
   }
-  Menu.setApplicationMenu(Menu.buildFromTemplate([helpTemplate]))
+  const fileTemplate = createFileMenu({ newWindow, exit: requestExit })
+  const editTemplate = createEditMenu()
+  Menu.setApplicationMenu(Menu.buildFromTemplate([fileTemplate, editTemplate, helpTemplate]))
 
   let trayIcon = nativeImage.createFromPath(options.trayIconPath)
   if (trayIcon.isEmpty()) {

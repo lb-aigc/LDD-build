@@ -230,6 +230,10 @@ const officialDeleteWorkspaceLocales = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'src', 'client', 'locales.ts',
 )
+const officialDeleteSessionsManager = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'src', 'client', 'sessions', 'manager.ts',
+)
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2')
 
 test('tracked Harness patches add LDD compatibility changes and apply exactly once', async () => {
@@ -368,6 +372,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedDeleteWorkspaceLocales = join(
       copiedRoot, 'packages', 'client', 'ui-workspace', 'src', 'client', 'locales.ts',
     )
+    const copiedDeleteSessionsManager = join(
+      copiedRoot, 'packages', 'client', 'runtime', 'src', 'client', 'sessions', 'manager.ts',
+    )
     await mkdir(dirname(copiedCatalog), { recursive: true })
     await mkdir(dirname(copiedReleaseProcess), { recursive: true })
     await mkdir(dirname(copiedBrand), { recursive: true })
@@ -411,6 +418,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await mkdir(dirname(copiedDeleteWorkspaceBrowser), { recursive: true })
     await mkdir(dirname(copiedDeleteRows), { recursive: true })
     await mkdir(dirname(copiedDeleteWorkspaceLocales), { recursive: true })
+    await mkdir(dirname(copiedDeleteSessionsManager), { recursive: true })
     await writeFile(copiedCatalog, await readFile(officialCatalog))
     await writeFile(copiedReleaseProcess, await readFile(officialReleaseProcess))
     await writeFile(copiedBrand, await readFile(officialBrand))
@@ -454,6 +462,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedDeleteWorkspaceBrowser, await readFile(officialDeleteWorkspaceBrowser))
     await writeFile(copiedDeleteRows, await readFile(officialDeleteRows))
     await writeFile(copiedDeleteWorkspaceLocales, await readFile(officialDeleteWorkspaceLocales))
+    await writeFile(copiedDeleteSessionsManager, await readFile(officialDeleteSessionsManager))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
     const result = await readFile(copiedCatalog, 'utf8')
@@ -482,6 +491,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0006-image-download-button.patch',
       '0007-delete-session.patch',
       '0008-broadcast-session-removed.patch',
+      '0009-clear-selection-on-delete.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -522,6 +532,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(deleteApiProxy, /agentHandles\.get\(sessionId\)/u)
     assert.match(deleteApiProxy, /broadcastHost\(\{ type: 'host\/session-removed', sessionId \}\)/u)
     assert.match(deleteApiProxy, /hostQueues\.add\(queue\)/u)
+    const deleteSessionsManager = await readFile(copiedDeleteSessionsManager, 'utf8')
+    assert.match(deleteSessionsManager, /!durableSubagent && this\.selected === frame\.sessionId/u)
+    assert.match(deleteSessionsManager, /this\.clearSelection\(\)/u)
     const deleteRows = await readFile(copiedDeleteRows, 'utf8')
     assert.match(deleteRows, /menu\.deleteSession/u)
     assert.match(deleteRows, /onDelete\(node\.id\)/u)
