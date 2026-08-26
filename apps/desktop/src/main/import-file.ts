@@ -6,8 +6,9 @@
  *   `analyze_video` (the @ldd/dsh-video-frame-analyzer tool).
  * - Text (txt/md/csv/json/...) → written verbatim; the agent reads it with
  *   the read / search tools.
- * - Documents (docx/pdf/xlsx) → parsed to Markdown and written beside the
- *   original, because `tool-fs read` chokes on binary office formats.
+ * - Documents (docx/pdf/xlsx) → parsed to plain text (docx/pdf) or Markdown
+ *   tables (xlsx) and written as `<stem>.md`, because `tool-fs read` chokes
+ *   on binary office formats.
  * - Images → written verbatim (the composer already has an image rail; this
  *   path is a fallback for reference files the user drops on the tool).
  *
@@ -55,30 +56,23 @@ function markdownNameOf(fileName: string): string {
   return `${stem}.md`
 }
 
-/** Parse one .docx buffer to Markdown via mammoth (lazy). */
+/** Parse one .docx buffer to plain text via mammoth (lazy). */
 async function parseDocx(data: Buffer): Promise<string> {
   const mammoth = await import('mammoth')
-  const result = await mammoth.convertToMarkdown({ buffer: data })
+  const result = await mammoth.extractRawText({ buffer: data })
   return result.value
 }
 
-/** Parse one .pdf buffer to plain text via pdfjs-dist legacy (lazy). */
+/** Parse one .pdf buffer to plain text via pdf-parse (lazy; handles Node worker/fonts). */
 async function parsePdf(data: Buffer): Promise<string> {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(data), useSystemFonts: true }).promise
-  const pages: string[] = []
-  for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
-    const page = await doc.getPage(pageNumber)
-    const content = await page.getTextContent()
-    const lines: string[] = []
-    for (const item of content.items) {
-      if (typeof item === 'object' && item !== null && 'str' in item) {
-        lines.push((item as { str: string }).str)
-      }
-    }
-    pages.push(lines.join(' '))
+  const { PDFParse } = await import('pdf-parse')
+  const parser = new PDFParse({ data: new Uint8Array(data) })
+  try {
+    const result = await parser.getText()
+    return result.text
+  } finally {
+    await parser.destroy()
   }
-  return pages.join('\n\n')
 }
 
 /** Two-dimensional array → GitHub-flavoured Markdown table. */

@@ -17,7 +17,7 @@
     "@ldd/runtime-kit": "workspace:*",
     "@ldd/runtime-package": "workspace:*",
     "mammoth": "^1.8.0",
-    "pdfjs-dist": "^4.10.38",
+    "pdf-parse": "^2.4.5",
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "xlsx": "^0.18.5",
