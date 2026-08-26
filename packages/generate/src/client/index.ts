@@ -1,6 +1,6 @@
 /**
- * Browser half of @ldd/dsh-generate: two settings cards ("生图模型" /
- * "生视频模型") on the Plugins settings page, one per generation namespace.
+ * Browser half of @ldd/dsh-generate: two settings cards (\"生图模型\" /
+ * \"生视频模型\") on the Plugins settings page, one per generation namespace.
  *
  * The cards edit the `generate-image` / `generate-video` settings namespaces the
  * Host half registers, plus the API-key reference through the credentials
@@ -9,24 +9,22 @@
  * model and controls below are vendored here rather than imported.
  */
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the settings shell's Context merge (ctx.settingsScope).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-// Type-only: pulls the conversation slot declarations (conversation.input.left
-// owner + the session standard kit `useInput`/`inputActions` merge) so the
-// skill-picker registration typechecks with no runtime edge to ui-conversation.
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+// Type-only: pulls the command UI's Context merge (ctx.commandUi) + contribution types.
+import type {} from '@deepseek-ai/dsh-client-ui-commands/client'
+import type { CommandUiContract } from '@deepseek-ai/dsh-client-ui-commands/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 // Slot + locale type declarations (settings.plugin.item, LocaleNamespaceMap).
 import type {} from './slot-contract.ts'
 
 import { GenerateSettingsCard } from './card.tsx'
 import { GenerateSettingsController } from './controller.ts'
-import { FileUpload } from './file-upload.tsx'
+import { importWorkspaceFiles } from './file-import.ts'
 import { en, zh } from './locales.ts'
-import { SkillPicker } from './skill-picker.tsx'
 
 /** Namespace strings the Host half registers (must match src/settings.ts). */
 export const IMAGE_NS = 'generate-image'
@@ -34,7 +32,7 @@ export const VIDEO_NS = 'generate-video'
 
 const NS = 'generate'
 
-export const inject = ['slots', 'locale', 'connection', 'settingsScope']
+export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'commandUi', 'sessions']
 
 export function apply(ctx: ClientContext): void {
   const { api } = ctx.get('connection') as ConnectionHandle
@@ -67,52 +65,28 @@ export function apply(ctx: ClientContext): void {
     }, GenerateSettingsCard)
   })
 
-  // Skill picker: an always-visible control in the composer tool row that lists
-  // the session's skills and lands `/name ` into the draft on pick.
-  ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
-    name: 'conversation.input.left',
-    id: 'skill-picker',
-    order: 10,
-    locale: NS,
-    inject: (sessionId) => ({
-      listSkills: async (signal?: AbortSignal) => {
-        const { result } = await api.skills.list({ sessionId }, signal)
-        return result.ok ? [...result.value.skills] : []
+  // File upload: a slash-menu command contribution (visible in the "+" command
+  // menu, not a standalone composer button). Picking it opens a one-option
+  // popupSelect; selecting "choose file" opens the native picker and imports
+  // into the session workspace (see file-import.ts). Hidden where the Electron
+  // bridge (window.ldd) is absent.
+  const commandUi = ctx.get('commandUi') as CommandUiContract | undefined
+  if (commandUi !== undefined) {
+    ctx.effect(() => commandUi.register({
+      name: 'file',
+      description: t('fileImport.commandDescription'),
+      available: () => window.ldd !== undefined,
+      ui: {
+        kind: 'popupSelect',
+        options: async () => [{
+          id: 'pick',
+          label: t('fileImport.optionLabel'),
+          detail: t('fileImport.optionDetail'),
+        }],
+        onSelect: async (_option: unknown, session: { sessionId: SessionId }) => {
+          await importWorkspaceFiles(ctx, session.sessionId)
+        },
       },
-    }),
-  }, SkillPicker))
-
-  // File upload: imports picked files into the session workspace through the
-  // Electron main process so the agent can read them (analyze_video / read /
-  // parsed Markdown). In a plain browser (no window.ldd) it reports failure.
-  ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
-    name: 'conversation.input.left',
-    id: 'file-upload',
-    order: 5,
-    locale: NS,
-    inject: (sessionId) => ({
-      importFiles: async (files: readonly File[]): Promise<string> => {
-        const ldd = window.ldd
-        if (ldd === undefined) return t('fileUpload.failed')
-        const { result } = await api.sessions.list({})
-        const cwd = result.ok
-          ? result.value.items.find(s => s.sessionId === sessionId)?.cwd
-          : undefined
-        if (cwd === undefined) return t('fileUpload.noWorkspace')
-        const landed: string[] = []
-        for (const file of files) {
-          const data = await file.arrayBuffer()
-          const res = await ldd.importFile(data, file.name, cwd)
-          if (!res.imported) continue
-          if (res.kind === 'document' && res.markdownPath !== undefined) {
-            landed.push(`${file.name}→${res.markdownPath}`)
-          } else {
-            landed.push(res.relativePath)
-          }
-        }
-        if (landed.length === 0) return t('fileUpload.failed')
-        return `已上传到工作区：${landed.join('、')}`
-      },
-    }),
-  }, FileUpload))
+    }), 'generate: file-upload command')
+  }
 }

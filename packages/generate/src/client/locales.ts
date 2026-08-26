@@ -9,8 +9,7 @@ export type GenerateLocaleKey =
   | 'apiKeyEnv' | 'apiKeyEnvHint'
   | 'apiKey' | 'apiKeyHint'
   | 'unsaved' | 'save' | 'saving' | 'discard' | 'readOnly' | 'saveFailed'
-  | 'skillPicker.label' | 'skillPicker.loading' | 'skillPicker.empty' | 'skillPicker.userOnly'
-  | 'fileUpload.label' | 'fileUpload.importing' | 'fileUpload.noWorkspace' | 'fileUpload.failed'
+  | 'fileImport.commandDescription' | 'fileImport.optionLabel' | 'fileImport.optionDetail'
 
 export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
@@ -36,14 +35,9 @@ export const zh: Record<GenerateLocaleKey, string> = {
   discard: '放弃',
   readOnly: '该配置只读，无法在此修改。',
   saveFailed: '保存失败，请重试。',
-  'skillPicker.label': '技能',
-  'skillPicker.loading': '加载中…',
-  'skillPicker.empty': '暂无技能',
-  'skillPicker.userOnly': '仅用户',
-  'fileUpload.label': '上传',
-  'fileUpload.importing': '导入中…',
-  'fileUpload.noWorkspace': '当前会话无工作区目录，无法导入文件',
-  'fileUpload.failed': '导入失败',
+  'fileImport.commandDescription': '上传文件到工作区（视频/图片/文档/文本）',
+  'fileImport.optionLabel': '选择文件',
+  'fileImport.optionDetail': '从本地选择文件导入到当前工作区',
 }
 
 export const en: Record<GenerateLocaleKey, string> = {
@@ -70,12 +64,7 @@ export const en: Record<GenerateLocaleKey, string> = {
   discard: 'Discard',
   readOnly: 'This configuration is read-only.',
   saveFailed: 'Save failed, please retry.',
-  'skillPicker.label': 'Skills',
-  'skillPicker.loading': 'Loading…',
-  'skillPicker.empty': 'No skills',
-  'skillPicker.userOnly': 'user-only',
-  'fileUpload.label': 'Upload',
-  'fileUpload.importing': 'Importing…',
-  'fileUpload.noWorkspace': 'No workspace directory for this session',
-  'fileUpload.failed': 'Import failed',
+  'fileImport.commandDescription': 'Upload files to the workspace (video/image/document/text)',
+  'fileImport.optionLabel': 'Choose file',
+  'fileImport.optionDetail': 'Import a local file into the current workspace',
 }

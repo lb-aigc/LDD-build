@@ -1,0 +1,153 @@
+/**
+ * Workspace file import (command-contribution half): opens the native file
+ * picker, imports each pick into the session workspace through the Electron
+ * main process, and lands a short "uploaded" note into the composer draft.
+ *
+ * Pure logic — no React. The command contribution registered in index.ts
+ * routes its popupSelect `onSelect` here; the draft write goes through the
+ * conversation service's per-session input resolver (`sessions.scope(id)` →
+ * `conversation.input.for(actx).setDraft`) — the same single write path the
+ * slot components use — so no slot bridge component is needed. In a plain
+ * browser (no `window.ldd`) it reports a notice and returns.
+ *
+ * The structural faces below are vendored (no runtime edge to
+ * dsh-client-ui-conversation / apps/desktop): the runtime objects are
+ * byte-identical, only the types are shimmed locally.
+ */
+import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+
+/** Local structural copy of the main-process import result (no apps/desktop edge). */
+interface ImportFileResultLike {
+  readonly imported: boolean
+  readonly relativePath: string
+  readonly kind: 'video' | 'image' | 'document' | 'text' | 'other'
+  readonly markdownPath?: string
+}
+
+declare global {
+  interface Window {
+    readonly ldd?: {
+      importFile(data: ArrayBuffer, fileName: string, workspacePath: string): Promise<ImportFileResultLike>
+    }
+  }
+}
+
+/** Minimal structural face of the per-session input (setDraft / notify / state). */
+interface SessionInputLike {
+  setDraft(text: string): void
+  notify(level: 'info' | 'error', text: string): void
+  state: { getSnapshot(): { draft: string } }
+}
+
+/** Minimal structural face of the conversation service's input resolver. */
+interface ConversationLike {
+  input: { for(actx: ClientContext): SessionInputLike }
+}
+
+/** Minimal structural face of the sessions service (scope resolution). */
+interface SessionsLike {
+  scope(id: SessionId): ClientContext | undefined
+}
+
+/** Minimal structural face of the connection's sessions api (list → cwd). */
+interface ConnectionLike {
+  api: {
+    sessions: {
+      list(request: {}): Promise<{
+        result: { ok: boolean; value?: { items: Array<{ sessionId: SessionId; cwd?: string }> } }
+      }>
+    }
+  }
+}
+
+/**
+ * Open the native file picker and resolve the chosen files (empty on cancel).
+ * A cancelled dialog re-focuses the window without firing `change`; that
+ * focus, after a short grace for the change-then-focus ordering, is the
+ * cancel signal.
+ */
+function pickFiles(): Promise<File[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.multiple = true
+    input.hidden = true
+    let settled = false
+    input.onchange = () => {
+      settled = true
+      const files = Array.from(input.files ?? [])
+      input.remove()
+      resolve(files)
+    }
+    const onFocus = (): void => {
+      window.removeEventListener('focus', onFocus)
+      window.setTimeout(() => {
+        if (!settled) {
+          settled = true
+          input.remove()
+          resolve([])
+        }
+      }, 300)
+    }
+    window.addEventListener('focus', onFocus)
+    document.body.appendChild(input)
+    input.click()
+  })
+}
+
+/**
+ * Import picked files into one session's workspace and land a note in its draft.
+ * @param ctx - the generate plugin's root context (connection + sessions services).
+ * @param sessionId - target session.
+ */
+export async function importWorkspaceFiles(ctx: ClientContext, sessionId: SessionId): Promise<void> {
+  const sessions = ctx.get('sessions') as SessionsLike | undefined
+  const actx = sessions?.scope(sessionId)
+  if (actx === undefined) return
+  const conversation = actx.get('conversation') as ConversationLike | undefined
+  const shell = conversation === undefined ? undefined : conversation.input.for(actx)
+  const notify = (level: 'info' | 'error', text: string): void => { shell?.notify(level, text) }
+
+  const ldd = window.ldd
+  if (ldd === undefined) {
+    notify('error', '当前环境不支持文件上传')
+    return
+  }
+
+  const connection = ctx.get('connection') as ConnectionLike | undefined
+  const listed = await connection?.api.sessions.list({})
+  const cwd = listed?.result.ok === true
+    ? listed.result.value?.items.find((s) => s.sessionId === sessionId)?.cwd
+    : undefined
+  if (cwd === undefined) {
+    notify('error', '当前会话无工作区目录，无法导入文件')
+    return
+  }
+
+  const files = await pickFiles()
+  if (files.length === 0) return
+
+  const landed: string[] = []
+  for (const file of files) {
+    const data = await file.arrayBuffer()
+    const res = await ldd.importFile(data, file.name, cwd)
+    if (!res.imported) continue
+    if (res.kind === 'document' && res.markdownPath !== undefined) {
+      landed.push(`${file.name}→${res.markdownPath}`)
+    } else {
+      landed.push(res.relativePath)
+    }
+  }
+
+  if (landed.length === 0) {
+    notify('error', '导入失败')
+    return
+  }
+
+  const note = `已上传到工作区：${landed.join('、')}`
+  if (shell !== undefined) {
+    const current = shell.state.getSnapshot().draft
+    const separator = current !== '' && !current.endsWith(' ') ? ' ' : ''
+    shell.setDraft(`${current}${separator}${note}`)
+  }
+}
