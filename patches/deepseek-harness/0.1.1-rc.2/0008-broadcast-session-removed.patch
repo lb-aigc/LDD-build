@@ -1,0 +1,48 @@
+--- a/packages/host/apiproxy/src/api-proxy.ts
++++ b/packages/host/apiproxy/src/api-proxy.ts
+@@ -1220,6 +1220,17 @@
+     for (const queue of muxQueues) queue.push(envelope)
+   }
+ 
++  /** Host-frame fan-out: send one frame to every connected host consumer.
++   *  A delete must remove the row from every client's session list, but a
++   *  cold session (persisted yet unattached) has no live owner whose
++   *  dispose() fires session/disposed -- so the delete handler broadcasts
++   *  this frame explicitly instead of relying on the disposed relay alone. */
++  const hostQueues = new Set<FrameQueue<RpcRequest<HostFrame>>>()
++  function broadcastHost(payload: HostFrame): void {
++    const envelope = frame(payload)
++    for (const queue of hostQueues) queue.push(envelope)
++  }
++
+   // Projection change feed → session/projection push frames. The carrier
+   // mints the wire frame (the Service Definition package holds no wire vocabulary); the
+   // child activates only when a projection registry is composed, and the
+@@ -2593,6 +2604,7 @@
+             details: {},
+           })
+         }
++        broadcastHost({ type: 'host/session-removed', sessionId })
+         return ok(request, { deleted: true as const })
+       },
+     },
+@@ -3495,6 +3507,7 @@
+ 
+       host(_request, signal) {
+         const queue = new FrameQueue<RpcRequest<HostFrame>>()
++        hostQueues.add(queue)
+         const committedWorkspaces = ctx.workspaceRegistry.list()
+         const committedWorkspaceIds = new Set(
+           committedWorkspaces.map(workspace => String(workspace.id)),
+@@ -3594,7 +3607,10 @@
+             }),
+           )),
+         ]
+-        return queue.iterate(signal, () => { for (const dispose of disposers) dispose() })
++        return queue.iterate(signal, () => {
++          hostQueues.delete(queue)
++          for (const dispose of disposers) dispose()
++        })
+       },
+     },
+ 

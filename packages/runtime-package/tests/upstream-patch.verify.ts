@@ -481,6 +481,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0005-render-tool-result-images.patch',
       '0006-image-download-button.patch',
       '0007-delete-session.patch',
+      '0008-broadcast-session-removed.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -519,6 +520,8 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const deleteApiProxy = await readFile(copiedDeleteApiProxy, 'utf8')
     assert.match(deleteApiProxy, /async delete\(request\)/u)
     assert.match(deleteApiProxy, /agentHandles\.get\(sessionId\)/u)
+    assert.match(deleteApiProxy, /broadcastHost\(\{ type: 'host\/session-removed', sessionId \}\)/u)
+    assert.match(deleteApiProxy, /hostQueues\.add\(queue\)/u)
     const deleteRows = await readFile(copiedDeleteRows, 'utf8')
     assert.match(deleteRows, /menu\.deleteSession/u)
     assert.match(deleteRows, /onDelete\(node\.id\)/u)

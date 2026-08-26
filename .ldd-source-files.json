@@ -225,6 +225,7 @@
     "patches/deepseek-harness/0.1.1-rc.2/0005-render-tool-result-images.patch",
     "patches/deepseek-harness/0.1.1-rc.2/0006-image-download-button.patch",
     "patches/deepseek-harness/0.1.1-rc.2/0007-delete-session.patch",
+    "patches/deepseek-harness/0.1.1-rc.2/0008-broadcast-session-removed.patch",
     "patches/deepseek-harness/0.1.1-rc.2/README.md",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
