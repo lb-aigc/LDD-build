@@ -24,12 +24,24 @@ import { installNavigationGuards, makeWindowOptions } from './window.ts'
 
 const pluginCenterUrl = 'https://github.com/topics/dsh-plugin'
 
-/** Inject the LDD glass theme once the harness page has loaded (splash and
- * failure pages are LDD's own file:// documents and stay untouched). */
+/** Inject the LDD glass theme into the harness page. Uses executeJavaScript to
+ * append a <style id="ldd-glass-theme"> to <head> (guaranteed last, after the
+ * static <link> stylesheets, so the variable overrides win) rather than
+ * insertCSS. Splash/failure pages are LDD's own file:// documents (the splash
+ * carries its own glass backdrop in splash.html) and are left untouched. */
 function attachGlassTheme(target: BrowserWindow): void {
   target.webContents.on('did-finish-load', () => {
     if (!target.webContents.getURL().startsWith('http')) return
-    void target.webContents.insertCSS(GLASS_THEME_CSS).catch(() => undefined)
+    const script = `(() => {
+      if (document.getElementById('ldd-glass-theme')) return;
+      const style = document.createElement('style');
+      style.id = 'ldd-glass-theme';
+      style.textContent = ${JSON.stringify(GLASS_THEME_CSS)};
+      document.head.appendChild(style);
+    })()`
+    void target.webContents.executeJavaScript(script).catch((error: unknown) => {
+      console.error('[ldd-glass] inject failed:', error)
+    })
   })
 }
 
