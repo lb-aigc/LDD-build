@@ -14,6 +14,7 @@ import {
 
 import type { RuntimeStatusView } from './ipc/contracts.ts'
 import { registerDesktopIpc } from './ipc/register.ts'
+import { importWorkspaceFile } from './import-file.ts'
 import { createCompleteExit, createWindowCloseHandler, type ExitState } from './lifecycle.ts'
 import { createHelpMenu } from './menu.ts'
 import type { LddPaths } from './paths.ts'
@@ -129,6 +130,9 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     return { saved: true, path: result.filePath }
   }
 
+  const importFile = (data: ArrayBuffer, fileName: string, workspacePath: string) =>
+    importWorkspaceFile(data, fileName, workspacePath)
+
   const importOfflineRuntime = async (): Promise<unknown> => {
     const selected = await dialog.showOpenDialog(mainWindow, {
       title: '导入 LDD 离线内核包',
@@ -172,6 +176,7 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     retryBoot: retryAndLoad,
     openLogDirectory: openLogs,
     saveImage,
+    importFile,
   })
 
   let destroyTray: () => void = () => undefined

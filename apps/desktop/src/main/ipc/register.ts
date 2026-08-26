@@ -1,6 +1,7 @@
 import {
   ipcChannels,
   parseIpcRequest,
+  type ImportFileResult,
   type RuntimeProgressEvent,
   type RuntimeStatusView,
 } from './contracts.ts'
@@ -22,6 +23,7 @@ export interface DesktopIpcServices {
   retryBoot(): Promise<unknown>
   openLogDirectory(): Promise<void>
   saveImage(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
+  importFile(data: ArrayBuffer, fileName: string, workspacePath: string): Promise<ImportFileResult>
 }
 
 export function registerDesktopIpc(
@@ -50,6 +52,10 @@ export function registerDesktopIpc(
       (input.value as { data: ArrayBuffer; defaultName: string }).defaultName,
     ),
   )
+  register(ipcMain, 'importFile', async (input) => {
+    const value = input.value as { data: ArrayBuffer; fileName: string; workspacePath: string }
+    return services.importFile(value.data, value.fileName, value.workspacePath)
+  })
 
   return () => {
     for (const channel of Object.values(ipcChannels)) {
@@ -78,7 +84,8 @@ function register(
     | 'openPluginCenter'
     | 'retryBoot'
     | 'openLogDirectory'
-    | 'saveImage',
+    | 'saveImage'
+    | 'importFile',
   invoke: (input: ReturnType<typeof parseIpcRequest>) => Promise<unknown>,
 ): void {
   ipcMain.handle(ipcChannels[method], async (_event, value) => {

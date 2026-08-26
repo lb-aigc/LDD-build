@@ -10,6 +10,7 @@ export type GenerateLocaleKey =
   | 'apiKey' | 'apiKeyHint'
   | 'unsaved' | 'save' | 'saving' | 'discard' | 'readOnly' | 'saveFailed'
   | 'skillPicker.label' | 'skillPicker.loading' | 'skillPicker.empty' | 'skillPicker.userOnly'
+  | 'fileUpload.label' | 'fileUpload.importing' | 'fileUpload.noWorkspace' | 'fileUpload.failed'
 
 export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
@@ -39,6 +40,10 @@ export const zh: Record<GenerateLocaleKey, string> = {
   'skillPicker.loading': '加载中…',
   'skillPicker.empty': '暂无技能',
   'skillPicker.userOnly': '仅用户',
+  'fileUpload.label': '上传',
+  'fileUpload.importing': '导入中…',
+  'fileUpload.noWorkspace': '当前会话无工作区目录，无法导入文件',
+  'fileUpload.failed': '导入失败',
 }
 
 export const en: Record<GenerateLocaleKey, string> = {
@@ -69,4 +74,8 @@ export const en: Record<GenerateLocaleKey, string> = {
   'skillPicker.loading': 'Loading…',
   'skillPicker.empty': 'No skills',
   'skillPicker.userOnly': 'user-only',
+  'fileUpload.label': 'Upload',
+  'fileUpload.importing': 'Importing…',
+  'fileUpload.noWorkspace': 'No workspace directory for this session',
+  'fileUpload.failed': 'Import failed',
 }

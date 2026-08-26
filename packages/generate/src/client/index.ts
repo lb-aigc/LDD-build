@@ -24,6 +24,7 @@ import type {} from './slot-contract.ts'
 
 import { GenerateSettingsCard } from './card.tsx'
 import { GenerateSettingsController } from './controller.ts'
+import { FileUpload } from './file-upload.tsx'
 import { en, zh } from './locales.ts'
 import { SkillPicker } from './skill-picker.tsx'
 
@@ -80,4 +81,38 @@ export function apply(ctx: ClientContext): void {
       },
     }),
   }, SkillPicker))
+
+  // File upload: imports picked files into the session workspace through the
+  // Electron main process so the agent can read them (analyze_video / read /
+  // parsed Markdown). In a plain browser (no window.ldd) it reports failure.
+  ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
+    name: 'conversation.input.left',
+    id: 'file-upload',
+    order: 5,
+    locale: NS,
+    inject: (sessionId) => ({
+      importFiles: async (files: readonly File[]): Promise<string> => {
+        const ldd = globalThis.ldd
+        if (ldd === undefined) return t('fileUpload.failed')
+        const { result } = await api.sessions.list({})
+        const cwd = result.ok
+          ? result.value.items.find(s => s.sessionId === sessionId)?.cwd
+          : undefined
+        if (cwd === undefined) return t('fileUpload.noWorkspace')
+        const landed: string[] = []
+        for (const file of files) {
+          const data = await file.arrayBuffer()
+          const res = await ldd.importFile(data, file.name, cwd)
+          if (!res.imported) continue
+          if (res.kind === 'document' && res.markdownPath !== undefined) {
+            landed.push(`${file.name}→${res.markdownPath}`)
+          } else {
+            landed.push(res.relativePath)
+          }
+        }
+        if (landed.length === 0) return t('fileUpload.failed')
+        return `已上传到工作区：${landed.join('、')}`
+      },
+    }),
+  }, FileUpload))
 }

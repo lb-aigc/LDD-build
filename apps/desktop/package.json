@@ -16,14 +16,18 @@
   "dependencies": {
     "@ldd/runtime-kit": "workspace:*",
     "@ldd/runtime-package": "workspace:*",
+    "mammoth": "^1.8.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "19.1.1",
     "react-dom": "19.1.1",
+    "xlsx": "^0.18.5",
     "yauzl": "3.2.0"
   },
   "devDependencies": {
     "@types/react": "19.1.1",
     "@types/react-dom": "19.1.1",
     "@types/yauzl": "2.10.3",
+    "@types/xlsx": "^0.0.36",
     "@testing-library/react": "16.3.0",
     "@testing-library/user-event": "14.6.1",
     "@vitejs/plugin-react": "5.0.0",

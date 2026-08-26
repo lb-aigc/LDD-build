@@ -12,6 +12,7 @@ export const rendererApiKeys = [
   'retryBoot',
   'openLogDirectory',
   'saveImage',
+  'importFile',
   'subscribeProgress',
 ] as const
 
@@ -30,6 +31,7 @@ export const ipcChannels: Readonly<Record<RendererApiKey, string>> = Object.free
   retryBoot: 'ldd:boot:retry',
   openLogDirectory: 'ldd:logs:open',
   saveImage: 'ldd:image:save',
+  importFile: 'ldd:file:import',
   subscribeProgress: 'ldd:progress',
 })
 
@@ -49,6 +51,22 @@ export interface RuntimeProgressEvent {
   readonly message: string
 }
 
+/** Imported-file classification the composer uses to describe the landing. */
+export type ImportFileKind = 'video' | 'image' | 'document' | 'text' | 'other'
+
+/** Result of writing one uploaded file into a session workspace directory. */
+export interface ImportFileResult {
+  readonly imported: boolean
+  /** Workspace-relative name the agent references (`analyze_video` / read). */
+  readonly relativePath: string
+  /** Coarse kind so the composer can pick copy; 'document' means parsed to markdown. */
+  readonly kind: ImportFileKind
+  /** Present when a document was parsed: the rendered markdown path (relative). */
+  readonly markdownPath?: string
+  /** Present on failure; the composer surfaces it verbatim. */
+  readonly error?: string
+}
+
 export interface LddRendererApi {
   getStatus(): Promise<RuntimeStatusView>
   checkForUpdates(): Promise<unknown>
@@ -61,6 +79,7 @@ export interface LddRendererApi {
   retryBoot(): Promise<unknown>
   openLogDirectory(): Promise<void>
   saveImage(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
+  importFile(data: ArrayBuffer, fileName: string, workspacePath: string): Promise<ImportFileResult>
   subscribeProgress(listener: (event: RuntimeProgressEvent) => void): () => void
 }
 
@@ -76,6 +95,7 @@ export type IpcRequest =
   | { readonly method: 'retryBoot'; readonly value: undefined }
   | { readonly method: 'openLogDirectory'; readonly value: undefined }
   | { readonly method: 'saveImage'; readonly value: { readonly data: ArrayBuffer; readonly defaultName: string } }
+  | { readonly method: 'importFile'; readonly value: { readonly data: ArrayBuffer; readonly fileName: string; readonly workspacePath: string } }
 
 export function parseIpcRequest(method: InvokeApiKey, value: unknown): IpcRequest {
   switch (method) {
@@ -95,6 +115,8 @@ export function parseIpcRequest(method: InvokeApiKey, value: unknown): IpcReques
       return { method, value: parseImageModeInput(value) }
     case 'saveImage':
       return { method, value: parseSaveImageInput(value) }
+    case 'importFile':
+      return { method, value: parseImportFileInput(value) }
   }
 }
 
@@ -158,6 +180,27 @@ function parseSaveImageInput(value: unknown): { readonly data: ArrayBuffer; read
     throw new TypeError('save-image defaultName is invalid')
   }
   return { data: record.data, defaultName: record.defaultName }
+}
+
+function parseImportFileInput(value: unknown): {
+  readonly data: ArrayBuffer
+  readonly fileName: string
+  readonly workspacePath: string
+} {
+  const record = requireExactRecord(value, 'import-file request', ['data', 'fileName', 'workspacePath'])
+  if (!(record.data instanceof ArrayBuffer)) {
+    throw new TypeError('import-file data must be an ArrayBuffer')
+  }
+  if (typeof record.fileName !== 'string' || record.fileName.length === 0 || record.fileName.length > 256) {
+    throw new TypeError('import-file fileName is invalid')
+  }
+  if (!/^[^/\\:*?"<>|]+$/.test(record.fileName) || record.fileName === '.' || record.fileName === '..') {
+    throw new TypeError('import-file fileName contains a path separator or reserved name')
+  }
+  if (typeof record.workspacePath !== 'string' || record.workspacePath.length === 0 || record.workspacePath.length > 4096) {
+    throw new TypeError('import-file workspacePath is invalid')
+  }
+  return { data: record.data, fileName: record.fileName, workspacePath: record.workspacePath }
 }
 
 function requireExactRecord(
