@@ -3,6 +3,7 @@
   "files": [
     ".gitattributes",
     ".github/workflows/build-windows.yml",
+    ".github/workflows/gen-lockfile.yml",
     ".gitignore",
     ".ldd-source-files.json",
     "Build-LDD.cmd",
@@ -122,6 +123,7 @@
     "packages/generate/src/client/index.ts",
     "packages/generate/src/client/locales.ts",
     "packages/generate/src/client/presets.ts",
+    "packages/generate/src/client/skill-picker.tsx",
     "packages/generate/src/client/slot-contract.ts",
     "packages/generate/src/config.ts",
     "packages/generate/src/credentials.ts",

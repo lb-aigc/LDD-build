@@ -14,6 +14,10 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the settings shell's Context merge (ctx.settingsScope).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only: pulls the conversation slot declarations (conversation.input.left
+// owner + the session standard kit `useInput`/`inputActions` merge) so the
+// skill-picker registration typechecks with no runtime edge to ui-conversation.
+import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 // Slot + locale type declarations (settings.plugin.item, LocaleNamespaceMap).
 import type {} from './slot-contract.ts'
@@ -21,6 +25,7 @@ import type {} from './slot-contract.ts'
 import { GenerateSettingsCard } from './card.tsx'
 import { GenerateSettingsController } from './controller.ts'
 import { en, zh } from './locales.ts'
+import { SkillPicker } from './skill-picker.tsx'
 
 /** Namespace strings the Host half registers (must match src/settings.ts). */
 export const IMAGE_NS = 'generate-image'
@@ -60,4 +65,19 @@ export function apply(ctx: ClientContext): void {
       inject: () => video.inject(),
     }, GenerateSettingsCard)
   })
+
+  // Skill picker: an always-visible control in the composer tool row that lists
+  // the session's skills and lands `/name ` into the draft on pick.
+  ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
+    name: 'conversation.input.left',
+    id: 'skill-picker',
+    order: 10,
+    locale: NS,
+    inject: (sessionId) => ({
+      listSkills: async (signal?: AbortSignal) => {
+        const { result } = await api.skills.list({ sessionId }, signal)
+        return result.ok ? [...result.value.skills] : []
+      },
+    }),
+  }, SkillPicker))
 }

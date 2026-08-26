@@ -9,6 +9,7 @@ export type GenerateLocaleKey =
   | 'apiKeyEnv' | 'apiKeyEnvHint'
   | 'apiKey' | 'apiKeyHint'
   | 'unsaved' | 'save' | 'saving' | 'discard' | 'readOnly' | 'saveFailed'
+  | 'skillPicker.label' | 'skillPicker.loading' | 'skillPicker.empty' | 'skillPicker.userOnly'
 
 export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
@@ -34,6 +35,10 @@ export const zh: Record<GenerateLocaleKey, string> = {
   discard: '放弃',
   readOnly: '该配置只读，无法在此修改。',
   saveFailed: '保存失败，请重试。',
+  'skillPicker.label': '技能',
+  'skillPicker.loading': '加载中…',
+  'skillPicker.empty': '暂无技能',
+  'skillPicker.userOnly': '仅用户',
 }
 
 export const en: Record<GenerateLocaleKey, string> = {
@@ -60,4 +65,8 @@ export const en: Record<GenerateLocaleKey, string> = {
   discard: 'Discard',
   readOnly: 'This configuration is read-only.',
   saveFailed: 'Save failed, please retry.',
+  'skillPicker.label': 'Skills',
+  'skillPicker.loading': 'Loading…',
+  'skillPicker.empty': 'No skills',
+  'skillPicker.userOnly': 'user-only',
 }
