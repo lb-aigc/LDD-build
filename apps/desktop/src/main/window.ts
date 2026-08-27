@@ -1,16 +1,4 @@
-import { release } from 'node:os'
-
 import type { BrowserWindowConstructorOptions } from 'electron'
-
-/** Windows 11 build numbers start at 22000 (21H2). Windows 10 is below that.
- * Used by the shell to pick the glass CSS: on Win11 the body is transparent so
- * the mica material shows through; on Win10 (no material) a gradient fallback
- * is painted. */
-export const isWindows11: boolean = (() => {
-  if (process.platform !== 'win32') return false
-  const match = /^10\.0\.(\d+)/.exec(release())
-  return match !== null && Number(match[1]) >= 22_000
-})()
 
 export function makeWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
   return {
@@ -19,16 +7,14 @@ export function makeWindowOptions(preloadPath: string): BrowserWindowConstructor
     minWidth: 960,
     minHeight: 640,
     show: false,
-    // Mica (NOT acrylic): acrylic on Electron/Windows 11 had several bugs that
-    // regressed usability — the native title bar (drag region + min/max/close
-    // buttons) vanished, the window lost its drag, and a white border artifact
-    // appeared; acrylic also greys out when the window loses focus. Mica is
-    // Microsoft's material for long-lived windows: it samples the desktop
-    // wallpaper tint WITHOUT blur, stays stable when unfocused, keeps the
-    // native title bar, and has no border artifact. It is silently ignored on
-    // Windows 10 (falls back to backgroundColor).
+    // Plain native window: NO backgroundMaterial. The system acrylic/mica
+    // materials break window usability on Electron/Windows 11 — they remove
+    // the native title bar drag region + min/max/close buttons, add a white
+    // border artifact, and (acrylic) grey out when unfocused. A plain window
+    // keeps the native title bar (drag + buttons), Win11's native rounded
+    // corners, and no border artifact. The frosted look comes from the CSS
+    // gradient painted by the glass theme, not from a system material.
     backgroundColor: '#e8e8ec',
-    backgroundMaterial: 'mica',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
