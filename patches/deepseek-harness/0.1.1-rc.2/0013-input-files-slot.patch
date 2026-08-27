@@ -1,0 +1,45 @@
+--- a/packages/client/ui-conversation/src/client/contract/slots.ts
++++ b/packages/client/ui-conversation/src/client/contract/slots.ts
+@@ -246,6 +246,10 @@
+     /** Optional draft-image rail, drop target, and preview surface inside the composer. */
+     'conversation.input.attachments': {
+       kind: 'single'
+       scope: 'session-maybe'
+       owner: ComposerAttachmentsOwnerProps
+     }
++    /** Optional non-image file cards rendered inside the composer card. List
++     *  slot so the LDD generate plugin injects its file-card strip beside the
++     *  draft-image rail without taking the single attachments seat. */
++    'conversation.input.files': { kind: 'list'; scope: 'session' }
+@@ -605,7 +605,7 @@
+ export type ComposerBarProps =
+   PropsRuntime<'conversation.composer.bar'>
+   & PropsRenderSlots<
+-    'conversation.input.attachments' | 'conversation.input.plan' | 'conversation.input.model'
++    'conversation.input.attachments' | 'conversation.input.plan' | 'conversation.input.model' | 'conversation.input.files'
+   >
+   & InjectFace<ComposerBarInjected>
+   & PropsLocale<'conversation'>
+--- a/packages/client/ui-conversation/src/client/apply.ts
++++ b/packages/client/ui-conversation/src/client/apply.ts
+@@ -286,5 +286,6 @@
+     children: {
+       'conversation.input.attachments': { kind: 'single', scope: 'session-maybe' },
++      'conversation.input.files': { kind: 'list', scope: 'session' },
+       'conversation.input.plan': { kind: 'single', scope: 'session' },
+       'conversation.input.model': { kind: 'single', scope: 'session' },
+     },
+--- a/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
+@@ -710,10 +710,11 @@
+         {renderSlot('conversation.input.attachments', {
+           attachments,
+           canAcceptDrop,
+           onAddImages: intakeImages,
+           onRemoveImage: (id) => { removeImage?.(id) },
+           dropLimits: imageLimits === undefined ? undefined : {
+             count: imageLimits.maxImagesPerMessage,
+             size: imageSizeText(imageLimits.maxImageBytes),
+           },
+         })}
++        {renderSlot('conversation.input.files', {})}

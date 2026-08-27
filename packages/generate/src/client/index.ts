@@ -113,17 +113,18 @@ export function apply(ctx: ClientContext): void {
     }, 'generate: non-image drop import')
   }
 
-  // Imported-file cards: a composer-dock entry that renders the non-image
-  // files landed in the current session's workspace as file-type cards (icon
-  // + name + remove). The dock slot is declared by ui-conversation; the owner
-  // share (InputZone) is shimmed away with a cast so this plugin keeps its
-  // zero lockfile-dependency edge on dsh-client-ui-conversation.
+  // Imported-file cards: rendered INSIDE the composer card via the
+  // `conversation.input.files` list slot (declared by ui-conversation beside
+  // the draft-image rail), so non-image files and image thumbnails appear in
+  // the same input box instead of files floating above it. The slot is
+  // shimmed away with a cast so this plugin keeps its zero
+  // lockfile-dependency edge on dsh-client-ui-conversation.
   const slotsDock = ctx.slots as unknown as {
     inject: (name: string, register: () => unknown) => void
     register: (config: unknown, component: unknown) => unknown
   }
-  slotsDock.inject('conversation.input.dock', () => slotsDock.register({
-    name: 'conversation.input.dock',
+  slotsDock.inject('conversation.input.files', () => slotsDock.register({
+    name: 'conversation.input.files',
     id: 'files',
     order: 10,
     locale: NS,

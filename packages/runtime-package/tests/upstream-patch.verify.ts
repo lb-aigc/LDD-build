@@ -126,6 +126,18 @@ const officialComposerAttachments = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'ComposerAttachments.tsx',
 )
+const officialInputFilesSlotContract = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'contract', 'slots.ts',
+)
+const officialInputFilesSlotApply = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'apply.ts',
+)
+const officialInputFilesSlotInputBar = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'InputBar.tsx',
+)
 const officialDeleteCoordinator = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence', 'src', 'coordinator.ts',
@@ -298,6 +310,15 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedComposerAttachments = join(
       copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'ComposerAttachments.tsx',
     )
+    const copiedInputFilesSlotContract = join(
+      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'contract', 'slots.ts',
+    )
+    const copiedInputFilesSlotApply = join(
+      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'apply.ts',
+    )
+    const copiedInputFilesSlotInputBar = join(
+      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'InputBar.tsx',
+    )
     const copiedDeleteCoordinator = join(
       copiedRoot, 'packages', 'session', 'session-persistence', 'src', 'coordinator.ts',
     )
@@ -399,6 +420,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await mkdir(dirname(copiedImageLightboxCss), { recursive: true })
     await mkdir(dirname(copiedAttachmentLabels), { recursive: true })
     await mkdir(dirname(copiedComposerAttachments), { recursive: true })
+    await mkdir(dirname(copiedInputFilesSlotContract), { recursive: true })
+    await mkdir(dirname(copiedInputFilesSlotApply), { recursive: true })
+    await mkdir(dirname(copiedInputFilesSlotInputBar), { recursive: true })
     await mkdir(dirname(copiedDeleteCoordinator), { recursive: true })
     await mkdir(dirname(copiedDeletePersistenceIndex), { recursive: true })
     await mkdir(dirname(copiedDeleteJsonlIndex), { recursive: true })
@@ -444,6 +468,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedImageLightboxCss, await readFile(officialImageLightboxCss))
     await writeFile(copiedAttachmentLabels, await readFile(officialAttachmentLabels))
     await writeFile(copiedComposerAttachments, await readFile(officialComposerAttachments))
+    await writeFile(copiedInputFilesSlotContract, await readFile(officialInputFilesSlotContract))
+    await writeFile(copiedInputFilesSlotApply, await readFile(officialInputFilesSlotApply))
+    await writeFile(copiedInputFilesSlotInputBar, await readFile(officialInputFilesSlotInputBar))
     await writeFile(copiedDeleteCoordinator, await readFile(officialDeleteCoordinator))
     await writeFile(copiedDeletePersistenceIndex, await readFile(officialDeletePersistenceIndex))
     await writeFile(copiedDeleteJsonlIndex, await readFile(officialDeleteJsonlIndex))
@@ -504,6 +531,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0010-delete-flush-live.patch',
       '0011-delete-log-broadcast.patch',
       '0012-nonimage-drop.patch',
+      '0013-input-files-slot.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -563,6 +591,13 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const composerAttachments = await readFile(copiedComposerAttachments, 'utf8')
     assert.match(composerAttachments, /dsh:non-image-drop/u)
     assert.match(composerAttachments, /isImageType\(file\.type\)/u)
+    const inputFilesContract = await readFile(copiedInputFilesSlotContract, 'utf8')
+    assert.match(inputFilesContract, /'conversation\.input\.files': \{ kind: 'list'; scope: 'session' \}/u)
+    assert.match(inputFilesContract, /\| 'conversation\.input\.files'/u)
+    const inputFilesApply = await readFile(copiedInputFilesSlotApply, 'utf8')
+    assert.match(inputFilesApply, /'conversation\.input\.files': \{ kind: 'list', scope: 'session' \},/u)
+    const inputFilesBar = await readFile(copiedInputFilesSlotInputBar, 'utf8')
+    assert.match(inputFilesBar, /renderSlot\('conversation\.input\.files', \{\}\)/u)
     const attachmentLabels = await readFile(copiedAttachmentLabels, 'utf8')
     assert.match(attachmentLabels, /download: t\('image\.download'\)/u)
     const localesDownload = await readFile(copiedLocales, 'utf8')
