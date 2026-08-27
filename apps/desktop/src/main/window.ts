@@ -3,7 +3,9 @@ import { release } from 'node:os'
 import type { BrowserWindowConstructorOptions } from 'electron'
 
 /** Windows 11 build numbers start at 22000 (21H2). Windows 10 is below that.
- * Used to decide whether the real acrylic material is available. */
+ * Used by the shell to pick the glass CSS: on Win11 the body is transparent so
+ * the mica material shows through; on Win10 (no material) a gradient fallback
+ * is painted. */
 export const isWindows11: boolean = (() => {
   if (process.platform !== 'win32') return false
   const match = /^10\.0\.(\d+)/.exec(release())
@@ -17,12 +19,16 @@ export function makeWindowOptions(preloadPath: string): BrowserWindowConstructor
     minWidth: 960,
     minHeight: 640,
     show: false,
-    // Win11: transparent window background so the acrylic material shows
-    // through the HTML's transparent body (the real "blurred desktop behind
-    // the window" effect). Win10: acrylic is silently ignored, so keep a solid
-    // neutral background (the fallback CSS paints its own gradient).
-    backgroundColor: isWindows11 ? '#00000000' : '#e8e8ec',
-    backgroundMaterial: 'acrylic',
+    // Mica (NOT acrylic): acrylic on Electron/Windows 11 had several bugs that
+    // regressed usability — the native title bar (drag region + min/max/close
+    // buttons) vanished, the window lost its drag, and a white border artifact
+    // appeared; acrylic also greys out when the window loses focus. Mica is
+    // Microsoft's material for long-lived windows: it samples the desktop
+    // wallpaper tint WITHOUT blur, stays stable when unfocused, keeps the
+    // native title bar, and has no border artifact. It is silently ignored on
+    // Windows 10 (falls back to backgroundColor).
+    backgroundColor: '#e8e8ec',
+    backgroundMaterial: 'mica',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
