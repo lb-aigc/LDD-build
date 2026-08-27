@@ -78,28 +78,67 @@ export function parseDataUri(uri: string): { data: Uint8Array; mediaType: ImageM
   }
 }
 
+/** Delay that honours an abort signal. */
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) { reject(new DOMException('Aborted', 'AbortError')); return }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = (): void => {
+      clearTimeout(timer)
+      reject(new DOMException('Aborted', 'AbortError'))
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 /**
  * Fetch an http(s) URL into image bytes. Returns undefined on any failure so a
  * provider that returns a placeholder (mock) or an expired URL degrades to a
  * plain-text result instead of failing the whole generation.
+ *
+ * The download is retried (3 attempts, exponential backoff) because generated
+ * image CDNs (e.g. playjoy3d behind legnext) are reached over flaky network
+ * paths — a single transient reset/timeout otherwise drops the image to a
+ * text-only URL. Non-retryable failures (HTTP 4xx, abort) fail fast.
  */
 async function fetchBytes(url: string, signal: AbortSignal): Promise<{ data: Uint8Array; mediaType: ImageMediaType } | undefined> {
-  let response: Response
-  try {
-    response = await fetch(url, { signal })
-  } catch {
-    return undefined
+  const MAX_ATTEMPTS = 3
+  let lastError: string = ''
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    if (signal.aborted) return undefined
+    let response: Response
+    try {
+      response = await fetch(url, { signal })
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error)
+      if (signal.aborted) return undefined
+      if (attempt < MAX_ATTEMPTS - 1) { await sleep(600 * (attempt + 1), signal); continue }
+      break
+    }
+    if (!response.ok) {
+      // 4xx is permanent (wrong/expired URL) — retrying cannot fix it.
+      if (response.status >= 400 && response.status < 500) return undefined
+      lastError = `HTTP ${response.status}`
+      if (attempt < MAX_ATTEMPTS - 1) { await sleep(600 * (attempt + 1), signal); continue }
+      break
+    }
+    const headerType = response.headers.get('content-type')
+    const mediaType = (headerType !== null ? mediaTypeFromContentType(headerType) : undefined) ?? mediaTypeFromUrl(url)
+    if (mediaType === undefined) return undefined
+    try {
+      const buffer = await response.arrayBuffer()
+      return { data: new Uint8Array(buffer), mediaType }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error)
+      if (signal.aborted) return undefined
+      if (attempt < MAX_ATTEMPTS - 1) { await sleep(600 * (attempt + 1), signal); continue }
+    }
   }
-  if (!response.ok) return undefined
-  const headerType = response.headers.get('content-type')
-  const mediaType = (headerType !== null ? mediaTypeFromContentType(headerType) : undefined) ?? mediaTypeFromUrl(url)
-  if (mediaType === undefined) return undefined
-  try {
-    const buffer = await response.arrayBuffer()
-    return { data: new Uint8Array(buffer), mediaType }
-  } catch {
-    return undefined
-  }
+  console.error(`[ldd-generate] 图片下载失败（已重试 ${MAX_ATTEMPTS} 次）：${url} — ${lastError}`)
+  return undefined
 }
 
 /**
