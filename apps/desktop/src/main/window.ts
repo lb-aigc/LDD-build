@@ -1,4 +1,14 @@
+import { release } from 'node:os'
+
 import type { BrowserWindowConstructorOptions } from 'electron'
+
+/** Windows 11 build numbers start at 22000 (21H2). Windows 10 is below that.
+ * Used to decide whether the real acrylic material is available. */
+export const isWindows11: boolean = (() => {
+  if (process.platform !== 'win32') return false
+  const match = /^10\.0\.(\d+)/.exec(release())
+  return match !== null && Number(match[1]) >= 22_000
+})()
 
 export function makeWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
   return {
@@ -7,11 +17,12 @@ export function makeWindowOptions(preloadPath: string): BrowserWindowConstructor
     minWidth: 960,
     minHeight: 640,
     show: false,
-    backgroundColor: '#e8e8ec',
-    // Progressive enhancement: on Windows 11 this gives the real acrylic/mica
-    // material; on Windows 10 it is silently ignored and falls back to
-    // backgroundColor. Safe on both.
-    backgroundMaterial: 'mica',
+    // Win11: transparent window background so the acrylic material shows
+    // through the HTML's transparent body (the real "blurred desktop behind
+    // the window" effect). Win10: acrylic is silently ignored, so keep a solid
+    // neutral background (the fallback CSS paints its own gradient).
+    backgroundColor: isWindows11 ? '#00000000' : '#e8e8ec',
+    backgroundMaterial: 'acrylic',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

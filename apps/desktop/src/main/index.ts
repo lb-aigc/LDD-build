@@ -17,10 +17,10 @@ import { registerDesktopIpc } from './ipc/register.ts'
 import { importWorkspaceFile } from './import-file.ts'
 import { createCompleteExit, createWindowCloseHandler, type ExitState } from './lifecycle.ts'
 import { createEditMenu, createFileMenu, createHelpMenu } from './menu.ts'
-import { GLASS_THEME_CSS } from './glass-theme.ts'
+import { GLASS_THEME_CSS, GLASS_THEME_FALLBACK_CSS } from './glass-theme.ts'
 import type { LddPaths } from './paths.ts'
 import { configureTray } from './tray.ts'
-import { installNavigationGuards, makeWindowOptions } from './window.ts'
+import { installNavigationGuards, isWindows11, makeWindowOptions } from './window.ts'
 
 const pluginCenterUrl = 'https://github.com/topics/dsh-plugin'
 
@@ -32,11 +32,12 @@ const pluginCenterUrl = 'https://github.com/topics/dsh-plugin'
 function attachGlassTheme(target: BrowserWindow): void {
   target.webContents.on('did-finish-load', () => {
     if (!target.webContents.getURL().startsWith('http')) return
+    const css = isWindows11 ? GLASS_THEME_CSS : GLASS_THEME_FALLBACK_CSS
     const script = `(() => {
       if (document.getElementById('ldd-glass-theme')) return;
       const style = document.createElement('style');
       style.id = 'ldd-glass-theme';
-      style.textContent = ${JSON.stringify(GLASS_THEME_CSS)};
+      style.textContent = ${JSON.stringify(css)};
       document.head.appendChild(style);
     })()`
     void target.webContents.executeJavaScript(script).catch((error: unknown) => {
