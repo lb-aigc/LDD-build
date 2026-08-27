@@ -1,19 +1,20 @@
 /**
  * Workspace file import (command-contribution half): opens the native file
  * picker, imports each pick into the session workspace through the Electron
- * main process, and lands a short "uploaded" note into the composer draft.
+ * main process, and tracks the landed files in a session-scoped store that the
+ * composer dock renders as file-type cards (icon + name), instead of a plain
+ * text note.
  *
- * Pure logic — no React. The command contribution registered in index.ts
- * routes its popupSelect `onSelect` here; the draft write goes through the
- * conversation service's per-session input resolver (`sessions.scope(id)` →
- * `conversation.input.for(actx).setDraft`) — the same single write path the
- * slot components use — so no slot bridge component is needed. In a plain
- * browser (no `window.ldd`) it reports a notice and returns.
+ * The non-image files are written into the workspace for the agent's tools to
+ * read (the harness prompt protocol only carries text + image, so a file can
+ * never be a prompt attachment) — but the UI shows them as cards so the user
+ * sees what was imported at a glance, by file type.
  *
  * The structural faces below are vendored (no runtime edge to
  * dsh-client-ui-conversation / apps/desktop): the runtime objects are
  * byte-identical, only the types are shimmed locally.
  */
+import { useSyncExternalStore } from 'react'
 import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 
 /** Local structural copy of the main-process import result (no apps/desktop edge). */
@@ -72,6 +73,71 @@ interface ConnectionLike {
   }
 }
 
+/* ============================ file-card store ============================ */
+
+/** One non-image file that landed in a session workspace. */
+export interface ImportedFile {
+  readonly id: string
+  readonly name: string
+  /** Lowercase extension without the dot, e.g. "zip" ("" when absent). */
+  readonly extension: string
+  readonly size: number
+}
+
+/** Lowercase extension without the dot. */
+export function extensionOf(name: string): string {
+  const dot = name.lastIndexOf('.')
+  return dot === -1 ? '' : name.slice(dot + 1).toLowerCase()
+}
+
+/** Session-scoped store of imported non-image files (module singleton). */
+const filesBySession = new Map<SessionId, ImportedFile[]>()
+const listeners = new Set<() => void>()
+const EMPTY: ImportedFile[] = []
+
+function snapshot(sessionId: SessionId): ImportedFile[] {
+  return filesBySession.get(sessionId) ?? EMPTY
+}
+
+function emit(): void {
+  for (const listener of [...listeners]) listener()
+}
+
+function subscribeFiles(cb: () => void): () => void {
+  listeners.add(cb)
+  return () => { listeners.delete(cb) }
+}
+
+/** Reactive hook over the imported-file list for one session. */
+export function useImportedFiles(sessionId: SessionId): readonly ImportedFile[] {
+  return useSyncExternalStore(subscribeFiles, () => snapshot(sessionId))
+}
+
+/** Remove one imported file card (the file stays in the workspace). */
+export function removeImportedFile(sessionId: SessionId, id: string): void {
+  const current = filesBySession.get(sessionId)
+  if (current === undefined) return
+  const next = current.filter((file) => file.id !== id)
+  if (next.length === 0) filesBySession.delete(sessionId)
+  else filesBySession.set(sessionId, next)
+  emit()
+}
+
+function recordImported(sessionId: SessionId, files: readonly { name: string; size: number }[]): void {
+  if (files.length === 0) return
+  const current = filesBySession.get(sessionId) ?? []
+  const added: ImportedFile[] = files.map((file) => ({
+    id: crypto.randomUUID(),
+    name: file.name,
+    extension: extensionOf(file.name),
+    size: file.size,
+  }))
+  filesBySession.set(sessionId, [...current, ...added])
+  emit()
+}
+
+/* ============================ import pipeline ============================ */
+
 /**
  * Open the native file picker and resolve the chosen files (empty on cancel).
  * A cancelled dialog re-focuses the window without firing `change`; that
@@ -108,7 +174,7 @@ function pickFiles(): Promise<File[]> {
 }
 
 /**
- * Import picked files into one session's workspace and land a note in its draft.
+ * Import picked files into one session's workspace.
  * @param ctx - the generate plugin's root context (connection + sessions services).
  * @param sessionId - target session.
  */
@@ -120,9 +186,9 @@ export async function importWorkspaceFiles(ctx: ClientContext, sessionId: Sessio
 
 /**
  * Import an already-obtained batch of files into one session's workspace and
- * land a note in its draft. Shared by the "+" file-upload command (which picks
- * first) and the composer's non-image drag-and-drop path (which already holds
- * the dropped File objects).
+ * record the non-image files in the file-card store. Shared by the "+"
+ * file-upload command (which picks first) and the composer's non-image
+ * drag-and-drop path (which already holds the dropped File objects).
  */
 export async function importFilesIntoWorkspace(
   ctx: ClientContext,
@@ -172,16 +238,12 @@ export async function importFilesIntoWorkspace(
     return
   }
 
-  const landed: string[] = []
+  const landed: { name: string; size: number }[] = []
   for (const file of others) {
     const data = await file.arrayBuffer()
     const res = await ldd.importFile(data, file.name, cwd)
     if (!res.imported) continue
-    if (res.kind === 'document' && res.markdownPath !== undefined) {
-      landed.push(`${file.name}→${res.markdownPath}`)
-    } else {
-      landed.push(res.relativePath)
-    }
+    landed.push({ name: file.name, size: file.size })
   }
 
   if (landed.length === 0) {
@@ -189,10 +251,7 @@ export async function importFilesIntoWorkspace(
     return
   }
 
-  const note = `已上传到工作区：${landed.join('、')}`
-  if (shell !== undefined) {
-    const current = shell.state.getSnapshot().draft
-    const separator = current !== '' && !current.endsWith(' ') ? ' ' : ''
-    shell.setDraft(`${current}${separator}${note}`)
-  }
+  // Record the landed files for the composer dock (file-type cards) instead of
+  // appending a text note to the draft.
+  recordImported(sessionId, landed)
 }

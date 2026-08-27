@@ -82,14 +82,15 @@ export function parseDataUri(uri: string): { data: Uint8Array; mediaType: ImageM
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) { reject(new DOMException('Aborted', 'AbortError')); return }
-    const timer = setTimeout(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const onAbort = (): void => {
+      if (timer !== undefined) clearTimeout(timer)
+      reject(new DOMException('Aborted', 'AbortError'))
+    }
+    timer = setTimeout(() => {
       signal.removeEventListener('abort', onAbort)
       resolve()
     }, ms)
-    const onAbort = (): void => {
-      clearTimeout(timer)
-      reject(new DOMException('Aborted', 'AbortError'))
-    }
     signal.addEventListener('abort', onAbort, { once: true })
   })
 }

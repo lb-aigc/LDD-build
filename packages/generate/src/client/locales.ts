@@ -9,7 +9,7 @@ export type GenerateLocaleKey =
   | 'apiKeyEnv' | 'apiKeyEnvHint'
   | 'apiKey' | 'apiKeyHint'
   | 'unsaved' | 'save' | 'saving' | 'discard' | 'readOnly' | 'saveFailed'
-  | 'fileImport.commandDescription' | 'fileImport.optionLabel' | 'fileImport.optionDetail'
+  | 'fileImport.commandDescription' | 'fileImport.optionLabel' | 'fileImport.optionDetail' | 'fileImport.remove'
 
 export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
@@ -38,6 +38,7 @@ export const zh: Record<GenerateLocaleKey, string> = {
   'fileImport.commandDescription': '上传文件到工作区（视频/图片/文档/文本）',
   'fileImport.optionLabel': '选择文件',
   'fileImport.optionDetail': '从本地选择文件导入到当前工作区',
+  'fileImport.remove': '移除文件卡片',
 }
 
 export const en: Record<GenerateLocaleKey, string> = {
@@ -67,4 +68,5 @@ export const en: Record<GenerateLocaleKey, string> = {
   'fileImport.commandDescription': 'Upload files to the workspace (video/image/document/text)',
   'fileImport.optionLabel': 'Choose file',
   'fileImport.optionDetail': 'Import a local file into the current workspace',
+  'fileImport.remove': 'Remove file card',
 }

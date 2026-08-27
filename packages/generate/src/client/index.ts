@@ -23,7 +23,8 @@ import type {} from './slot-contract.ts'
 
 import { GenerateSettingsCard } from './card.tsx'
 import { GenerateSettingsController } from './controller.ts'
-import { importFilesIntoWorkspace, importWorkspaceFiles } from './file-import.ts'
+import { FileDock } from './file-dock.tsx'
+import { importFilesIntoWorkspace, importWorkspaceFiles, removeImportedFile } from './file-import.ts'
 import type { SessionsLike } from './file-import.ts'
 import { en, zh } from './locales.ts'
 
@@ -111,4 +112,24 @@ export function apply(ctx: ClientContext): void {
       return () => window.removeEventListener('dsh:non-image-drop', onNonImageDrop)
     }, 'generate: non-image drop import')
   }
+
+  // Imported-file cards: a composer-dock entry that renders the non-image
+  // files landed in the current session's workspace as file-type cards (icon
+  // + name + remove). The dock slot is declared by ui-conversation; the owner
+  // share (InputZone) is shimmed away with a cast so this plugin keeps its
+  // zero lockfile-dependency edge on dsh-client-ui-conversation.
+  const slotsDock = ctx.slots as unknown as {
+    inject: (name: string, register: () => unknown) => void
+    register: (config: unknown, component: unknown) => unknown
+  }
+  slotsDock.inject('conversation.input.dock', () => slotsDock.register({
+    name: 'conversation.input.dock',
+    id: 'files',
+    order: 10,
+    locale: NS,
+    inject: (sessionId: SessionId) => ({
+      sessionId,
+      removeFile: (id: string) => { removeImportedFile(sessionId, id) },
+    }),
+  }, FileDock))
 }
