@@ -136,6 +136,27 @@ function recordImported(sessionId: SessionId, files: readonly { name: string; si
   emit()
 }
 
+/* ============================ submit folding ============================ */
+
+/**
+ * Fold the staged non-image files into prompt text ('' when none). The files
+ * are already written into the workspace for the agent's tools to read; this
+ * just tells the agent which files the user staged with this message, so the
+ * send carries the file reference the way an image attachment would.
+ */
+export function describeImportedFiles(sessionId: SessionId): string {
+  const files = snapshot(sessionId)
+  if (files.length === 0) return ''
+  const list = files.map((file) => `- ${file.name}`).join('\n')
+  return `\n\n[已上传文件，已写入工作区]\n${list}\n请使用文件读取工具查看这些文件。`
+}
+
+/** Clear the staged files after a successful send (the Harness calls this). */
+export function clearImportedFiles(sessionId: SessionId): void {
+  filesBySession.delete(sessionId)
+  emit()
+}
+
 /* ============================ import pipeline ============================ */
 
 /**

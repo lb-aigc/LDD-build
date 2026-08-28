@@ -138,6 +138,10 @@ const officialInputFilesSlotInputBar = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'InputBar.tsx',
 )
+const officialSendSessionService = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'service.ts',
+)
 const officialDeleteCoordinator = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence', 'src', 'coordinator.ts',
@@ -319,6 +323,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedInputFilesSlotInputBar = join(
       copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'InputBar.tsx',
     )
+    const copiedSendSessionService = join(
+      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'service.ts',
+    )
     const copiedDeleteCoordinator = join(
       copiedRoot, 'packages', 'session', 'session-persistence', 'src', 'coordinator.ts',
     )
@@ -423,6 +430,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await mkdir(dirname(copiedInputFilesSlotContract), { recursive: true })
     await mkdir(dirname(copiedInputFilesSlotApply), { recursive: true })
     await mkdir(dirname(copiedInputFilesSlotInputBar), { recursive: true })
+    await mkdir(dirname(copiedSendSessionService), { recursive: true })
     await mkdir(dirname(copiedDeleteCoordinator), { recursive: true })
     await mkdir(dirname(copiedDeletePersistenceIndex), { recursive: true })
     await mkdir(dirname(copiedDeleteJsonlIndex), { recursive: true })
@@ -471,6 +479,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedInputFilesSlotContract, await readFile(officialInputFilesSlotContract))
     await writeFile(copiedInputFilesSlotApply, await readFile(officialInputFilesSlotApply))
     await writeFile(copiedInputFilesSlotInputBar, await readFile(officialInputFilesSlotInputBar))
+    await writeFile(copiedSendSessionService, await readFile(officialSendSessionService))
     await writeFile(copiedDeleteCoordinator, await readFile(officialDeleteCoordinator))
     await writeFile(copiedDeletePersistenceIndex, await readFile(officialDeletePersistenceIndex))
     await writeFile(copiedDeleteJsonlIndex, await readFile(officialDeleteJsonlIndex))
@@ -532,6 +541,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0011-delete-log-broadcast.patch',
       '0012-nonimage-drop.patch',
       '0013-input-files-slot.patch',
+      '0014-send-session-file-notice.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -598,6 +608,10 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(inputFilesApply, /'conversation\.input\.files': \{ kind: 'list', scope: 'session' \},/u)
     const inputFilesBar = await readFile(copiedInputFilesSlotInputBar, 'utf8')
     assert.match(inputFilesBar, /renderSlot\('conversation\.input\.files', \{\}\)/u)
+    const sendSessionService = await readFile(copiedSendSessionService, 'utf8')
+    assert.match(sendSessionService, /injectLddImportedFiles\(session\.sessionId, text\)/u)
+    assert.match(sendSessionService, /commitLddImportedFiles\(session\.sessionId\)/u)
+    assert.match(sendSessionService, /__lddFileHooks/u)
     const attachmentLabels = await readFile(copiedAttachmentLabels, 'utf8')
     assert.match(attachmentLabels, /download: t\('image\.download'\)/u)
     const localesDownload = await readFile(copiedLocales, 'utf8')

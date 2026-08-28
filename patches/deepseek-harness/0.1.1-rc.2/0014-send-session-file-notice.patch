@@ -1,0 +1,36 @@
+--- a/packages/client/ui-conversation/src/client/service.ts
++++ b/packages/client/ui-conversation/src/client/service.ts
+@@ -156,7 +156,8 @@
+     const uploaded = await this.serializeImages(attachments.map(attachment => attachment.file))
+-    const content = [...uploaded, ...(text === '' ? [] : [{ type: 'text' as const, text }])]
++    const textWithFiles = injectLddImportedFiles(session.sessionId, text)
++    const content = [...uploaded, ...(textWithFiles === '' ? [] : [{ type: 'text' as const, text: textWithFiles }])]
+     const result = await session.prompt(content, mode, signal)
+     if (!result.ok) return { kind: 'error' }
+     this.releaseDraftImages(attachments)
++    commitLddImportedFiles(session.sessionId)
+     return { kind: 'success' }
+   }
+@@ -371,3 +372,22 @@
+ function revokePreview(url: string): void {
+   if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+ }
++
++/** LDD file hooks wired by the generate plugin (absent in stock Harness): fold
++ *  staged non-image files into the prompt text, and clear them after send. */
++interface LddFileHooks {
++  readonly inject?: (sessionId: SessionId, text: string) => string
++  readonly commit?: (sessionId: SessionId) => void
++}
++
++function lddFileHooks(): LddFileHooks {
++  return (globalThis as { __lddFileHooks?: LddFileHooks }).__lddFileHooks ?? {}
++}
++
++function injectLddImportedFiles(sessionId: SessionId, text: string): string {
++  return lddFileHooks().inject?.(sessionId, text) ?? text
++}
++
++function commitLddImportedFiles(sessionId: SessionId): void {
++  lddFileHooks().commit?.(sessionId)
++}

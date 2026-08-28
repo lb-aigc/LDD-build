@@ -24,9 +24,28 @@ import type {} from './slot-contract.ts'
 import { GenerateSettingsCard } from './card.tsx'
 import { GenerateSettingsController } from './controller.ts'
 import { FileDock } from './file-dock.tsx'
-import { importFilesIntoWorkspace, importWorkspaceFiles, removeImportedFile } from './file-import.ts'
+import {
+  clearImportedFiles,
+  describeImportedFiles,
+  importFilesIntoWorkspace,
+  importWorkspaceFiles,
+  removeImportedFile,
+} from './file-import.ts'
 import type { SessionsLike } from './file-import.ts'
 import { en, zh } from './locales.ts'
+
+/** Harness-side hook shape: the conversation service folds staged files into
+ *  the prompt text on send, then clears them once the send succeeds. */
+interface LddFileHooks {
+  readonly inject?: (sessionId: SessionId, text: string) => string
+  readonly commit?: (sessionId: SessionId) => void
+}
+
+declare global {
+  interface Window {
+    __lddFileHooks?: LddFileHooks
+  }
+}
 
 /** Namespace strings the Host half registers (must match src/settings.ts). */
 export const IMAGE_NS = 'generate-image'
@@ -40,6 +59,19 @@ export function apply(ctx: ClientContext): void {
   const { api } = ctx.get('connection') as ConnectionHandle
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'generate: card dictionaries')
+
+  // Submit folding hook: the Harness conversation service calls these to fold
+  // staged non-image files into the prompt text (inject) and clear them after
+  // a successful send (commit). Absent in a stock Harness build.
+  window.__lddFileHooks = {
+    inject: (sessionId: SessionId, text: string): string => {
+      const desc = describeImportedFiles(sessionId)
+      return desc === '' ? text : text + desc
+    },
+    commit: (sessionId: SessionId): void => {
+      clearImportedFiles(sessionId)
+    },
+  }
 
   const image = new GenerateSettingsController(
     ctx.settingsScope.bind({ namespace: IMAGE_NS }),
@@ -102,7 +134,10 @@ export function apply(ctx: ClientContext): void {
       const onNonImageDrop = (event: Event): void => {
         const detail = (event as CustomEvent<unknown>).detail
         if (!Array.isArray(detail)) return
-        const files = detail.filter((file): file is File => file instanceof File)
+        // `instanceof File` can fail across isolated realms; accept any
+        // object carrying the File surface (arrayBuffer/name/size) instead.
+        const files = detail.filter((file): file is File =>
+          file !== null && typeof file === 'object' && 'arrayBuffer' in file)
         if (files.length === 0) return
         const sessionId = sessionsService.list.getSnapshot().current
         if (sessionId === undefined) return
