@@ -17,33 +17,11 @@ import { registerDesktopIpc } from './ipc/register.ts'
 import { importWorkspaceFile } from './import-file.ts'
 import { createCompleteExit, createWindowCloseHandler, type ExitState } from './lifecycle.ts'
 import { createEditMenu, createFileMenu, createHelpMenu } from './menu.ts'
-import { GLASS_THEME_CSS } from './glass-theme.ts'
 import type { LddPaths } from './paths.ts'
 import { configureTray } from './tray.ts'
 import { installNavigationGuards, makeWindowOptions } from './window.ts'
 
 const pluginCenterUrl = 'https://github.com/topics/dsh-plugin'
-
-/** Inject the LDD glass theme into the harness page. Uses executeJavaScript to
- * append a <style id="ldd-glass-theme"> to <head> (guaranteed last, after the
- * static <link> stylesheets, so the variable overrides win) rather than
- * insertCSS. Splash/failure pages are LDD's own file:// documents (the splash
- * carries its own glass backdrop in splash.html) and are left untouched. */
-function attachGlassTheme(target: BrowserWindow): void {
-  target.webContents.on('did-finish-load', () => {
-    if (!target.webContents.getURL().startsWith('http')) return
-    const script = `(() => {
-      if (document.getElementById('ldd-glass-theme')) return;
-      const style = document.createElement('style');
-      style.id = 'ldd-glass-theme';
-      style.textContent = ${JSON.stringify(GLASS_THEME_CSS)};
-      document.head.appendChild(style);
-    })()`
-    void target.webContents.executeJavaScript(script).catch((error: unknown) => {
-      console.error('[ldd-glass] inject failed:', error)
-    })
-  })
-}
 
 export type BootResult =
   | { readonly kind: 'ready'; readonly url: string }
@@ -90,7 +68,6 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     async (url) => shell.openExternal(url),
     rendererFileUrl(options.paths),
   )
-  attachGlassTheme(mainWindow)
 
   // 立即显示启动加载画面（LDD 字标 + 旋转指示），覆盖内核完整性校验
   // （首次启动可达数分钟）期间的等待，避免窗口停留在空白状态。
@@ -152,7 +129,6 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
       async (url) => shell.openExternal(url),
       rendererFileUrl(options.paths),
     )
-    attachGlassTheme(win)
     if (harnessUrl !== null) {
       await win.loadURL(harnessUrl)
     } else {

@@ -12,8 +12,9 @@ export function makeWindowOptions(preloadPath: string): BrowserWindowConstructor
     // the native title bar drag region + min/max/close buttons, add a white
     // border artifact, and (acrylic) grey out when unfocused. A plain window
     // keeps the native title bar (drag + buttons), Win11's native rounded
-    // corners, and no border artifact. The frosted look comes from the CSS
-    // gradient painted by the glass theme, not from a system material.
+    // corners, and no border artifact. Theming (including any frosted/glass
+    // look) is left to the harness's own appearance system and the plugin
+    // ecosystem (e.g. theme plugins), not forced by the shell.
     backgroundColor: '#e8e8ec',
     webPreferences: {
       contextIsolation: true,
