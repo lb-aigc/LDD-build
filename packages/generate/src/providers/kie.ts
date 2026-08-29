@@ -1,6 +1,8 @@
 import type { GenerateImageRequest, GenerateImageResult, GenerateVideoRequest, GenerateVideoResult } from '../types.ts'
+import type { ImageSize } from '../config.ts'
 import { imageSizeOf } from '../provider.ts'
 import type { GenerationProvider, ProviderOptions } from '../provider.ts'
+import { requirePublicImageUrl } from './image-input.ts'
 
 const POLL_INTERVAL_MS = 3000
 const MAX_POLLS = 200
@@ -8,6 +10,13 @@ const RETRY_ATTEMPTS = 3
 const RETRY_BASE_MS = 1000
 const MIN_VIDEO_DURATION = 4
 const MAX_VIDEO_DURATION = 30
+
+/** Image size → aspect ratio for i2i models (gpt-image-2-image-to-image). */
+const SIZE_ASPECT_RATIOS: Readonly<Record<ImageSize, string>> = {
+  '1024x1024': '1:1',
+  '1024x1792': '9:16',
+  '1792x1024': '16:9',
+}
 
 /**
  * KIE aggregator adapter (https://kie.ai). KIE is a model aggregator with ONE
@@ -28,9 +37,12 @@ const MAX_VIDEO_DURATION = 30
  * field (`image_size` for Seedream, `aspect_ratio` for GPT Image / Nano Banana,
  * ...), so sending a shared size enum would 422 on the models whose vocabulary
  * differs. The returned width/height are the caller's requested geometry, used
- * purely as result metadata, not as a wire parameter. Video `input` uses the
- * Seedance fields (duration/resolution/aspect_ratio); other video models accept
- * the same core fields.
+ * purely as result metadata, not as a wire parameter.
+ *
+ * Image-to-image: the i2i capability is a DIFFERENT model id (e.g.
+ * `gpt-image-2-image-to-image`), configured via `imageToImageModel`. Its
+ * `input` carries `input_urls` (public URLs, NOT data URIs), `aspect_ratio`,
+ * and `resolution` per the KIE i2i protocol.
  */
 export class KieProvider implements GenerationProvider {
   readonly id = 'kie'
@@ -43,13 +55,17 @@ export class KieProvider implements GenerationProvider {
 
   async generateImage(request: GenerateImageRequest, signal: AbortSignal): Promise<GenerateImageResult> {
     const { model } = this.requireCredentials()
-    const taskId = await this.submit(signal, model, { prompt: request.prompt })
+    const references = request.inputImages ?? []
+    const isImageToImage = references.length > 0
+    const taskId = isImageToImage
+      ? await this.submitImageToImage(signal, references, request.prompt, request.size)
+      : await this.submit(signal, model, { prompt: request.prompt })
     const urls = await this.resolveDownloadUrls(await this.poll(signal, taskId), signal)
     const { width, height } = imageSizeOf(request.size)
     return {
       images: urls.map((url, index) => ({ index, url, width, height, prompt: request.prompt })),
       provider: this.id,
-      model,
+      model: isImageToImage ? (this.options.imageToImageModel || model) : model,
     }
   }
 
@@ -87,6 +103,25 @@ export class KieProvider implements GenerationProvider {
       throw new Error(`${this.id}: 未配置模型能力名（请在设置里配置 model，如 bytedance/seedance-2-5）`)
     }
     return { model }
+  }
+
+  /** Submit an i2i task against the configured image-to-image capability. */
+  private async submitImageToImage(
+    signal: AbortSignal,
+    references: readonly string[],
+    prompt: string,
+    size: ImageSize,
+  ): Promise<string> {
+    const i2iModel = this.options.imageToImageModel
+    if (i2iModel === undefined || i2iModel === '') {
+      throw new Error(`${this.id}: 图生图需要配置 imageToImageModel（如 gpt-image-2-image-to-image）`)
+    }
+    return await this.submit(signal, i2iModel, {
+      prompt,
+      input_urls: references.map((reference) => requirePublicImageUrl(reference)),
+      aspect_ratio: SIZE_ASPECT_RATIOS[size] ?? '1:1',
+      resolution: '1K',
+    })
   }
 
   /** Create a generation task and return its taskId. */

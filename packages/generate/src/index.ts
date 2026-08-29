@@ -8,14 +8,14 @@ import { credentialsServiceResolver, environmentSecretResolver } from './credent
 import type { SecretResolver } from './credentials.ts'
 import { attachImageFromUrl, imageBlockOf } from './attach.ts'
 import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
-import { IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS } from './presets.ts'
+import { CUSTOM_PROVIDER_ID, IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS, findPreset } from './presets.ts'
 import {
   buildProvider,
   modelCatalog,
   pickProvider,
   resolveModels,
 } from './routing.ts'
-import type { ResolvedModels } from './routing.ts'
+import type { ResolvedModels, RoutedModel } from './routing.ts'
 import {
   IMAGE_SETTINGS_NS,
   VIDEO_SETTINGS_NS,
@@ -93,6 +93,16 @@ const videoResultSchema = {
   },
 } as const
 
+/** Whether a routed model supports image-to-image generation. Presets declare
+ *  it explicitly; custom entries derive it from their protocol (MJ relays are
+ *  excluded — their i2i consistency is too poor to expose). */
+function supportsImageToImage(entry: RoutedModel): boolean {
+  if (entry.provider === CUSTOM_PROVIDER_ID) {
+    return entry.protocol !== 'midjourney' && entry.protocol !== 'legnext'
+  }
+  return findPreset(IMAGE_PROVIDER_PRESETS, entry.provider)?.imageToImage ?? false
+}
+
 function defineImageTool(
   resolved: ResolvedModels,
   config: Config,
@@ -113,6 +123,7 @@ function defineImageTool(
       count: { type: 'integer', description: 'How many image variants to generate (1-4).' },
       size: { type: 'string', enum: [...imageSizes], description: 'Target image size/orientation.' },
       style: { type: 'string', description: 'Optional visual style keyword (e.g. photorealistic, anime, watercolor, cyberpunk).' },
+      inputImages: { type: 'array', items: { type: 'string' }, description: 'Reference images for image-to-image: an array of http(s) URLs or data URIs. Use this to generate FROM existing images (e.g. turn a previously generated image into a different angle/view). Only providers that support i2i accept it — Midjourney and Legnext reject it.' },
     },
     output: {
       schema: imageResultSchema,
@@ -144,6 +155,10 @@ function defineImageTool(
     isConcurrencySafe: () => true,
     async execute(args, exec) {
       const entry = pickProvider(resolved, args.provider)
+      const references = args.inputImages ?? []
+      if (references.length > 0 && !supportsImageToImage(entry)) {
+        throw new Error(`provider "${entry.key}" 不支持图生图（Midjourney 图生图一致性差，已禁用）`)
+      }
       const provider = await buildProvider(entry, IMAGE_PROVIDER_PRESETS, secret.resolve)
       const count = args.count === undefined ? 1 : Math.max(1, Math.min(maxImagesPerRequest, args.count))
       const request = {
@@ -151,6 +166,7 @@ function defineImageTool(
         count,
         size: args.size ?? '1024x1024',
         ...(args.style === undefined ? {} : { style: args.style }),
+        ...(references.length > 0 ? { inputImages: references } : {}),
       }
       const taskSignal = AbortSignal.any([exec.signal, AbortSignal.timeout(config.timeoutMs)])
       const result = await provider.generateImage(request, taskSignal)

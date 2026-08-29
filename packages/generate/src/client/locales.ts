@@ -5,6 +5,7 @@ export type GenerateLocaleKey =
   | 'defaultLabel' | 'custom' | 'remove' | 'addModel'
   | 'provider' | 'protocol' | 'protocolHint'
   | 'model' | 'modelHint'
+  | 'imageToImageModel' | 'imageToImageModelHint'
   | 'baseURL' | 'baseURLHint'
   | 'apiKeyEnv' | 'apiKeyEnvHint'
   | 'apiKey' | 'apiKeyHint'
@@ -23,6 +24,8 @@ export const zh: Record<GenerateLocaleKey, string> = {
   protocolHint: 'openai-compatible / gemini / midjourney / volcengine',
   model: '模型',
   modelHint: '留空继承预设默认',
+  imageToImageModel: '图生图模型（可选）',
+  imageToImageModelHint: '留空则与文生图模型相同；KIE 填如 gpt-image-2-image-to-image',
   baseURL: '接口地址',
   baseURLHint: '留空继承预设默认',
   apiKeyEnv: '密钥引用名',
@@ -53,6 +56,8 @@ export const en: Record<GenerateLocaleKey, string> = {
   protocolHint: 'openai-compatible / gemini / midjourney / volcengine',
   model: 'Model',
   modelHint: 'Blank inherits the preset default',
+  imageToImageModel: 'Image-to-image model (optional)',
+  imageToImageModelHint: 'Blank reuses the text-to-image model; e.g. gpt-image-2-image-to-image for KIE',
   baseURL: 'Endpoint',
   baseURLHint: 'Blank inherits the preset default',
   apiKeyEnv: 'Key reference',

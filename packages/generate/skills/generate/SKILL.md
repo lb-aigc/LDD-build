@@ -20,6 +20,7 @@ If the request is ambiguous — no subject, no style, or unclear whether the use
 
 - `prompt`: rewrite the user's intent into a concrete, detailed visual or scene prompt (subject, action, camera movement, lighting, palette, mood, pacing). Keep the prompt in the user's language unless they asked otherwise.
 - Image: set `count` for variants, `size` for orientation (use a portrait size such as `1024x1792` for a short-video cover), and an optional `style`.
+- Image-to-image: when the user wants to transform an existing image — change its angle, viewpoint, or style from a picture you already have — pass `inputImages` as an array of image URLs (the URL an earlier `generate_image` returned, or a URL the user supplied). Midjourney (`midjourney` / `legnext`) does not support i2i; route those requests to another provider.
 - Video: set `durationSeconds`, `resolution`, and `aspectRatio` (`9:16` for vertical short-video).
 
 ## Report

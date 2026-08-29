@@ -42,6 +42,9 @@ export interface ProviderPreset {
   readonly defaultModel: string
   /** One-phrase routing hint fed to the agent's tool description. */
   readonly strengths: string
+  /** Whether the protocol supports image-to-image generation. Midjourney relays
+   *  are false — their i2i consistency is too poor to be worth exposing. */
+  readonly imageToImage: boolean
 }
 
 export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
@@ -52,6 +55,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: '',
     defaultModel: 'mock-image',
     strengths: '占位模型，返回占位图，用于验证链路',
+    imageToImage: true,
   },
   {
     id: 'gpt-image',
@@ -60,6 +64,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: 'https://api.openai.com/v1',
     defaultModel: 'gpt-image-2',
     strengths: '通用写实与风格化图像，指令遵循和文字渲染强',
+    imageToImage: true,
   },
   {
     id: 'nano-banana',
@@ -68,6 +73,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: 'https://generativelanguage.googleapis.com/v1beta',
     defaultModel: 'gemini-2.5-flash-image',
     strengths: '带文字的设计：logo、UI 图标、信息图、排版',
+    imageToImage: true,
   },
   {
     id: 'midjourney',
@@ -76,6 +82,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: '',
     defaultModel: '',
     strengths: '艺术风格、概念插画、氛围感画面',
+    imageToImage: false,
   },
   {
     id: 'seedream',
@@ -84,6 +91,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: 'https://ark.cn-beijing.volces.com/api/v3',
     defaultModel: '',
     strengths: '中文场景、写实人像、电商产品图',
+    imageToImage: true,
   },
   {
     id: 'kie',
@@ -92,6 +100,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: 'https://api.kie.ai',
     defaultModel: 'bytedance/seedream',
     strengths: '聚合中转：一个 key 调 Seedream/Nano Banana/GPT Image 等几十个图像模型',
+    imageToImage: true,
   },
   {
     id: 'legnext',
@@ -100,6 +109,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: 'https://api.legnext.ai/api',
     defaultModel: '8.2',
     strengths: 'Midjourney 中转：艺术风格、概念插画、氛围感画面（V7/V8.1/V8.2）',
+    imageToImage: false,
   },
 ]
 
@@ -111,6 +121,7 @@ export const VIDEO_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: '',
     defaultModel: 'mock-video',
     strengths: '占位模型，返回占位视频，用于验证链路',
+    imageToImage: false,
   },
   {
     id: 'kie',
@@ -119,6 +130,7 @@ export const VIDEO_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: 'https://api.kie.ai',
     defaultModel: 'bytedance/seedance-2-5',
     strengths: '聚合中转：一个 key 调 Seedance/Kling/Wan/Hailuo 等几十个视频模型',
+    imageToImage: false,
   },
 ]
 

@@ -134,6 +134,7 @@ function ModelRow(props: {
           </div>
         )
         : <Field label={t('model')} hint={t('modelHint')} value={model.model} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'model', text) }} />}
+      <Field label={t('imageToImageModel')} hint={t('imageToImageModelHint')} value={model.imageToImageModel} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'imageToImageModel', text) }} />
       <Field label={t('apiKeyEnv')} hint={t('apiKeyEnvHint')} value={model.apiKeyEnv} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'apiKeyEnv', text) }} />
       <Field label={t('apiKey')} hint={t('apiKeyHint')} value={model.apiKeyText} disabled={disabled} type="password" onEdit={(text) => { props.onSetApiKey(index, text) }} />
     </div>

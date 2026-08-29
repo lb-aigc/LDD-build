@@ -31,6 +31,13 @@ export interface GenerationModelEntry {
   baseURL?: string
   /** Credential reference naming the API key the provider resolves. */
   apiKeyEnv?: string
+  /**
+   * Model id used for image-to-image generation. When unset, providers whose
+   * text and image-to-image models are the same (GPT Image, Gemini) reuse
+   * `model`; providers with a distinct i2i capability (KIE, Seedream/SeedEdit)
+   * need it configured to route i2i requests correctly.
+   */
+  imageToImageModel?: string
 }
 
 /**
@@ -61,6 +68,7 @@ const modelEntrySchema = z.object({
   model: z.string(),
   baseURL: z.string(),
   apiKeyEnv: z.string(),
+  imageToImageModel: z.string(),
 })
 
 const generationSettingsSchema = z.object({

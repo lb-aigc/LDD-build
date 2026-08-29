@@ -11,7 +11,7 @@ import {
 import { createProvider } from '../src/providers/index.ts'
 import { buildText } from '../src/providers/legnext.ts'
 
-const emptyOptions = { baseURL: '', model: '', apiKey: undefined }
+const emptyOptions = { baseURL: '', model: '', apiKey: 'k', imageToImageModel: '' }
 
 test('image presets offer six real providers plus custom', () => {
   assert.deepEqual(presetIds(IMAGE_PROVIDER_PRESETS), [
@@ -45,6 +45,15 @@ test('presets carry the expected protocol and defaults', () => {
   assert.equal(findPreset(VIDEO_PROVIDER_PRESETS, 'kie')?.defaultModel, 'bytedance/seedance-2-5')
 })
 
+test('image presets declare i2i capability — MJ relays are excluded', () => {
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'gpt-image')?.imageToImage, true)
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'nano-banana')?.imageToImage, true)
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'seedream')?.imageToImage, true)
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'kie')?.imageToImage, true)
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'midjourney')?.imageToImage, false)
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'legnext')?.imageToImage, false)
+})
+
 test('createProvider constructs the matching adapter per protocol', () => {
   assert.equal(createProvider('mock', emptyOptions).id, 'mock')
   assert.equal(createProvider('openai-compatible', emptyOptions).id, 'openai-compatible')
@@ -63,7 +72,7 @@ test('an unknown protocol throws with the available list', () => {
 })
 
 test('real adapters fail fast without an API key', async () => {
-  const provider = createProvider('openai-compatible', { baseURL: 'https://example.test/v1', model: 'm', apiKey: undefined })
+  const provider = createProvider('openai-compatible', { baseURL: 'https://example.test/v1', model: 'm', apiKey: undefined, imageToImageModel: '' })
   await assert.rejects(
     provider.generateImage({ prompt: 'x', count: 1, size: '1024x1024' }, new AbortController().signal),
     /API key/,
@@ -71,7 +80,7 @@ test('real adapters fail fast without an API key', async () => {
 })
 
 test('kie fails fast without an API key', async () => {
-  const provider = createProvider('kie', { baseURL: 'https://api.kie.ai', model: 'bytedance/seedream', apiKey: undefined })
+  const provider = createProvider('kie', { baseURL: 'https://api.kie.ai', model: 'bytedance/seedream', apiKey: undefined, imageToImageModel: '' })
   await assert.rejects(
     provider.generateImage({ prompt: 'x', count: 1, size: '1024x1024' }, new AbortController().signal),
     /API key/,
@@ -79,7 +88,7 @@ test('kie fails fast without an API key', async () => {
 })
 
 test('kie fails fast without a model capability id', async () => {
-  const provider = createProvider('kie', { baseURL: 'https://api.kie.ai', model: '', apiKey: 'test-key' })
+  const provider = createProvider('kie', { baseURL: 'https://api.kie.ai', model: '', apiKey: 'k', imageToImageModel: '' })
   await assert.rejects(
     provider.generateVideo({ prompt: 'x', durationSeconds: 5, resolution: '720p', aspectRatio: '9:16' }, new AbortController().signal),
     /模型能力名/,
@@ -87,7 +96,7 @@ test('kie fails fast without a model capability id', async () => {
 })
 
 test('legnext fails fast without an API key', async () => {
-  const provider = createProvider('legnext', { baseURL: 'https://api.legnext.ai/api', model: '8.2', apiKey: undefined })
+  const provider = createProvider('legnext', { baseURL: 'https://api.legnext.ai/api', model: '8.2', apiKey: undefined, imageToImageModel: '' })
   await assert.rejects(
     provider.generateImage({ prompt: 'x', count: 1, size: '1024x1024' }, new AbortController().signal),
     /API key/,
@@ -103,4 +112,48 @@ test('legnext buildText normalizes a v-prefixed version', () => {
   // The blank/`midjourney` sentinel adds no `--v` flag at all.
   assert.ok(!buildText(request, '').includes('--v'))
   assert.ok(!buildText(request, 'midjourney').includes('--v'))
+})
+
+test('midjourney rejects image-to-image', async () => {
+  const provider = createProvider('midjourney', { baseURL: 'https://x.test', model: '', apiKey: 'k', imageToImageModel: '' })
+  await assert.rejects(
+    provider.generateImage(
+      { prompt: 'x', count: 1, size: '1024x1024', inputImages: ['https://x.test/a.png'] },
+      new AbortController().signal,
+    ),
+    /不支持图生图/,
+  )
+})
+
+test('legnext rejects image-to-image', async () => {
+  const provider = createProvider('legnext', { baseURL: 'https://x.test', model: '8.2', apiKey: 'k', imageToImageModel: '' })
+  await assert.rejects(
+    provider.generateImage(
+      { prompt: 'x', count: 1, size: '1024x1024', inputImages: ['https://x.test/a.png'] },
+      new AbortController().signal,
+    ),
+    /不支持图生图/,
+  )
+})
+
+test('kie i2i requires a configured imageToImageModel', async () => {
+  const provider = createProvider('kie', { baseURL: 'https://api.kie.ai', model: 'bytedance/seedream', apiKey: 'k', imageToImageModel: '' })
+  await assert.rejects(
+    provider.generateImage(
+      { prompt: 'x', count: 1, size: '1024x1024', inputImages: ['https://x.test/a.png'] },
+      new AbortController().signal,
+    ),
+    /imageToImageModel/,
+  )
+})
+
+test('kie i2i rejects a local data URI (needs a public URL)', async () => {
+  const provider = createProvider('kie', { baseURL: 'https://api.kie.ai', model: 'bytedance/seedream', apiKey: 'k', imageToImageModel: 'gpt-image-2-image-to-image' })
+  await assert.rejects(
+    provider.generateImage(
+      { prompt: 'x', count: 1, size: '1024x1024', inputImages: ['data:image/png;base64,AAAA'] },
+      new AbortController().signal,
+    ),
+    /公网可访问的图片 URL/,
+  )
 })

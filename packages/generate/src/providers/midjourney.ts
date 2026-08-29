@@ -16,6 +16,9 @@ const MAX_POLLS = 300
  *   poll:    GET  {baseURL}/status/{jobId} → { status: 'done'|'failed'|..., urls?: string[] }
  *
  * The exact paths/fields belong to the relay's docs, not Midjourney itself.
+ *
+ * Image-to-image is DELIBERATELY unsupported: Midjourney i2i consistency is too
+ * poor to expose. A reference-image request fails with a clear message.
  */
 export class MidjourneyProvider implements GenerationProvider {
   readonly id = 'midjourney'
@@ -27,6 +30,9 @@ export class MidjourneyProvider implements GenerationProvider {
   }
 
   async generateImage(request: GenerateImageRequest, signal: AbortSignal): Promise<GenerateImageResult> {
+    if (request.inputImages !== undefined && request.inputImages.length > 0) {
+      throw new Error(`${this.id}: 不支持图生图（Midjourney 图生图一致性差，已禁用）`)
+    }
     const { baseURL, model, apiKey } = this.options
     if (apiKey === undefined || apiKey === '') {
       throw new Error(`${this.id}: 未配置 API key（请在设置里配置 generate-image.apiKeyEnv）`)

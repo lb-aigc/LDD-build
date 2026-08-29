@@ -22,6 +22,8 @@ export interface RoutedModel {
   model: string
   baseURL: string
   apiKeyEnv: string
+  /** Model id for image-to-image; blank falls back to `model`. */
+  imageToImageModel: string
 }
 
 /** The full routing view for one generation half. */
@@ -37,6 +39,7 @@ interface RawEntry {
   model?: string
   baseURL?: string
   apiKeyEnv?: string
+  imageToImageModel?: string
 }
 
 /**
@@ -75,6 +78,7 @@ export function resolveModels(raw: GenerationSettings | undefined): ResolvedMode
     model: entry.model ?? '',
     baseURL: entry.baseURL ?? '',
     apiKeyEnv: entry.apiKeyEnv ?? '',
+    imageToImageModel: entry.imageToImageModel ?? '',
   }))
   const first = entries[0]
   const defaultKey = entries.some((entry) => entry.key === raw?.default)
@@ -103,6 +107,7 @@ export async function buildProvider(
       baseURL: entry.baseURL,
       model: entry.model,
       apiKey: await resolveSecret(entry.apiKeyEnv === '' ? DEFAULT_API_KEY_REF : entry.apiKeyEnv),
+      imageToImageModel: entry.imageToImageModel,
     })
   }
   const preset = findPreset(presets, entry.provider)
@@ -115,6 +120,7 @@ export async function buildProvider(
     baseURL: entry.baseURL || preset.defaultBaseURL,
     model: entry.model || preset.defaultModel,
     apiKey: await resolveSecret(entry.apiKeyEnv === '' ? DEFAULT_API_KEY_REF : entry.apiKeyEnv),
+    imageToImageModel: entry.imageToImageModel,
   })
 }
 
@@ -149,6 +155,9 @@ export function modelCatalog(resolved: ResolvedModels, presets: readonly Provide
       : (preset?.label ?? entry.provider)
     const strengths = preset?.strengths ?? ''
     const isDefault = entry.key === resolved.defaultKey
-    return `- ${entry.key}${isDefault ? ' (default)' : ''}: ${label}${strengths !== '' ? ` — ${strengths}` : ''}`
+    const i2i = preset === undefined
+      ? ''
+      : (preset.imageToImage ? ' · 支持图生图' : ' · 仅文生图')
+    return `- ${entry.key}${isDefault ? ' (default)' : ''}: ${label}${strengths !== '' ? ` — ${strengths}` : ''}${i2i}`
   }).join('\n')
 }

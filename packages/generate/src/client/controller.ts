@@ -20,6 +20,7 @@ export interface ModelDraft {
   provider: string
   protocol: string
   model: string
+  imageToImageModel: string
   baseURL: string
   apiKeyEnv: string
 }
@@ -43,6 +44,7 @@ export interface GenerationCardSettings {
   provider?: string
   protocol?: string
   model?: string
+  imageToImageModel?: string
   baseURL?: string
   apiKeyEnv?: string
 }
@@ -73,7 +75,7 @@ export interface GenerationCardFace {
   discard: () => void
 }
 
-export type EditableModelField = 'provider' | 'protocol' | 'model' | 'baseURL' | 'apiKeyEnv'
+export type EditableModelField = 'provider' | 'protocol' | 'model' | 'imageToImageModel' | 'baseURL' | 'apiKeyEnv'
 
 const DEFAULT_API_KEY_REF = 'GENERATE_API_KEY'
 
@@ -90,6 +92,7 @@ function toRow(entry: unknown, uid: number): StagedModel {
     provider,
     protocol: textOf(e.protocol),
     model: textOf(e.model),
+    imageToImageModel: textOf(e.imageToImageModel),
     baseURL: textOf(e.baseURL),
     apiKeyEnv: textOf(e.apiKeyEnv),
   }
@@ -111,6 +114,7 @@ function readOriginal(snapshot: SettingsScopeSnapshot<GenerationCardSettings>): 
       provider: value.provider,
       protocol: value.protocol,
       model: value.model,
+      imageToImageModel: value.imageToImageModel,
       baseURL: value.baseURL,
       apiKeyEnv: value.apiKeyEnv,
     }, uid++)]
@@ -129,6 +133,7 @@ function persistOf(model: ModelDraft): ModelDraft {
     provider: model.provider,
     protocol: model.protocol,
     model: model.model,
+    imageToImageModel: model.imageToImageModel,
     baseURL: model.baseURL,
     apiKeyEnv: model.apiKeyEnv,
   }
@@ -219,6 +224,7 @@ export class GenerateSettingsController {
           provider: DEFAULT_PROVIDER,
           protocol: '',
           model: '',
+          imageToImageModel: '',
           baseURL: '',
           apiKeyEnv: '',
         })

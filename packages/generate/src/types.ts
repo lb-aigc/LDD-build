@@ -26,6 +26,14 @@ export interface GenerateImageRequest {
   readonly count: number
   readonly size: ImageSize
   readonly style?: string
+  /**
+   * Reference images for image-to-image generation, each an http(s) URL or a
+   * `data:` URI. Empty/undefined means text-to-image. Providers that do not
+   * support i2i reject a non-empty list (see the `imageToImage` capability on
+   * the preset, e.g. Midjourney relays are excluded — their i2i consistency is
+   * too poor to be worth exposing).
+   */
+  readonly inputImages?: readonly string[]
 }
 
 /** Normalized request a provider receives for one video generation. */

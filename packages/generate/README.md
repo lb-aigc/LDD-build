@@ -3,7 +3,9 @@
 `@ldd/dsh-generate` registers two model-facing tools that let the DeepSeek
 Harness agent create images and videos through a configured generation model:
 
-- `generate_image` — text prompt → one or more images (count, size, style).
+- `generate_image` — text prompt → one or more images (count, size, style);
+  pass `inputImages` (an array of http(s) URLs or `data:` URIs) for
+  image-to-image generation.
 - `generate_video` — text prompt → a short video (duration, resolution, aspect ratio).
 
 The LLM stays the brain: it reads the user's request, picks the right tool from
@@ -30,6 +32,24 @@ One protocol serves many hosts: `openai-compatible` drives gpt-image-2 and every
 OpenAI-compatible aggregator, so adding a new backend is usually just a new
 preset row (or a `custom` selection) — not a new adapter.
 
+## Image-to-image
+
+When `generate_image` receives `inputImages`, each adapter switches to its
+image-to-image wire form:
+
+| Protocol          | i2i wire shape                                                                 |
+|-------------------|-------------------------------------------------------------------------------|
+| `openai-compatible` | `POST /images/edits` (multipart `image` parts, downloaded from the URLs)     |
+| `gemini`          | `generateContent` with reference `inlineData` parts before the text           |
+| `volcengine`      | `images/generations` with a base64 `image` field (SeedEdit model)             |
+| `kie`             | `createTask` with `input_urls` (public URLs), `aspect_ratio`, `resolution`    |
+| `midjourney`      | **unsupported** — MJ i2i consistency is too poor to expose                    |
+| `legnext`         | **unsupported** — it is a Midjourney relay                                    |
+
+Providers whose i2i model differs from their text model (KIE, Volcengine) read
+the per-row `imageToImageModel` setting; GPT Image and Gemini reuse `model`
+(text and i2i are the same model).
+
 ## Settings
 
 The two capabilities configure independently under two namespaces (stored in the
@@ -40,6 +60,7 @@ generate-image:
   provider: mock        # mock | gpt-image | nano-banana | midjourney | seedream | custom
   protocol: ''          # required only when provider is "custom"
   model: ''             # blank inherits the preset default
+  imageToImageModel: '' # i2i model id (KIE/Seedream); blank reuses `model`
   baseURL: ''           # blank inherits the preset default
   apiKeyEnv: ''         # reference to the API key (env var / credentials domain), never the key itself
 generate-video:

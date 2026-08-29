@@ -1,11 +1,15 @@
 import type { GenerateImageRequest, GenerateImageResult, GenerateVideoRequest, GenerateVideoResult } from '../types.ts'
 import { imageSizeOf } from '../provider.ts'
 import type { GenerationProvider, ProviderOptions } from '../provider.ts'
+import { resolveImageBase64 } from './image-input.ts'
 
 /**
  * Google Gemini image host (Nano Banana = Gemini 2.5 Flash Image). Uses the
  * `generateContent` shape with `responseModalities: ['IMAGE']` — NOT the OpenAI
  * `images/generations` shape, so it needs its own adapter.
+ *
+ * Image-to-image: reference images become `inlineData` parts preceding the text
+ * prompt in the same `contents[0].parts` array.
  *
  * Endpoint/field names track the current Gemini REST API; calibrate against the
  * official docs before pointing at a real key.
@@ -24,6 +28,13 @@ export class GeminiImageProvider implements GenerationProvider {
     if (apiKey === undefined || apiKey === '') {
       throw new Error(`${this.id}: 未配置 API key（请在设置里配置 generate-image.apiKeyEnv）`)
     }
+    const references = request.inputImages ?? []
+    const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = []
+    for (const reference of references) {
+      const { base64, mediaType } = await resolveImageBase64(reference, signal)
+      parts.push({ inlineData: { mimeType: mediaType, data: base64 } })
+    }
+    parts.push({ text: request.prompt })
     const response = await fetch(`${baseURL}/models/${model}:generateContent`, {
       method: 'POST',
       headers: {
@@ -31,7 +42,7 @@ export class GeminiImageProvider implements GenerationProvider {
         'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: request.prompt }] }],
+        contents: [{ parts }],
         generationConfig: { responseModalities: ['IMAGE'] },
       }),
       signal,

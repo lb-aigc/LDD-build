@@ -33,6 +33,13 @@ export interface ProviderOptions {
   readonly model: string
   /** Resolved API key; `undefined` when unconfigured — adapters fail fast on it. */
   readonly apiKey: string | undefined
+  /**
+   * Model id used for image-to-image generation. Blank means the adapter falls
+   * back to {@link model} (correct for GPT Image / Gemini, whose text and i2i
+   * models are the same). Providers with a distinct i2i capability (KIE,
+   * Seedream/SeedEdit) resolve it here.
+   */
+  readonly imageToImageModel: string
 }
 
 export function imageSizeOf(size: string): { width: number; height: number } {
@@ -53,9 +60,12 @@ export class MockGenerationProvider implements GenerationProvider {
     const { width, height } = imageSizeOf(request.size)
     const images: GeneratedImage[] = []
     for (let index = 0; index < request.count; index++) {
+      const i2i = request.inputImages !== undefined && request.inputImages.length > 0
+        ? `&i2i=${request.inputImages.length}`
+        : ''
       images.push({
         index,
-        url: `mock-image://${index}?prompt=${encodeURIComponent(request.prompt)}&size=${request.size}`,
+        url: `mock-image://${index}?prompt=${encodeURIComponent(request.prompt)}&size=${request.size}${i2i}`,
         width,
         height,
         prompt: request.prompt,

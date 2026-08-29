@@ -39,3 +39,11 @@ test('a cancelled signal aborts before any generation', async () => {
     provider.generateImage({ prompt: 'x', count: 1, size: '1024x1024' }, controller.signal),
   )
 })
+
+test('mock echoes reference images via an i2i marker', async () => {
+  const result = await provider.generateImage(
+    { prompt: 'a cat', count: 1, size: '1024x1024', inputImages: ['https://x.test/a.png', 'https://x.test/b.png'] },
+    new AbortController().signal,
+  )
+  assert.match(result.images[0]!.url, /i2i=2/)
+})

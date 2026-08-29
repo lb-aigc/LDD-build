@@ -31,6 +31,9 @@ const SIZE_ASPECT_RATIOS: Readonly<Record<ImageSize, string>> = {
  * repurposed as the default `--v` value (e.g. `8.2`); the `size` option maps
  * to `--ar`; the optional `style` maps to `--style`. A leading `v` on the model
  * is stripped: Legnext rejects `--v v8.2` and expects `--v 8.2`.
+ *
+ * Image-to-image is DELIBERATELY unsupported (it is a Midjourney relay, and MJ
+ * i2i consistency is too poor to expose).
  */
 export class LegnextProvider implements GenerationProvider {
   readonly id = 'legnext'
@@ -42,6 +45,9 @@ export class LegnextProvider implements GenerationProvider {
   }
 
   async generateImage(request: GenerateImageRequest, signal: AbortSignal): Promise<GenerateImageResult> {
+    if (request.inputImages !== undefined && request.inputImages.length > 0) {
+      throw new Error(`${this.id}: 不支持图生图（Midjourney 图生图一致性差，已禁用）`)
+    }
     const apiKey = this.requireKey()
     const text = buildText(request, this.options.model)
     const jobId = await this.submit(signal, apiKey, text)
