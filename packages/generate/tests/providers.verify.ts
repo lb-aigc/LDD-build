@@ -10,6 +10,8 @@ import {
 } from '../src/presets.ts'
 import { createProvider } from '../src/providers/index.ts'
 import { buildText } from '../src/providers/legnext.ts'
+import { kieClampResolution, kieMaxResolution } from '../src/providers/kie.ts'
+import { aspectRatioToImageSize, resolutionAspectPixels } from '../src/provider.ts'
 
 const emptyOptions = { baseURL: '', model: '', apiKey: 'k', imageToImageModel: '' }
 
@@ -145,4 +147,44 @@ test('kie i2i requires a configured imageToImageModel', async () => {
     ),
     /imageToImageModel/,
   )
+})
+
+test('kie resolution degrades per aspect ratio (4K → 2K → 1K)', () => {
+  // Full 4K ratios.
+  const fourK = ['16:9', '9:16', '4:3', '3:4', '2:1', '1:2', '21:9']
+  for (const ratio of fourK) {
+    assert.equal(kieMaxResolution(ratio), '4K')
+    assert.equal(kieClampResolution('4K', ratio), '4K')
+    assert.equal(kieClampResolution('2K', ratio), '2K')
+    assert.equal(kieClampResolution('1K', ratio), '1K')
+  }
+  // 1:1 cannot reach 4K — degrades to 2K.
+  assert.equal(kieMaxResolution('1:1'), '2K')
+  assert.equal(kieClampResolution('4K', '1:1'), '2K')
+  assert.equal(kieClampResolution('2K', '1:1'), '2K')
+  assert.equal(kieClampResolution('1K', '1:1'), '1K')
+  // 4:5 / 5:4 / 9:21 (and auto / 3:1 / 1:3) cap at 1K.
+  for (const ratio of ['4:5', '5:4', '9:21', '3:1', '1:3', 'auto']) {
+    assert.equal(kieMaxResolution(ratio), '1K')
+    assert.equal(kieClampResolution('4K', ratio), '1K')
+    assert.equal(kieClampResolution('2K', ratio), '1K')
+    assert.equal(kieClampResolution('1K', ratio), '1K')
+  }
+})
+
+test('aspectRatioToImageSize maps ratio orientation to the nearest size', () => {
+  assert.equal(aspectRatioToImageSize('16:9'), '1792x1024')
+  assert.equal(aspectRatioToImageSize('21:9'), '1792x1024')
+  assert.equal(aspectRatioToImageSize('4:3'), '1792x1024')
+  assert.equal(aspectRatioToImageSize('9:16'), '1024x1792')
+  assert.equal(aspectRatioToImageSize('9:21'), '1024x1792')
+  assert.equal(aspectRatioToImageSize('3:4'), '1024x1792')
+  assert.equal(aspectRatioToImageSize('1:1'), '1024x1024')
+})
+
+test('resolutionAspectPixels returns nominal 4K/2K/1K geometry', () => {
+  assert.deepEqual(resolutionAspectPixels('4K', '16:9'), { width: 7282, height: 4096 })
+  assert.deepEqual(resolutionAspectPixels('2K', '1:1'), { width: 2048, height: 2048 })
+  assert.deepEqual(resolutionAspectPixels('1K', '9:16'), { width: 1024, height: 1820 })
+  assert.deepEqual(resolutionAspectPixels('4K', 'bogus'), { width: 4096, height: 4096 })
 })

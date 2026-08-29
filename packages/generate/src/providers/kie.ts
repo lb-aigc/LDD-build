@@ -1,6 +1,6 @@
 import type { GenerateImageRequest, GenerateImageResult, GenerateVideoRequest, GenerateVideoResult } from '../types.ts'
-import type { ImageSize } from '../config.ts'
-import { imageSizeOf } from '../provider.ts'
+import type { ImageSize, ImageResolution } from '../config.ts'
+import { resolutionAspectPixels } from '../provider.ts'
 import type { GenerationProvider, ProviderOptions } from '../provider.ts'
 
 const POLL_INTERVAL_MS = 3000
@@ -13,11 +13,39 @@ const MAX_VIDEO_DURATION = 30
 /** KIE's file-upload API lives on a different origin than its task API. */
 const DEFAULT_FILE_UPLOAD_BASE_URL = 'https://kieai.redpandaai.co'
 
-/** Image size → aspect ratio for i2i models (gpt-image-2-image-to-image). */
+/** Image size → aspect ratio fallback (used when the caller did not set an
+ *  explicit aspectRatio; non-KIE providers only expose the three sizes). */
 const SIZE_ASPECT_RATIOS: Readonly<Record<ImageSize, string>> = {
   '1024x1024': '1:1',
   '1024x1792': '9:16',
   '1792x1024': '16:9',
+}
+
+/** KIE resolution caps per aspect ratio (from the GPT-image-2 docs): `1:1`
+ *  cannot reach 4K (caps at 2K); `5:4` / `4:5` / `3:1` / `1:3` / `9:21` and
+ *  `auto` cap at 1K; every other ratio reaches 4K. The requested resolution is
+ *  clamped to the cap — "4K preferred, degrade only when the ratio forbids it." */
+const MAX_RESOLUTION_FOR: Readonly<Record<string, ImageResolution>> = {
+  auto: '1K',
+  '1:1': '2K',
+  '5:4': '1K',
+  '4:5': '1K',
+  '3:1': '1K',
+  '1:3': '1K',
+  '9:21': '1K',
+}
+const RESOLUTION_ORDER: Readonly<Record<ImageResolution, number>> = { '4K': 3, '2K': 2, '1K': 1 }
+
+/** Highest resolution tier KIE supports for a given aspect ratio. */
+export function kieMaxResolution(aspectRatio: string): ImageResolution {
+  return MAX_RESOLUTION_FOR[aspectRatio] ?? '4K'
+}
+
+/** Clamp a requested tier to the ratio's cap — "4K preferred, degrade only
+ *  when the ratio forbids it" (1:1 → 2K; 4:5 / 5:4 / 9:21 → 1K). */
+export function kieClampResolution(requested: ImageResolution, aspectRatio: string): ImageResolution {
+  const cap = kieMaxResolution(aspectRatio)
+  return RESOLUTION_ORDER[requested] <= RESOLUTION_ORDER[cap] ? requested : cap
 }
 
 /**
@@ -59,11 +87,13 @@ export class KieProvider implements GenerationProvider {
     const { model } = this.requireCredentials()
     const references = request.inputImages ?? []
     const isImageToImage = references.length > 0
+    const aspectRatio = this.resolveAspectRatio(request)
+    const resolution = this.resolveResolution(request.resolution ?? '4K', aspectRatio)
     const taskId = isImageToImage
-      ? await this.submitImageToImage(signal, references, request.prompt, request.size)
-      : await this.submit(signal, model, { prompt: request.prompt })
+      ? await this.submitImageToImage(signal, references, request.prompt, aspectRatio, resolution)
+      : await this.submit(signal, model, { prompt: request.prompt, aspect_ratio: aspectRatio, resolution })
     const urls = await this.resolveDownloadUrls(await this.poll(signal, taskId), signal)
-    const { width, height } = imageSizeOf(request.size)
+    const { width, height } = resolutionAspectPixels(resolution, aspectRatio)
     return {
       images: urls.map((url, index) => ({ index, url, width, height, prompt: request.prompt })),
       provider: this.id,
@@ -112,7 +142,8 @@ export class KieProvider implements GenerationProvider {
     signal: AbortSignal,
     references: readonly string[],
     prompt: string,
-    size: ImageSize,
+    aspectRatio: string,
+    resolution: ImageResolution,
   ): Promise<string> {
     const i2iModel = this.options.imageToImageModel
     if (i2iModel === undefined || i2iModel === '') {
@@ -125,9 +156,20 @@ export class KieProvider implements GenerationProvider {
     return await this.submit(signal, i2iModel, {
       prompt,
       input_urls: inputUrls,
-      aspect_ratio: SIZE_ASPECT_RATIOS[size] ?? '1:1',
-      resolution: '1K',
+      aspect_ratio: aspectRatio,
+      resolution,
     })
+  }
+
+  /** The aspect ratio to send: the caller's explicit value, else the size
+   *  fallback, else 1:1. */
+  private resolveAspectRatio(request: GenerateImageRequest): string {
+    return request.aspectRatio ?? SIZE_ASPECT_RATIOS[request.size] ?? '1:1'
+  }
+
+  /** Clamp the requested resolution to the ratio's cap (4K → 2K → 1K). */
+  private resolveResolution(requested: ImageResolution, aspectRatio: string): ImageResolution {
+    return kieClampResolution(requested, aspectRatio)
   }
 
   /** Resolve one reference image into a public URL KIE's i2i `input_urls` can

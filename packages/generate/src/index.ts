@@ -2,12 +2,13 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 
-import { imageSizes, maxImagesPerRequest, maxVideoDurationSeconds, videoAspectRatios, videoResolutions } from './config.ts'
-import type { GenerationConfig } from './config.ts'
+import { imageAspectRatios, imageResolutions, maxImagesPerRequest, maxVideoDurationSeconds, videoAspectRatios, videoResolutions } from './config.ts'
+import type { GenerationConfig, ImageAspectRatio, ImageResolution, ImageSize } from './config.ts'
 import { credentialsServiceResolver, environmentSecretResolver } from './credentials.ts'
 import type { SecretResolver } from './credentials.ts'
 import { attachImageFromUrl, imageBlockOf } from './attach.ts'
 import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
+import { aspectRatioToImageSize } from './provider.ts'
 import { collectUploadedImages } from './uploaded-images.ts'
 import type { UploadedAgentLike } from './uploaded-images.ts'
 import { CUSTOM_PROVIDER_ID, IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS, findPreset } from './presets.ts'
@@ -140,7 +141,8 @@ function defineImageTool(
       prompt: { type: 'string', required: true, description: 'The image description. Be concrete and detailed: subject, style, composition, lighting, palette, mood. Rewrite the user intent into a rich visual prompt.' },
       provider: { type: 'string', enum: providerKeys, description: 'Which configured model to use. Match the request to the model whose strengths fit (see the catalog above); omit to use the default model.' },
       count: { type: 'integer', description: 'How many image variants to generate (1-4).' },
-      size: { type: 'string', enum: [...imageSizes], description: 'Target image size/orientation.' },
+      aspectRatio: { type: 'string', enum: [...imageAspectRatios], description: 'Target aspect ratio. Choose from the enum to match the composition: 16:9 and 9:16 for horizontal/vertical widescreen, 1:1 square, 4:3 / 3:4 classic photo, 2:1 / 1:2 cinematic, 4:5 / 5:4 portrait/landscape, 21:9 / 9:21 ultra-wide. Omit to default to 16:9.' },
+      resolution: { type: 'string', enum: [...imageResolutions], description: 'Output resolution tier: 4K / 2K / 1K. Always request 4K FIRST; the provider automatically degrades to 2K or 1K only when the chosen aspect ratio does not support the higher tier (1:1 caps at 2K; 4:5 / 5:4 / 9:21 cap at 1K). Omit to default to 4K.' },
       style: { type: 'string', description: 'Optional visual style keyword (e.g. photorealistic, anime, watercolor, cyberpunk).' },
       inputImages: { type: 'array', items: { type: 'string' }, description: 'Reference images for image-to-image: an array of http(s) URLs or data URIs, or the sentinel "@uploaded" to use the user\'s most recently uploaded image(s). Use this to generate FROM existing images (e.g. turn a previously generated image into a different angle/view, or transform an image the user just uploaded). Only providers that support i2i accept it — Midjourney and Legnext reject it.' },
     },
@@ -184,10 +186,14 @@ function defineImageTool(
       }
       const provider = await buildProvider(entry, IMAGE_PROVIDER_PRESETS, secret.resolve)
       const count = args.count === undefined ? 1 : Math.max(1, Math.min(maxImagesPerRequest, args.count))
+      const aspectRatio = (args.aspectRatio ?? '16:9') as ImageAspectRatio
+      const resolution = (args.resolution ?? '4K') as ImageResolution
       const request = {
         prompt: args.prompt,
         count,
-        size: args.size ?? '1024x1024',
+        size: aspectRatioToImageSize(aspectRatio) as ImageSize,
+        aspectRatio,
+        resolution,
         ...(args.style === undefined ? {} : { style: args.style }),
         ...(references.length > 0 ? { inputImages: references } : {}),
       }

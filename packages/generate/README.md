@@ -3,9 +3,9 @@
 `@ldd/dsh-generate` registers two model-facing tools that let the DeepSeek
 Harness agent create images and videos through a configured generation model:
 
-- `generate_image` — text prompt → one or more images (count, size, style);
-  pass `inputImages` (an array of http(s) URLs or `data:` URIs) for
-  image-to-image generation.
+- `generate_image` — text prompt → one or more images (count, aspectRatio,
+  resolution, style); pass `inputImages` (an array of http(s) URLs or `data:`
+  URIs) for image-to-image generation.
 - `generate_video` — text prompt → a short video (duration, resolution, aspect ratio).
 
 The LLM stays the brain: it reads the user's request, picks the right tool from
@@ -31,6 +31,21 @@ to a **wire protocol** implemented by an adapter in `src/providers/`:
 One protocol serves many hosts: `openai-compatible` drives gpt-image-2 and every
 OpenAI-compatible aggregator, so adding a new backend is usually just a new
 preset row (or a `custom` selection) — not a new adapter.
+
+## Resolution & aspect ratio (KIE)
+
+`generate_image` takes an `aspectRatio` (16:9, 9:16, 4:3, 3:4, 2:1, 1:2, 1:1,
+4:5, 5:4, 21:9, 9:21 — default 16:9) and a `resolution` tier (`4K` / `2K` /
+`1K`, default `4K`). The KIE adapter sends both verbatim and clamps the tier to
+the ratio's ceiling so "4K first" never 422s:
+
+| Ratio            | Max tier |
+|------------------|----------|
+| 16:9, 9:16, 4:3, 3:4, 2:1, 1:2, 21:9 | 4K |
+| 1:1              | 2K       |
+| 4:5, 5:4, 9:21   | 1K       |
+
+Non-KIE protocols keep their OpenAI-style `size` and ignore these two fields.
 
 ## Image-to-image
 

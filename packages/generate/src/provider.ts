@@ -54,6 +54,30 @@ export function imageSizeOf(size: string): { width: number; height: number } {
   return { width: width ?? 1024, height: height ?? 1024 }
 }
 
+/** Map an aspect ratio to the nearest OpenAI-style pixel size (non-KIE
+ *  providers only expose 1:1 / 16:9 / 9:16). */
+export function aspectRatioToImageSize(aspectRatio: string): string {
+  const parts = aspectRatio.split(':').map((part) => Number.parseInt(part, 10))
+  const w = parts[0] ?? 1
+  const h = parts[1] ?? 1
+  if (w === h) return '1024x1024'
+  return w > h ? '1792x1024' : '1024x1792'
+}
+
+/** Nominal pixel geometry for a resolution tier + aspect ratio. The short edge
+ *  is 4096 (4K) / 2048 (2K) / 1024 (1K) and the long edge scales by the ratio.
+ *  Used as result metadata only — KIE does not echo exact pixels back. */
+export function resolutionAspectPixels(resolution: string, aspectRatio: string): { width: number; height: number } {
+  const base = resolution === '4K' ? 4096 : resolution === '2K' ? 2048 : 1024
+  const parts = aspectRatio.split(':').map((part) => Number.parseInt(part, 10))
+  const w = parts[0] ?? 0
+  const h = parts[1] ?? 0
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return { width: base, height: base }
+  return w >= h
+    ? { width: Math.round((base * w) / h), height: base }
+    : { width: base, height: Math.round((base * h) / w) }
+}
+
 /**
  * Placeholder provider. It returns self-describing results so the agent loop
  * stays end-to-end functional — the LLM sees a successful generation and can

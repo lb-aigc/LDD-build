@@ -19,7 +19,7 @@ If the request is ambiguous — no subject, no style, or unclear whether the use
 ## Fill the parameters
 
 - `prompt`: rewrite the user's intent into a concrete, detailed visual or scene prompt (subject, action, camera movement, lighting, palette, mood, pacing). Keep the prompt in the user's language unless they asked otherwise.
-- Image: set `count` for variants, `size` for orientation (use a portrait size such as `1024x1792` for a short-video cover), and an optional `style`.
+- Image: set `count` for variants, `aspectRatio` for the composition (16:9, 9:16, 4:3, 3:4, 2:1, 1:2, 1:1, 4:5, 5:4, 21:9, 9:21 — omit for 16:9), and `resolution` (ALWAYS request `4K` first; the tool degrades to `2K` then `1K` automatically ONLY for the ratios that cap lower — `1:1` caps at 2K, `4:5`/`5:4`/`9:21` cap at 1K), plus an optional `style`.
 - Image-to-image: when the user wants to transform an existing image — change its angle, viewpoint, or style from a picture you already have — pass `inputImages` as an array of image URLs (the URL an earlier `generate_image` returned, or a URL the user supplied). To use an image the USER just uploaded, pass `inputImages: ["@uploaded"]` — the tool reads the user's most recent uploaded image(s) and generates from them. Midjourney (`midjourney` / `legnext`) does not support i2i; route those requests to another provider.
 - Video: set `durationSeconds`, `resolution`, and `aspectRatio` (`9:16` for vertical short-video).
 

@@ -1,4 +1,4 @@
-import type { ImageSize, VideoAspectRatio, VideoResolution } from './config.ts'
+import type { ImageSize, ImageResolution, ImageAspectRatio, VideoAspectRatio, VideoResolution } from './config.ts'
 
 /** One generated image's model-visible reference. */
 export interface GeneratedImage {
@@ -24,8 +24,21 @@ export interface GeneratedVideo {
 export interface GenerateImageRequest {
   readonly prompt: string
   readonly count: number
+  /** Pixel size (OpenAI-style). Non-KIE providers read this; KIE derives its
+   *  geometry from {@link resolution} + {@link aspectRatio} instead. */
   readonly size: ImageSize
   readonly style?: string
+  /**
+   * KIE resolution tier — 4K preferred, degraded automatically by the provider
+   *  when the chosen aspect ratio does not support it (1:1 → 2K; 4:5 / 5:4 /
+   *  9:21 → 1K). Other providers ignore it.
+   */
+  readonly resolution?: ImageResolution
+  /**
+   * Aspect ratio (16:9, 9:16, 4:3, 3:4, 2:1, 1:2, 1:1, 4:5, 5:4, 21:9, 9:21).
+   *  KIE sends this verbatim; other providers map it to their nearest size.
+   */
+  readonly aspectRatio?: ImageAspectRatio
   /**
    * Reference images for image-to-image generation, each an http(s) URL or a
    * `data:` URI. Empty/undefined means text-to-image. Providers that do not
