@@ -11,6 +11,7 @@ import {
   readdir,
   rename,
   rm,
+  writeFile,
 } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
@@ -71,6 +72,18 @@ if (await pathExists(outputRoot)) {
     const pnpmEntry = join(pnpmExtracted, 'package', 'bin', 'pnpm.cjs')
     await assertRegularFile(pnpmEntry, 'pnpm entry')
     await cp(join(pnpmExtracted, 'package'), join(staged, 'pnpm'), { recursive: true })
+    // pnpm ships only `.cjs`/`.mjs` entrypoints. Add Windows `.cmd` shims so a
+    // child spawned by bare name (`pnpm`/`pnpx`) resolves on PATH — the dsh
+    // `plugin` forwarder and third-party installers (e.g. dshmarket) spawn
+    // `pnpm` without an extension, and Node's spawn cannot start a `.cjs`
+    // without a shell shim. The shim drives the bundled `node.exe` through a
+    // relative path, so it works with no system Node installed. CRLF keeps the
+    // batch file Windows-conventional.
+    const nodeFromPnpmBin = join('..', '..', 'node', 'node.exe')
+    await writeFile(join(staged, 'pnpm', 'bin', 'pnpm.cmd'),
+      `@echo off\r\n"%~dp0${nodeFromPnpmBin}" "%~dp0pnpm.cjs" %*\r\n`)
+    await writeFile(join(staged, 'pnpm', 'bin', 'pnpx.cmd'),
+      `@echo off\r\n"%~dp0${nodeFromPnpmBin}" "%~dp0pnpx.cjs" %*\r\n`)
 
     await rename(staged, outputRoot)
   } finally {
@@ -153,6 +166,8 @@ async function assertDigest(path, expected, field) {
 async function verifyRuntimeHost(root) {
   await assertDigest(join(root, 'node', 'node.exe'), manifest.node.executableSha256, 'Node executable')
   await assertDigest(join(root, 'pnpm', 'bin', 'pnpm.cjs'), manifest.pnpm.entrySha256, 'pnpm entry')
+  await assertRegularFile(join(root, 'pnpm', 'bin', 'pnpm.cmd'), 'pnpm cmd shim')
+  await assertRegularFile(join(root, 'pnpm', 'bin', 'pnpx.cmd'), 'pnpx cmd shim')
   await assertDigest(join(root, 'ffmpeg', 'bin', 'ffmpeg.exe'), manifest.ffmpeg.ffmpegSha256, 'FFmpeg executable')
   await assertDigest(join(root, 'ffmpeg', 'bin', 'ffprobe.exe'), manifest.ffmpeg.ffprobeSha256, 'FFprobe executable')
   const packageManifest = JSON.parse(await readFile(join(root, 'pnpm', 'package.json'), 'utf8'))
