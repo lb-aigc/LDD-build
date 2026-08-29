@@ -146,14 +146,3 @@ test('kie i2i requires a configured imageToImageModel', async () => {
     /imageToImageModel/,
   )
 })
-
-test('kie i2i rejects a local data URI (needs a public URL)', async () => {
-  const provider = createProvider('kie', { baseURL: 'https://api.kie.ai', model: 'bytedance/seedream', apiKey: 'k', imageToImageModel: 'gpt-image-2-image-to-image' })
-  await assert.rejects(
-    provider.generateImage(
-      { prompt: 'x', count: 1, size: '1024x1024', inputImages: ['data:image/png;base64,AAAA'] },
-      new AbortController().signal,
-    ),
-    /公网可访问的图片 URL/,
-  )
-})

@@ -50,6 +50,17 @@ Providers whose i2i model differs from their text model (KIE, Volcengine) read
 the per-row `imageToImageModel` setting; GPT Image and Gemini reuse `model`
 (text and i2i are the same model).
 
+### User-uploaded images (`@uploaded`)
+
+`inputImages` accepts the sentinel `"@uploaded"`: the tool resolves it to the
+user's most recently uploaded image(s) by walking the current session's event
+log to the latest `user/message`, reading each `image` block back through the
+attachment store, and turning the bytes into `data:` URIs. Those feed the normal
+reference path — KIE uploads each `data:` URI to its file-upload API
+(`POST https://kieai.redpandaai.co/api/file-base64-upload`, same Bearer key,
+temporary files auto-deleted in ~24h) to obtain a public URL for `input_urls`;
+every other protocol accepts the `data:` URI directly.
+
 ## Settings
 
 The two capabilities configure independently under two namespaces (stored in the

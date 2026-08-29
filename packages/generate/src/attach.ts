@@ -29,6 +29,9 @@ export interface ImageMeta {
 /** Minimal surface of the harness attachment service this plugin consumes. */
 export interface AttachmentStoreLike {
   saveImage(input: { data: Uint8Array; mediaType: ImageMediaType; name?: string }): Promise<ImageMeta>
+  /** Read back a stored image's bytes by its durable reference (used to turn a
+   *  user-uploaded image into a reference image for image-to-image). */
+  readImage(ref: ImageMeta): Promise<{ data: Uint8Array }>
 }
 
 const EXTENSION_MEDIA_TYPES: Readonly<Record<string, ImageMediaType>> = {

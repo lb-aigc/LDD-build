@@ -8,6 +8,8 @@ import { credentialsServiceResolver, environmentSecretResolver } from './credent
 import type { SecretResolver } from './credentials.ts'
 import { attachImageFromUrl, imageBlockOf } from './attach.ts'
 import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
+import { collectUploadedImages } from './uploaded-images.ts'
+import type { UploadedAgentLike } from './uploaded-images.ts'
 import { CUSTOM_PROVIDER_ID, IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS, findPreset } from './presets.ts'
 import {
   buildProvider,
@@ -103,6 +105,23 @@ function supportsImageToImage(entry: RoutedModel): boolean {
   return findPreset(IMAGE_PROVIDER_PRESETS, entry.provider)?.imageToImage ?? false
 }
 
+/** Resolve the `inputImages` tool argument, expanding the `@uploaded` sentinel
+ *  into the user's most recently uploaded images (data URIs read back from the
+ *  attachment store). */
+async function resolveReferenceImages(
+  inputImages: unknown,
+  exec: { agent?: UploadedAgentLike; signal: AbortSignal },
+  store: AttachmentStoreLike | undefined,
+): Promise<string[]> {
+  const raw = Array.isArray(inputImages) ? inputImages.filter((entry): entry is string => typeof entry === 'string') : []
+  if (raw.length === 0) return []
+  const wantsUploaded = raw.some((entry) => entry === '@uploaded' || entry === '@latest')
+  const explicit = raw.filter((entry) => entry !== '@uploaded' && entry !== '@latest')
+  if (!wantsUploaded) return explicit
+  const uploaded = await collectUploadedImages(exec.agent?.session, store, exec.signal)
+  return [...explicit, ...uploaded]
+}
+
 function defineImageTool(
   resolved: ResolvedModels,
   config: Config,
@@ -123,7 +142,7 @@ function defineImageTool(
       count: { type: 'integer', description: 'How many image variants to generate (1-4).' },
       size: { type: 'string', enum: [...imageSizes], description: 'Target image size/orientation.' },
       style: { type: 'string', description: 'Optional visual style keyword (e.g. photorealistic, anime, watercolor, cyberpunk).' },
-      inputImages: { type: 'array', items: { type: 'string' }, description: 'Reference images for image-to-image: an array of http(s) URLs or data URIs. Use this to generate FROM existing images (e.g. turn a previously generated image into a different angle/view). Only providers that support i2i accept it — Midjourney and Legnext reject it.' },
+      inputImages: { type: 'array', items: { type: 'string' }, description: 'Reference images for image-to-image: an array of http(s) URLs or data URIs, or the sentinel "@uploaded" to use the user\'s most recently uploaded image(s). Use this to generate FROM existing images (e.g. turn a previously generated image into a different angle/view, or transform an image the user just uploaded). Only providers that support i2i accept it — Midjourney and Legnext reject it.' },
     },
     output: {
       schema: imageResultSchema,
@@ -155,7 +174,11 @@ function defineImageTool(
     isConcurrencySafe: () => true,
     async execute(args, exec) {
       const entry = pickProvider(resolved, args.provider)
-      const references = args.inputImages ?? []
+      const references = await resolveReferenceImages(
+        args.inputImages,
+        exec as unknown as { agent?: UploadedAgentLike; signal: AbortSignal },
+        attachments.current,
+      )
       if (references.length > 0 && !supportsImageToImage(entry)) {
         throw new Error(`provider "${entry.key}" 不支持图生图（Midjourney 图生图一致性差，已禁用）`)
       }

@@ -2,7 +2,6 @@ import type { GenerateImageRequest, GenerateImageResult, GenerateVideoRequest, G
 import type { ImageSize } from '../config.ts'
 import { imageSizeOf } from '../provider.ts'
 import type { GenerationProvider, ProviderOptions } from '../provider.ts'
-import { requirePublicImageUrl } from './image-input.ts'
 
 const POLL_INTERVAL_MS = 3000
 const MAX_POLLS = 200
@@ -10,6 +9,9 @@ const RETRY_ATTEMPTS = 3
 const RETRY_BASE_MS = 1000
 const MIN_VIDEO_DURATION = 4
 const MAX_VIDEO_DURATION = 30
+
+/** KIE's file-upload API lives on a different origin than its task API. */
+const DEFAULT_FILE_UPLOAD_BASE_URL = 'https://kieai.redpandaai.co'
 
 /** Image size → aspect ratio for i2i models (gpt-image-2-image-to-image). */
 const SIZE_ASPECT_RATIOS: Readonly<Record<ImageSize, string>> = {
@@ -116,12 +118,55 @@ export class KieProvider implements GenerationProvider {
     if (i2iModel === undefined || i2iModel === '') {
       throw new Error(`${this.id}: 图生图需要配置 imageToImageModel（如 gpt-image-2-image-to-image）`)
     }
+    const inputUrls: string[] = []
+    for (const reference of references) {
+      inputUrls.push(await this.resolveToPublicUrl(reference, signal))
+    }
     return await this.submit(signal, i2iModel, {
       prompt,
-      input_urls: references.map((reference) => requirePublicImageUrl(reference)),
+      input_urls: inputUrls,
       aspect_ratio: SIZE_ASPECT_RATIOS[size] ?? '1:1',
       resolution: '1K',
     })
+  }
+
+  /** Resolve one reference image into a public URL KIE's i2i `input_urls` can
+   *  consume. http(s) URLs pass through; local `data:` URIs are uploaded to
+   *  KIE's file-upload API and replaced with the returned public URL. */
+  private async resolveToPublicUrl(reference: string, signal: AbortSignal): Promise<string> {
+    if (reference.startsWith('http://') || reference.startsWith('https://')) return reference
+    if (reference.startsWith('data:')) return await this.uploadBase64(reference, signal)
+    throw new Error(`${this.id}: 参考图必须是 http(s) URL 或 data URI（收到 ${reference.slice(0, 40)}…）`)
+  }
+
+  /** Upload a base64 image (data URI or raw base64) to KIE and return its
+   *  public download URL. Files are temporary (auto-deleted in ~24h), which is
+   *  enough for an immediate image-to-image call. */
+  private async uploadBase64(dataUri: string, signal: AbortSignal): Promise<string> {
+    const { apiKey } = this.options
+    const uploadBaseURL = this.options.fileUploadBaseURL ?? DEFAULT_FILE_UPLOAD_BASE_URL
+    const response = await fetchWithRetry(`${trimSlash(uploadBaseURL)}/api/file-base64-upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ base64Data: dataUri, uploadPath: 'images/base64' }),
+    }, signal)
+    if (!response.ok) {
+      const body = await response.text().catch(() => '')
+      throw new Error(`${this.id} 图片上传失败 ${response.status}${body ? `: ${body}` : ''}`)
+    }
+    const payload = (await response.json()) as {
+      code?: number
+      msg?: string
+      data?: { downloadUrl?: string; fileUrl?: string }
+    }
+    if (payload.code !== 200) {
+      throw new Error(`${this.id} 图片上传返回错误 ${payload.code ?? '?'}: ${payload.msg ?? ''}`)
+    }
+    const url = payload.data?.downloadUrl ?? payload.data?.fileUrl
+    if (url === undefined || url === '') {
+      throw new Error(`${this.id}: 图片上传响应缺少 URL`)
+    }
+    return url
   }
 
   /** Create a generation task and return its taskId. */

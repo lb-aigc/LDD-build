@@ -40,6 +40,13 @@ export interface ProviderOptions {
    * Seedream/SeedEdit) resolve it here.
    */
   readonly imageToImageModel: string
+  /**
+   * KIE-only: base URL of the file-upload endpoint used to turn a local
+   * `data:` URI into a public URL (`POST /api/file-base64-upload`). Defaults to
+   * `https://kieai.redpandaai.co` — KIE serves its upload API from a different
+   * origin than its task API (`api.kie.ai`), with the same Bearer key.
+   */
+  readonly fileUploadBaseURL?: string
 }
 
 export function imageSizeOf(size: string): { width: number; height: number } {

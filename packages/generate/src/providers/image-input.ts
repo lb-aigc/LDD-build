@@ -48,15 +48,6 @@ export async function resolveImageBase64(input: string, signal: AbortSignal): Pr
   return { base64: bytesToBase64(data), mediaType }
 }
 
-/**
- * Require a public http(s) URL, for providers whose i2i wire protocol takes a
- * URL directly (KIE `input_urls`) and cannot accept a local `data:` URI.
- */
-export function requirePublicImageUrl(input: string): string {
-  if (input.startsWith('http://') || input.startsWith('https://')) return input
-  throw new Error(`该模型的图生图需要公网可访问的图片 URL（不支持本地 data URI）：${input.slice(0, 40)}…`)
-}
-
 async function fetchImageBytes(
   url: string,
   signal: AbortSignal,
