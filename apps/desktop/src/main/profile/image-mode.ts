@@ -84,7 +84,7 @@ export function renderManagedImagePatch(mode: ImageMode): string {
     '    - id: ldd-generate',
     "      name: '@ldd/dsh-generate'",
     '      config:',
-    '        timeoutMs: 60000',
+    '        timeoutMs: 600000',
     '    - id: ldd-generate-skills',
     "      name: '@deepseek-ai/dsh-skill-filesystem'",
     '      config:',
