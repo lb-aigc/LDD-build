@@ -1,11 +1,12 @@
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 import { app, BrowserWindow, dialog } from 'electron'
 
 import { createDesktopShell } from './index.ts'
 import { publishRuntimeProgress } from './ipc/register.ts'
 import { locationFilePath, readDataLocation } from './data-location.ts'
+import { migrateDataDirectoryIfNeeded } from './data-migration.ts'
 import { inspectMigration, migrateHarnessHome } from './migration/harness-home.ts'
 import { ensureLddDirectories, resolveLddPaths, type LddPaths } from './paths.ts'
 import { DesktopRuntimeController } from './runtime/controller.ts'
@@ -30,9 +31,20 @@ async function startApplication(): Promise<void> {
   try {
     await app.whenReady()
     const roamingAppData = app.getPath('appData')
+    const localAppData = process.env.LOCALAPPDATA ?? app.getPath('userData')
     const location = await readDataLocation(locationFilePath(roamingAppData))
+    if (location.dataDirectory !== undefined) {
+      // The installer records the relocation out-of-band (no Node runtime to
+      // copy); migrate legacy data into the target on first boot so a fresh or
+      // overwrite install that picked another drive keeps its sessions.
+      await migrateDataDirectoryIfNeeded({
+        oldDataRoot: join(resolve(localAppData), 'LDD'),
+        oldDshHome: join(resolve(roamingAppData), 'LDD', 'harness'),
+        newDataDirectory: location.dataDirectory,
+      })
+    }
     const paths = developmentPaths(resolveLddPaths(
-      process.env.LOCALAPPDATA ?? app.getPath('userData'),
+      localAppData,
       process.resourcesPath,
       roamingAppData,
       location.dataDirectory,

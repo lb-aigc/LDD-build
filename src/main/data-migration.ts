@@ -60,6 +60,41 @@ export async function migrateDataDirectory(
   }
 }
 
+/**
+ * Migrate legacy data into a relocated directory when (and only when) the
+ * relocation was recorded out-of-band (the NSIS installer writes location.json
+ * without copying — it has no Node runtime). Guards: the target's harness dir
+ * must be absent/empty and the legacy harness home must actually hold data, so
+ * a fresh install (nothing to move) and an already-relocated install (target
+ * non-empty) both no-op. Returns whether a migration ran.
+ */
+export async function migrateDataDirectoryIfNeeded(paths: DataMigrationPaths): Promise<boolean> {
+  const newDshHome = join(resolve(paths.newDataDirectory), 'harness')
+  if (!(await isAbsentOrEmpty(newDshHome))) return false
+  if (!(await isNonEmpty(paths.oldDshHome))) return false
+  await migrateDataDirectory(paths)
+  return true
+}
+
+async function isAbsentOrEmpty(path: string): Promise<boolean> {
+  const info = await stat(path).catch((error: unknown) => {
+    if (isNodeError(error) && error.code === 'ENOENT') return null
+    throw error
+  })
+  if (info === null) return true
+  if (!info.isDirectory()) return false
+  return (await readdir(path)).length === 0
+}
+
+async function isNonEmpty(path: string): Promise<boolean> {
+  const info = await stat(path).catch((error: unknown) => {
+    if (isNodeError(error) && error.code === 'ENOENT') return null
+    throw error
+  })
+  if (info === null || !info.isDirectory()) return false
+  return (await readdir(path)).length > 0
+}
+
 /** Reject a target that is not a fresh, empty location (no overwrite/merge). */
 async function assertRelocationTarget(
   target: string,

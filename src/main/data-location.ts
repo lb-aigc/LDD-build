@@ -68,7 +68,22 @@ export async function readDataLocation(locationPath: string): Promise<DataLocati
     }
     throw error
   }
-  return parseDataLocation(JSON.parse(serialized) as unknown)
+  return parseDataLocationText(serialized)
+}
+
+/**
+ * Parse the on-disk location config, which the NSIS installer writes as a bare
+ * path (no JSON — the installer avoids backslash escaping) and the desktop
+ * settings UI writes as a JSON object. A `{`-prefixed line is parsed as JSON;
+ * any other non-blank line is the data directory itself.
+ */
+export function parseDataLocationText(text: string): DataLocation {
+  const trimmed = text.trim()
+  if (trimmed === '') return createDefaultDataLocation()
+  if (trimmed.startsWith('{')) {
+    return parseDataLocation(JSON.parse(trimmed) as unknown)
+  }
+  return parseDataLocation({ schemaVersion: 1, dataDirectory: trimmed })
 }
 
 export async function writeDataLocation(locationPath: string, location: DataLocation): Promise<void> {

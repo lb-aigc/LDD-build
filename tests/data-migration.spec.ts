@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { migrateDataDirectory } from '../src/main/data-migration.js'
+import { migrateDataDirectory, migrateDataDirectoryIfNeeded } from '../src/main/data-migration.js'
 
 describe('data-directory migration', () => {
   const temps: string[] = []
@@ -66,5 +66,27 @@ describe('data-directory migration', () => {
     await expect(
       migrateDataDirectory({ oldDataRoot, oldDshHome, newDataDirectory: base }),
     ).rejects.toThrow('父目录')
+  })
+
+  it('migrates only when the target harness dir is empty and legacy data exists', async () => {
+    const oldDataRoot = await makeDir('data')
+    const oldDshHome = await makeDir('home')
+    await writeFile(join(oldDshHome, 'note.txt'), 'hello')
+    const target = join(await makeDir('target'), 'LDD')
+
+    // Target harness dir is empty (and legacy has data) → migrates.
+    expect(await migrateDataDirectoryIfNeeded({ oldDataRoot, oldDshHome, newDataDirectory: target })).toBe(true)
+    expect(await readFile(join(target, 'harness', 'note.txt'), 'utf8')).toBe('hello')
+
+    // Now the target harness dir is non-empty → no-op.
+    expect(await migrateDataDirectoryIfNeeded({ oldDataRoot, oldDshHome, newDataDirectory: target })).toBe(false)
+  })
+
+  it('skips auto-migration when legacy data is absent', async () => {
+    const oldDataRoot = await makeDir('data')
+    const oldDshHome = join(await makeDir('missing'), 'harness') // never created
+    const target = join(await makeDir('target'), 'LDD')
+
+    expect(await migrateDataDirectoryIfNeeded({ oldDataRoot, oldDshHome, newDataDirectory: target })).toBe(false)
   })
 })

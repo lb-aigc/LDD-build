@@ -6,6 +6,7 @@ import {
   createDefaultDataLocation,
   locationFilePath,
   parseDataLocation,
+  parseDataLocationText,
   readDataLocation,
   writeDataLocation,
 } from '../src/main/data-location.js'
@@ -30,9 +31,9 @@ describe('data-location bootstrap config', () => {
 
   it('parses a valid record and defaults an absent one', () => {
     expect(createDefaultDataLocation()).toEqual({ schemaVersion: 1 })
-    expect(parseDataLocation({ schemaVersion: 1, dataDirectory: 'D:\\LDD' })).toEqual({
+    expect(parseDataLocation({ schemaVersion: 1, dataDirectory: 'D:/LDD' })).toEqual({
       schemaVersion: 1,
-      dataDirectory: 'D:\\LDD',
+      dataDirectory: 'D:/LDD',
     })
   })
 
@@ -48,12 +49,25 @@ describe('data-location bootstrap config', () => {
     const locationPath = join(dir, 'location.json')
     expect(await readDataLocation(locationPath)).toEqual({ schemaVersion: 1 })
 
-    await writeDataLocation(locationPath, { schemaVersion: 1, dataDirectory: 'E:\\LDD Data' })
+    await writeDataLocation(locationPath, { schemaVersion: 1, dataDirectory: 'E:/LDD Data' })
     expect(await readDataLocation(locationPath)).toEqual({
       schemaVersion: 1,
-      dataDirectory: 'E:\\LDD Data',
+      dataDirectory: 'E:/LDD Data',
     })
     const raw = JSON.parse(await readFile(locationPath, 'utf8')) as Record<string, unknown>
-    expect(raw.dataDirectory).toBe('E:\\LDD Data')
+    expect(raw.dataDirectory).toBe('E:/LDD Data')
+  })
+
+  it('parses the bare-path format the NSIS installer writes', () => {
+    // The installer writes the directory as a bare line (no JSON, no backslash
+    // escaping); a `{`-prefixed line is still JSON, anything else is the path.
+    expect(parseDataLocationText('D:/LDD\n')).toEqual({ schemaVersion: 1, dataDirectory: 'D:/LDD' })
+    expect(parseDataLocationText('  E:/My Data  ')).toEqual({ schemaVersion: 1, dataDirectory: 'E:/My Data' })
+    expect(parseDataLocationText('')).toEqual({ schemaVersion: 1 })
+    expect(parseDataLocationText('{"schemaVersion":1,"dataDirectory":"F:/LDD"}')).toEqual({
+      schemaVersion: 1,
+      dataDirectory: 'F:/LDD',
+    })
+    expect(() => parseDataLocationText('relative/dir')).toThrow('absolute')
   })
 })
