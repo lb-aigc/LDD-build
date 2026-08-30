@@ -11,10 +11,15 @@
 ;     ZERO keys).
 
 ; Data-directory page state (declared at top level so both the page and the
-; install section see them, regardless of macro-expansion order).
-Var /GLOBAL LddDataDir
-Var /GLOBAL LddDataDirPage
-Var /GLOBAL LddDataDirInput
+; install section see them, regardless of macro-expansion order). Guarded by
+; !ifndef BUILD_UNINSTALLER so the uninstaller build (which skips the page via
+; its own guard below) does not emit NSIS warning 6001 "variable not referenced",
+; which electron-builder treats as a hard error.
+!ifndef BUILD_UNINSTALLER
+  Var /GLOBAL LddDataDir
+  Var /GLOBAL LddDataDirPage
+  Var /GLOBAL LddDataDirInput
+!endif
 
 !macro customPageAfterChangeDir
   !insertmacro MUI_PAGE_INIT
