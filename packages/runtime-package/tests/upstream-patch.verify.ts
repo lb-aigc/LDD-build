@@ -118,6 +118,14 @@ const officialImageLightboxCss = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css',
 )
+const officialCodeBlock = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx',
+)
+const officialCodeBlockCss = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css',
+)
 const officialAttachmentLabels = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts',
@@ -308,6 +316,12 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedImageLightboxCss = join(
       copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css',
     )
+    const copiedCodeBlock = join(
+      copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx',
+    )
+    const copiedCodeBlockCss = join(
+      copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css',
+    )
     const copiedAttachmentLabels = join(
       copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts',
     )
@@ -425,6 +439,8 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await mkdir(dirname(copiedImageLightbox), { recursive: true })
     await mkdir(dirname(copiedMessageImage), { recursive: true })
     await mkdir(dirname(copiedImageLightboxCss), { recursive: true })
+    await mkdir(dirname(copiedCodeBlock), { recursive: true })
+    await mkdir(dirname(copiedCodeBlockCss), { recursive: true })
     await mkdir(dirname(copiedAttachmentLabels), { recursive: true })
     await mkdir(dirname(copiedComposerAttachments), { recursive: true })
     await mkdir(dirname(copiedInputFilesSlotContract), { recursive: true })
@@ -474,6 +490,8 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedImageLightbox, await readFile(officialImageLightbox))
     await writeFile(copiedMessageImage, await readFile(officialMessageImage))
     await writeFile(copiedImageLightboxCss, await readFile(officialImageLightboxCss))
+    await writeFile(copiedCodeBlock, await readFile(officialCodeBlock))
+    await writeFile(copiedCodeBlockCss, await readFile(officialCodeBlockCss))
     await writeFile(copiedAttachmentLabels, await readFile(officialAttachmentLabels))
     await writeFile(copiedComposerAttachments, await readFile(officialComposerAttachments))
     await writeFile(copiedInputFilesSlotContract, await readFile(officialInputFilesSlotContract))
@@ -542,6 +560,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0012-nonimage-drop.patch',
       '0013-input-files-slot.patch',
       '0014-send-session-file-notice.patch',
+      '0015-collapse-long-code-blocks.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -598,6 +617,13 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(deleteClient, /'session\.delete': sessionDeleteValueSchema/u)
 
     assert.match(imageLightboxCss, /\.actions \{/u)
+    const codeBlock = await readFile(copiedCodeBlock, 'utf8')
+    assert.match(codeBlock, /DEFAULT_CODE_MAX_LINES/u)
+    assert.match(codeBlock, /css\.bodyCollapsed/u)
+    assert.match(codeBlock, /aria-expanded=\{expanded\}/u)
+    const codeBlockCss = await readFile(copiedCodeBlockCss, 'utf8')
+    assert.match(codeBlockCss, /\.bodyCollapsed \{/u)
+    assert.match(codeBlockCss, /\.expand \{/u)
     const composerAttachments = await readFile(copiedComposerAttachments, 'utf8')
     assert.match(composerAttachments, /dsh:non-image-drop/u)
     assert.match(composerAttachments, /isImageType\(file\.type\)/u)
