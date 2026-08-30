@@ -64,18 +64,20 @@ export function aspectRatioToImageSize(aspectRatio: string): string {
   return w > h ? '1792x1024' : '1024x1792'
 }
 
-/** Nominal pixel geometry for a resolution tier + aspect ratio. The short edge
- *  is 4096 (4K) / 2048 (2K) / 1024 (1K) and the long edge scales by the ratio.
- *  Used as result metadata only — KIE does not echo exact pixels back. */
+/** Nominal pixel geometry for a resolution tier + aspect ratio. KIE scales the
+ *  LONG edge: 4K ≈ 3840 (UHD, verified — a 4K 16:9 result downloads at
+ *  3840×2160), 2K ≈ 2048, 1K ≈ 1024. Used as result metadata only — KIE does
+ *  not echo exact pixels back, so this is the honest nominal size, not the
+ *  former "short edge 4096" that overstated 4K as 7282×4096. */
 export function resolutionAspectPixels(resolution: string, aspectRatio: string): { width: number; height: number } {
-  const base = resolution === '4K' ? 4096 : resolution === '2K' ? 2048 : 1024
+  const longEdge = resolution === '4K' ? 3840 : resolution === '2K' ? 2048 : 1024
   const parts = aspectRatio.split(':').map((part) => Number.parseInt(part, 10))
   const w = parts[0] ?? 0
   const h = parts[1] ?? 0
-  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return { width: base, height: base }
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return { width: longEdge, height: longEdge }
   return w >= h
-    ? { width: Math.round((base * w) / h), height: base }
-    : { width: base, height: Math.round((base * h) / w) }
+    ? { width: longEdge, height: Math.round((longEdge * h) / w) }
+    : { width: Math.round((longEdge * w) / h), height: longEdge }
 }
 
 /**

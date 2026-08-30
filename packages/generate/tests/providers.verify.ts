@@ -183,8 +183,9 @@ test('aspectRatioToImageSize maps ratio orientation to the nearest size', () => 
 })
 
 test('resolutionAspectPixels returns nominal 4K/2K/1K geometry', () => {
-  assert.deepEqual(resolutionAspectPixels('4K', '16:9'), { width: 7282, height: 4096 })
+  assert.deepEqual(resolutionAspectPixels('4K', '16:9'), { width: 3840, height: 2160 })
+  assert.deepEqual(resolutionAspectPixels('4K', '9:16'), { width: 2160, height: 3840 })
   assert.deepEqual(resolutionAspectPixels('2K', '1:1'), { width: 2048, height: 2048 })
-  assert.deepEqual(resolutionAspectPixels('1K', '9:16'), { width: 1024, height: 1820 })
-  assert.deepEqual(resolutionAspectPixels('4K', 'bogus'), { width: 4096, height: 4096 })
+  assert.deepEqual(resolutionAspectPixels('1K', '9:16'), { width: 576, height: 1024 })
+  assert.deepEqual(resolutionAspectPixels('4K', 'bogus'), { width: 3840, height: 3840 })
 })

@@ -8,7 +8,7 @@ export interface ImageAdmissionConfig {
   readonly maxMessageImageBytes: number
   readonly maxImagePixels: 64_000_000
   readonly maxImageDimension: 8192
-  readonly normalizedImageMaxDimension: 2048
+  readonly normalizedImageMaxDimension: 4096
   readonly normalizedImageMaxBytes: number
   readonly imageCompressionConcurrency: 1 | 2
 }
@@ -18,8 +18,8 @@ const commonConfig = {
   maxMessageImageBytes: 200 * 1024 * 1024,
   maxImagePixels: 64_000_000,
   maxImageDimension: 8192,
-  normalizedImageMaxDimension: 2048,
-  normalizedImageMaxBytes: 4 * 1024 * 1024,
+  normalizedImageMaxDimension: 4096,
+  normalizedImageMaxBytes: 20 * 1024 * 1024,
 } as const
 
 export function resolveImageConfig(mode: ImageMode): ImageAdmissionConfig {
