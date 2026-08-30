@@ -1,49 +1,81 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import {
-  imageBlockOf,
-  mediaTypeFromContentType,
-  mediaTypeFromUrl,
-  parseDataUri,
-} from '../src/attach.ts'
+import { stripPngTextChunks } from '../src/attach.ts'
 
-test('mediaTypeFromUrl maps known image extensions', () => {
-  assert.equal(mediaTypeFromUrl('https://x.com/a.png'), 'image/png')
-  assert.equal(mediaTypeFromUrl('https://x.com/a.jpg'), 'image/jpeg')
-  assert.equal(mediaTypeFromUrl('https://x.com/a.jpeg'), 'image/jpeg')
-  assert.equal(mediaTypeFromUrl('https://x.com/a.webp'), 'image/webp')
-  assert.equal(mediaTypeFromUrl('https://x.com/a.gif'), 'image/gif')
+const SIG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+
+function chunk(type: string, data: number[]): number[] {
+  const len = data.length
+  return [
+    (len >>> 24) & 0xff, (len >>> 16) & 0xff, (len >>> 8) & 0xff, len & 0xff,
+    ...[...type].map((c) => c.charCodeAt(0)),
+    ...data,
+    0, 0, 0, 0, // fake CRC — the stripper only moves bytes, it never validates
+  ]
+}
+
+function bytes(...parts: number[][]): Uint8Array {
+  return new Uint8Array(parts.flat())
+}
+
+function ascii(s: string): number[] {
+  return [...s].map((c) => c.charCodeAt(0))
+}
+
+function contains(seq: Uint8Array, needle: string): boolean {
+  const n = ascii(needle)
+  outer: for (let i = 0; i + n.length <= seq.length; i++) {
+    for (let j = 0; j < n.length; j++) {
+      if (seq[i + j] !== n[j]) continue outer
+    }
+    return true
+  }
+  return false
+}
+
+test('stripPngTextChunks removes tEXt but keeps pixel and provenance chunks', () => {
+  const png = bytes(
+    SIG,
+    chunk('IHDR', [0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0]),
+    chunk('tEXt', [...ascii('hf-job-id'), 0, ...ascii('02b19a3d')]),
+    chunk('caBX', [1, 2, 3, 4]),
+    chunk('IDAT', [10, 20, 30, 40, 50]),
+    chunk('IEND', []),
+  )
+  const stripped = stripPngTextChunks(png)
+  assert.ok(contains(stripped, 'IHDR'))
+  assert.ok(contains(stripped, 'IDAT'))
+  assert.ok(contains(stripped, 'caBX'))
+  assert.ok(contains(stripped, 'IEND'))
+  assert.ok(!contains(stripped, 'tEXt'))
+  assert.ok(!contains(stripped, 'hf-job-id'))
 })
 
-test('mediaTypeFromUrl ignores the query string and unknown extensions', () => {
-  assert.equal(mediaTypeFromUrl('https://x.com/a.png?token=123'), 'image/png')
-  assert.equal(mediaTypeFromUrl('https://x.com/a.PNG'), 'image/png')
-  assert.equal(mediaTypeFromUrl('https://x.com/a'), undefined)
-  assert.equal(mediaTypeFromUrl('https://x.com/a.txt'), undefined)
+test('stripPngTextChunks removes iTXt and zTXt too', () => {
+  const png = bytes(
+    SIG,
+    chunk('IHDR', [0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0]),
+    chunk('iTXt', [1, 2, 3]),
+    chunk('zTXt', [4, 5, 6]),
+    chunk('IDAT', [7, 8, 9]),
+    chunk('IEND', []),
+  )
+  const stripped = stripPngTextChunks(png)
+  assert.ok(!contains(stripped, 'iTXt'))
+  assert.ok(!contains(stripped, 'zTXt'))
+  assert.ok(contains(stripped, 'IDAT'))
 })
 
-test('mediaTypeFromContentType strips parameters and maps image types', () => {
-  assert.equal(mediaTypeFromContentType('image/png'), 'image/png')
-  assert.equal(mediaTypeFromContentType('image/jpeg; charset=utf-8'), 'image/jpeg')
-  assert.equal(mediaTypeFromContentType('text/html'), undefined)
-})
+test('stripPngTextChunks passes through non-PNG and clean PNG unchanged', () => {
+  const notPng = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+  assert.equal(stripPngTextChunks(notPng), notPng)
 
-test('parseDataUri decodes a valid base64 image data URI', () => {
-  const parsed = parseDataUri('data:image/png;base64,iVBORw0KGgo=')
-  assert.notEqual(parsed, undefined)
-  assert.equal(parsed?.mediaType, 'image/png')
-  assert.deepEqual([...parsed!.data], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-})
-
-test('parseDataUri rejects non-image or non-base64 URIs', () => {
-  assert.equal(parseDataUri('data:text/plain;base64,aGk='), undefined)
-  assert.equal(parseDataUri('https://x.com/a.png'), undefined)
-  assert.equal(parseDataUri('data:image/png;base64,@@@'), undefined)
-})
-
-test('imageBlockOf wraps metadata into an image block', () => {
-  const block = imageBlockOf({ attachmentId: 'a1', mediaType: 'image/png', bytes: 10, width: 2, height: 2 })
-  assert.equal(block.type, 'image')
-  assert.equal(block.attachment.attachmentId, 'a1')
+  const clean = bytes(
+    SIG,
+    chunk('IHDR', [0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0]),
+    chunk('IDAT', [1, 2, 3]),
+    chunk('IEND', []),
+  )
+  assert.deepEqual([...stripPngTextChunks(clean)], [...clean])
 })

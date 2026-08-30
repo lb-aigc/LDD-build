@@ -174,6 +174,13 @@ export async function attachImageFromUrl(
     return undefined
   }
 
+  // KIE PNGs carry an `hf-job-id` text comment that trips sharp's metadata
+  // check and forces a lossy JPEG re-encode. Strip text chunks so a lossless
+  // PNG passes through byte-identically and downloads stay lossless.
+  if (mediaType === 'image/png') {
+    bytes = stripPngTextChunks(bytes)
+  }
+
   try {
     const ref = await store.saveImage({ data: bytes, mediaType })
     return {
@@ -199,4 +206,39 @@ export async function attachImageFromUrl(
  */
 export function imageBlockOf(meta: ImageMeta): { type: 'image'; attachment: ImageMeta } {
   return { type: 'image', attachment: meta }
+}
+
+/**
+ * Strip text metadata chunks (tEXt / iTXt / zTXt) from a PNG byte stream. KIE
+ * PNGs carry an `hf-job-id` tEXt comment that makes sharp's normalization
+ * classify the image as metadata-bearing, which re-encodes a lossless PNG into
+ * a lossy JPEG for storage. Removing only the text chunks lets the PNG pass
+ * through byte-identically (lossless), while pixel data (IDAT) and C2PA
+ * provenance (caBX) are preserved untouched. Non-PNG or malformed input is
+ * returned unchanged.
+ */
+export function stripPngTextChunks(data: Uint8Array): Uint8Array {
+  if (data.length < 8) return data
+  if (data[0] !== 0x89 || data[1] !== 0x50 || data[2] !== 0x4e || data[3] !== 0x47) return data
+  const out: number[] = []
+  for (let i = 0; i < 8; i++) out.push(data[i]!)
+  let offset = 8
+  while (offset + 8 <= data.length) {
+    const length = (((data[offset]! << 24) | (data[offset + 1]! << 16) | (data[offset + 2]! << 8) | data[offset + 3]!) >>> 0)
+    const chunkSize = 12 + length
+    if (offset + chunkSize > data.length) return data
+    const t0 = data[offset + 4] ?? 0
+    const t1 = data[offset + 5] ?? 0
+    const t2 = data[offset + 6] ?? 0
+    const t3 = data[offset + 7] ?? 0
+    const isTextChunk =
+      (t0 === 0x74 && t1 === 0x45 && t2 === 0x58 && t3 === 0x74) // tEXt
+      || (t0 === 0x69 && t1 === 0x54 && t2 === 0x58 && t3 === 0x74) // iTXt
+      || (t0 === 0x7a && t1 === 0x54 && t2 === 0x58 && t3 === 0x74) // zTXt
+    if (!isTextChunk) {
+      for (let i = 0; i < chunkSize; i++) out.push(data[offset + i]!)
+    }
+    offset += chunkSize
+  }
+  return new Uint8Array(out)
 }

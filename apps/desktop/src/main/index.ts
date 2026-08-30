@@ -14,6 +14,7 @@ import {
 
 import type { RuntimeStatusView } from './ipc/contracts.ts'
 import { registerDesktopIpc } from './ipc/register.ts'
+import { startAttachmentTtlSweeper } from './attachment-ttl.ts'
 import { importWorkspaceFile } from './import-file.ts'
 import { createCompleteExit, createWindowCloseHandler, type ExitState } from './lifecycle.ts'
 import { createEditMenu, createFileMenu, createHelpMenu } from './menu.ts'
@@ -51,6 +52,9 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
   completeExit(): Promise<void>
 }> {
   await mkdir(options.paths.logsRoot, { mode: 0o700, recursive: true })
+  // Generated images expire after 48h unless explicitly saved; the sweeper
+  // deletes stale attachment objects and their model-request cache.
+  const stopAttachmentSweeper = startAttachmentTtlSweeper(options.paths.dshHome)
   const exitState: ExitState = { exiting: false }
   let verifiedHarnessOrigin: string | null = null
   let harnessUrl: string | null = null
@@ -207,6 +211,7 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     disposeUpdater: () => options.runtime.disposeUpdater(),
     stopHarness: () => options.runtime.stopHarness(),
     quit: () => {
+      stopAttachmentSweeper()
       unregisterIpc()
       destroyTray()
       app.quit()
