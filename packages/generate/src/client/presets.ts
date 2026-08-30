@@ -48,23 +48,23 @@ export const IMAGE_PRESETS: readonly ClientPreset[] = [
     id: 'kie',
     label: 'KIE（聚合中转）',
     suggestedModels: [
-      // 文生图
-      { id: 'gpt-image-2-text-to-image', label: 'GPT Image 2（文生图）' },
+      // 文生图（选一个即可文生图 + 图生图，自动路由到对应 capability）
+      { id: 'gpt-image-2-text-to-image', label: 'GPT Image 2（文生图 + 图生图）' },
       { id: 'nano-banana-pro', label: 'Nano Banana Pro（文生图 + 图生图）' },
       { id: 'nano-banana-2', label: 'Nano Banana 2（文生图 + 图生图）' },
       { id: 'nano-banana-2-lite', label: 'Nano Banana 2 Lite（文生图 + 图生图）' },
       { id: 'bytedance/seedream', label: 'Seedream 4.0（文生图）' },
-      { id: 'seedream/5-pro-text-to-image', label: 'Seedream 5.0 Pro（文生图）' },
-      { id: 'seedream/5-lite-text-to-image', label: 'Seedream 5.0 Lite（文生图）' },
-      { id: 'flux-2/pro-text-to-image', label: 'Flux-2 Pro（文生图）' },
-      { id: 'flux-2/flex-text-to-image', label: 'Flux-2（文生图）' },
-      // 图生图 / 编辑
-      { id: 'gpt-image-2-image-to-image', label: 'GPT Image 2（图生图）' },
+      { id: 'seedream/5-pro-text-to-image', label: 'Seedream 5.0 Pro（文生图 + 图生图）' },
+      { id: 'seedream/5-lite-text-to-image', label: 'Seedream 5.0 Lite（文生图 + 图生图）' },
+      { id: 'flux-2/pro-text-to-image', label: 'Flux-2 Pro（文生图 + 图生图）' },
+      { id: 'flux-2/flex-text-to-image', label: 'Flux-2（文生图 + 图生图）' },
+      // 图生图 / 编辑（独立 capability id，供手动指定或仅图生图场景）
+      { id: 'gpt-image-2-image-to-image', label: 'GPT Image 2（仅图生图）' },
       { id: 'google/nano-banana-edit', label: 'Nano Banana（编辑）' },
       { id: 'seedream/4.5-edit', label: 'Seedream 4.5（编辑）' },
-      { id: 'seedream/5-pro-image-to-image', label: 'Seedream 5.0 Pro（图生图）' },
-      { id: 'flux-2/pro-image-to-image', label: 'Flux-2 Pro（图生图）' },
-      { id: 'flux-2/flex-image-to-image', label: 'Flux-2（图生图）' },
+      { id: 'seedream/5-pro-image-to-image', label: 'Seedream 5.0 Pro（仅图生图）' },
+      { id: 'flux-2/pro-image-to-image', label: 'Flux-2 Pro（仅图生图）' },
+      { id: 'flux-2/flex-image-to-image', label: 'Flux-2（仅图生图）' },
     ],
   },
   {

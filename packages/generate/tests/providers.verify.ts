@@ -10,7 +10,7 @@ import {
 } from '../src/presets.ts'
 import { createProvider } from '../src/providers/index.ts'
 import { buildText } from '../src/providers/legnext.ts'
-import { kieClampResolution, kieMaxResolution, kieSameModelI2iField } from '../src/providers/kie.ts'
+import { kieClampResolution, kieDistinctI2iCounterpart, kieMaxResolution, kieSameModelI2iField } from '../src/providers/kie.ts'
 import { aspectRatioToImageSize, resolutionAspectPixels } from '../src/provider.ts'
 
 const emptyOptions = { baseURL: '', model: '', apiKey: 'k', imageToImageModel: '' }
@@ -159,6 +159,19 @@ test('kie nano banana series reuses the same model for i2i via inline fields', (
   assert.equal(kieSameModelI2iField('bytedance/seedream'), undefined)
   assert.equal(kieSameModelI2iField('gpt-image-2-text-to-image'), undefined)
   assert.equal(kieSameModelI2iField('flux-2/pro-text-to-image'), undefined)
+})
+
+test('kie distinct-i2i models auto-route to their i2i counterpart', () => {
+  // GPT Image 2 / Seedream 5 / Flux 2 split t2i and i2i into separate ids;
+  // a t2i model picks up its i2i counterpart without manual config.
+  assert.equal(kieDistinctI2iCounterpart('gpt-image-2-text-to-image'), 'gpt-image-2-image-to-image')
+  assert.equal(kieDistinctI2iCounterpart('seedream/5-pro-text-to-image'), 'seedream/5-pro-image-to-image')
+  assert.equal(kieDistinctI2iCounterpart('seedream/5-lite-text-to-image'), 'seedream/5-lite-image-to-image')
+  assert.equal(kieDistinctI2iCounterpart('flux-2/pro-text-to-image'), 'flux-2/pro-image-to-image')
+  assert.equal(kieDistinctI2iCounterpart('flux-2/flex-text-to-image'), 'flux-2/flex-image-to-image')
+  // Same-model (Nano Banana) and unknown ids have no distinct counterpart.
+  assert.equal(kieDistinctI2iCounterpart('nano-banana-pro'), undefined)
+  assert.equal(kieDistinctI2iCounterpart('bytedance/seedream'), undefined)
 })
 
 test('kie resolution degrades per aspect ratio (4K → 2K → 1K)', () => {

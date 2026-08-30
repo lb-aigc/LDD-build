@@ -62,6 +62,27 @@ export function kieSameModelI2iField(model: string): string | undefined {
   return SAME_MODEL_I2I_FIELD[model]
 }
 
+/**
+ * Text-to-image capability → its distinct image-to-image counterpart. GPT
+ * Image 2, Seedream 5, and Flux 2 split t2i and i2i into separate ids (the
+ * t2i endpoint accepts no image input), so a model configured for t2i can
+ * still generate from a reference image by routing i2i to its counterpart —
+ * no manual `imageToImageModel` needed. Nano Banana series is absent: it
+ * reuses the same id (see {@link SAME_MODEL_I2I_FIELD}).
+ */
+const DISTINCT_I2I_COUNTERPART: Readonly<Record<string, string>> = {
+  'gpt-image-2-text-to-image': 'gpt-image-2-image-to-image',
+  'seedream/5-pro-text-to-image': 'seedream/5-pro-image-to-image',
+  'seedream/5-lite-text-to-image': 'seedream/5-lite-image-to-image',
+  'flux-2/pro-text-to-image': 'flux-2/pro-image-to-image',
+  'flux-2/flex-text-to-image': 'flux-2/flex-image-to-image',
+}
+
+/** The distinct i2i counterpart for a t2i capability id, or `undefined`. */
+export function kieDistinctI2iCounterpart(model: string): string | undefined {
+  return DISTINCT_I2I_COUNTERPART[model]
+}
+
 /** Highest resolution tier KIE supports for a given aspect ratio. */
 export function kieMaxResolution(aspectRatio: string): ImageResolution {
   return MAX_RESOLUTION_FOR[aspectRatio] ?? '4K'
@@ -200,8 +221,12 @@ export class KieProvider implements GenerationProvider {
       if (model !== 'nano-banana-2-lite') input.resolution = resolution
       return { taskId: await this.submit(signal, model, input), model }
     }
-    // Distinct i2i capability id (GPT Image / Seedream / Flux).
-    const i2iModel = this.options.imageToImageModel
+    // Distinct i2i capability id (GPT Image / Seedream / Flux). A manually
+    // configured `imageToImageModel` wins; otherwise fall back to the t2i
+    // model's known counterpart so "pick one model, get t2i + i2i" holds.
+    const i2iModel = (this.options.imageToImageModel !== undefined && this.options.imageToImageModel !== '')
+      ? this.options.imageToImageModel
+      : kieDistinctI2iCounterpart(model)
     if (i2iModel === undefined || i2iModel === '') {
       throw new Error(`${this.id}: 图生图需要配置 imageToImageModel（如 gpt-image-2-image-to-image）`)
     }
