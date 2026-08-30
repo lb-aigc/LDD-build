@@ -30,3 +30,12 @@ The runtime builder applies this patch only to its copied official source tree.
 It fails closed when the expected source context changes or the patch was
 already applied. Remove it once Harness provides a supported downstream event
 registration API.
+
+`0015-collapse-long-code-blocks.patch` caps a long `CodeBlock` (a full video
+prompt, a pasted source file) to a 400px window with a fade and an expand
+toggle, so a huge prompt does not flood the chat. The collapse is line-count
+gated (over 20 lines) and purely visual — the copy control still writes the
+complete source. This pairs with the generation skills' "emit the prompt in a
+fenced code block" rule: the agent wraps a long prompt in a fence, and this
+patch turns that fence into a collapse-on-open, copy-on-click unit.
+

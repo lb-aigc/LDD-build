@@ -1,0 +1,150 @@
+--- a/packages/client/ui-primitives/src/markdown/CodeBlock.tsx
++++ b/packages/client/ui-primitives/src/markdown/CodeBlock.tsx
+@@ -3,6 +3,12 @@
+ // shiki highlighting for the registered grammars and an identical-geometry
+ // plain fallback for everything else. Chrome (language banner + copy) matches
+ // deepsuite `@deepseek/md` code blocks; token colors stay on `--shiki-*`.
++//
++// Long content (a full video-prompt fence, a pasted source file) collapses to
++// a height-capped window with an expand toggle, so a huge prompt does not
++// flood the chat. The collapse is visual only: the copy control still writes
++// the complete source, and the collapse is line-count based so a short block
++// never gets a toggle.
+ 
+ import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+ import clsx from 'clsx'
+@@ -21,9 +27,27 @@
+   copyLabel?: string | undefined
+   /** Copy-button label during the post-copy confirmation window. */
+   copiedLabel?: string | undefined
++  /** Height cap in content lines before the block collapses (default {@link DEFAULT_CODE_MAX_LINES}); Infinity disables the cap. */
++  maxLines?: number | undefined
++  /** Expand-toggle text while collapsed, given the total line count. */
++  expandLabel?: ((total: number) => string) | undefined
++  /** Collapse-toggle text while expanded. */
++  collapseLabel?: string | undefined
+ }
+ 
+-export function CodeBlock({ code, lang, className, copyLabel = '复制', copiedLabel = '复制成功' }: CodeBlockProps) {
++/** Content lines shown before a long code block collapses to a capped window. */
++export const DEFAULT_CODE_MAX_LINES = 20
++
++export function CodeBlock({
++  code,
++  lang,
++  className,
++  copyLabel = '复制',
++  copiedLabel = '复制成功',
++  maxLines = DEFAULT_CODE_MAX_LINES,
++  expandLabel = total => `展开全部 ${total} 行`,
++  collapseLabel = '收起',
++}: CodeBlockProps) {
+   const trimmed = code.endsWith('\n') ? code.slice(0, -1) : code
+   // Re-render when a lazy grammar finishes loading, so a fence that showed plain
+   // text while its language's grammar imported picks up highlighting. The
+@@ -32,6 +56,7 @@
+   const html = useMemo(() => highlightToHtml(trimmed, lang), [trimmed, lang, loaded])
+   const rootRef = useRef<HTMLDivElement>(null)
+   const [copied, setCopied] = useState(false)
++  const [expanded, setExpanded] = useState(false)
+ 
+   const onCopy = useCallback(() => {
+     if (copied) return
+@@ -45,6 +70,15 @@
+     })
+   }, [copied, trimmed])
+ 
++  const onToggle = useCallback(() => { setExpanded(value => !value) }, [])
++
++  // Collapse decision is line-count based (a long prompt / pasted file), never
++  // a pixel measure, so it is stable across widths and does not fire for short
++  // blocks. Infinity (an explicit opt-out) never collapses.
++  const lineCount = useMemo(() => trimmed.split('\n').length, [trimmed])
++  const collapsible = Number.isFinite(maxLines) && lineCount > maxLines
++  const collapsed = collapsible && !expanded
++
+   const body = html === undefined
+     ? (
+       <pre className={css.plain}><code>{trimmed}</code></pre>
+@@ -57,7 +91,12 @@
+     )
+ 
+   return (
+-    <div ref={rootRef} className={clsx(css.block, 'md-code-block', className)}>
++    <div
++      ref={rootRef}
++      className={clsx(css.block, 'md-code-block', className)}
++      data-collapsible={collapsible || undefined}
++      data-collapsed={collapsed || undefined}
++    >
+       <div className={css.bannerWrap}>
+         <div className={css.banner}>
+           <div className={css.infostring}>{lang ?? ''}</div>
+@@ -68,7 +107,20 @@
+           </div>
+         </div>
+       </div>
+-      {body}
++      <div className={collapsed ? css.bodyCollapsed : undefined}>
++        {body}
++      </div>
++      {collapsible && (
++        <button
++          type="button"
++          className={css.expand}
++          aria-expanded={expanded}
++          aria-label={expanded ? collapseLabel : expandLabel(lineCount)}
++          onClick={onToggle}
++        >
++          {expanded ? collapseLabel : expandLabel(lineCount)}
++        </button>
++      )}
+     </div>
+   )
+ }
+--- a/packages/client/ui-primitives/src/markdown/CodeBlock.module.css
++++ b/packages/client/ui-primitives/src/markdown/CodeBlock.module.css
+@@ -94,3 +94,43 @@
+ .plain {
+   color: var(--dsw-alias-label-primary);
+ }
++
++/* Collapse: a long block (a full prompt fence, a pasted source file) caps to a
++   fixed-height window with a fade and an expand toggle, so it does not flood
++   the chat. The collapse is purely visual — the copy control still reads the
++   complete <pre> text, and the block is line-count gated so short blocks never
++   collapse. */
++.bodyCollapsed {
++  max-height: 400px;
++  overflow: hidden;
++  position: relative;
++}
++
++.bodyCollapsed::after {
++  content: '';
++  position: absolute;
++  left: 0;
++  right: 0;
++  bottom: 0;
++  height: 48px;
++  background: linear-gradient(to bottom, transparent, var(--dsw-alias-markdown-code-block));
++  pointer-events: none;
++}
++
++.expand {
++  display: block;
++  width: 100%;
++  padding: 10px 16px;
++  border: none;
++  background-color: var(--dsw-alias-markdown-code-block);
++  color: var(--dsw-alias-label-tertiary);
++  cursor: pointer;
++  font: inherit;
++  text-align: center;
++  border-bottom-left-radius: var(--dsl-code-block-border-radius);
++  border-bottom-right-radius: var(--dsl-code-block-border-radius);
++}
++
++.expand:hover {
++  color: var(--dsw-alias-label-secondary);
++}
