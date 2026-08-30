@@ -36,6 +36,32 @@ const MAX_RESOLUTION_FOR: Readonly<Record<string, ImageResolution>> = {
 }
 const RESOLUTION_ORDER: Readonly<Record<ImageResolution, number>> = { '4K': 3, '2K': 2, '1K': 1 }
 
+/**
+ * KIE capabilities whose image-to-image is the SAME model id with an
+ * image-reference field, rather than a distinct i2i capability id using
+ * `input_urls` (GPT Image / Seedream / Flux use the distinct-id protocol).
+ * The Nano Banana series takes reference images inline: Nano Banana Pro and
+ * Nano Banana 2 via `image_input`, Nano Banana 2 Lite via `image_urls`.
+ * Keyed by the text-to-image model id; the value is the input field that
+ * carries the reference image URLs. When the current model is keyed here,
+ * image-to-image reuses `model` and this field — no `imageToImageModel`
+ * required, which matches how Gemini-family models expose editing/i2i.
+ */
+const SAME_MODEL_I2I_FIELD: Readonly<Record<string, string>> = {
+  'nano-banana-pro': 'image_input',
+  'nano-banana-2': 'image_input',
+  'nano-banana-2-lite': 'image_urls',
+}
+
+/**
+ * The same-model i2i reference field for a KIE capability id, or `undefined`
+ * when that capability uses the distinct i2i capability id protocol
+ * (`imageToImageModel` + `input_urls`, like GPT Image / Seedream / Flux).
+ */
+export function kieSameModelI2iField(model: string): string | undefined {
+  return SAME_MODEL_I2I_FIELD[model]
+}
+
 /** Highest resolution tier KIE supports for a given aspect ratio. */
 export function kieMaxResolution(aspectRatio: string): ImageResolution {
   return MAX_RESOLUTION_FOR[aspectRatio] ?? '4K'
@@ -89,15 +115,21 @@ export class KieProvider implements GenerationProvider {
     const isImageToImage = references.length > 0
     const aspectRatio = this.resolveAspectRatio(request)
     const resolution = this.resolveResolution(request.resolution ?? '4K', aspectRatio)
-    const taskId = isImageToImage
-      ? await this.submitImageToImage(signal, references, request.prompt, aspectRatio, resolution)
-      : await this.submit(signal, model, { prompt: request.prompt, aspect_ratio: aspectRatio, resolution })
+    let taskId: string
+    let usedModel = model
+    if (isImageToImage) {
+      const submitted = await this.submitImageToImage(signal, references, request.prompt, aspectRatio, resolution, model)
+      taskId = submitted.taskId
+      usedModel = submitted.model
+    } else {
+      taskId = await this.submit(signal, model, { prompt: request.prompt, aspect_ratio: aspectRatio, resolution })
+    }
     const urls = await this.resolveDownloadUrls(await this.poll(signal, taskId), signal)
     const { width, height } = resolutionAspectPixels(resolution, aspectRatio)
     return {
       images: urls.map((url, index) => ({ index, url, width, height, prompt: request.prompt })),
       provider: this.id,
-      model: isImageToImage ? (this.options.imageToImageModel || model) : model,
+      model: usedModel,
     }
   }
 
@@ -137,28 +169,51 @@ export class KieProvider implements GenerationProvider {
     return { model }
   }
 
-  /** Submit an i2i task against the configured image-to-image capability. */
+  /** Submit an i2i task. Two protocols: a same-model inline reference field
+   *  (Nano Banana series — `image_input` / `image_urls`, reuse `model`) or a
+   *  distinct i2i capability id (GPT Image / Seedream / Flux — `input_urls`,
+   *  via `imageToImageModel`). Returns the taskId and the model id actually
+   *  submitted, so the result metadata names the right capability. */
   private async submitImageToImage(
     signal: AbortSignal,
     references: readonly string[],
     prompt: string,
     aspectRatio: string,
     resolution: ImageResolution,
-  ): Promise<string> {
-    const i2iModel = this.options.imageToImageModel
-    if (i2iModel === undefined || i2iModel === '') {
-      throw new Error(`${this.id}: 图生图需要配置 imageToImageModel（如 gpt-image-2-image-to-image）`)
-    }
+    model: string,
+  ): Promise<{ taskId: string; model: string }> {
     const inputUrls: string[] = []
     for (const reference of references) {
       inputUrls.push(await this.resolveToPublicUrl(reference, signal))
     }
-    return await this.submit(signal, i2iModel, {
-      prompt,
-      input_urls: inputUrls,
-      aspect_ratio: aspectRatio,
-      resolution,
-    })
+    // Same-model inline reference (Nano Banana series): reuse `model` and the
+    // model's own reference field, no `imageToImageModel` needed. Nano Banana
+    // 2 Lite has no `resolution` field (server defaults to 1K), so it is
+    // omitted for that model only.
+    const inlineField = kieSameModelI2iField(model)
+    if (inlineField !== undefined) {
+      const input: Record<string, unknown> = {
+        prompt,
+        [inlineField]: inputUrls,
+        aspect_ratio: aspectRatio,
+      }
+      if (model !== 'nano-banana-2-lite') input.resolution = resolution
+      return { taskId: await this.submit(signal, model, input), model }
+    }
+    // Distinct i2i capability id (GPT Image / Seedream / Flux).
+    const i2iModel = this.options.imageToImageModel
+    if (i2iModel === undefined || i2iModel === '') {
+      throw new Error(`${this.id}: 图生图需要配置 imageToImageModel（如 gpt-image-2-image-to-image）`)
+    }
+    return {
+      taskId: await this.submit(signal, i2iModel, {
+        prompt,
+        input_urls: inputUrls,
+        aspect_ratio: aspectRatio,
+        resolution,
+      }),
+      model: i2iModel,
+    }
   }
 
   /** The aspect ratio to send: the caller's explicit value, else the size

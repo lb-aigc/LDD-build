@@ -10,7 +10,7 @@ import {
 } from '../src/presets.ts'
 import { createProvider } from '../src/providers/index.ts'
 import { buildText } from '../src/providers/legnext.ts'
-import { kieClampResolution, kieMaxResolution } from '../src/providers/kie.ts'
+import { kieClampResolution, kieMaxResolution, kieSameModelI2iField } from '../src/providers/kie.ts'
 import { aspectRatioToImageSize, resolutionAspectPixels } from '../src/provider.ts'
 
 const emptyOptions = { baseURL: '', model: '', apiKey: 'k', imageToImageModel: '' }
@@ -147,6 +147,18 @@ test('kie i2i requires a configured imageToImageModel', async () => {
     ),
     /imageToImageModel/,
   )
+})
+
+test('kie nano banana series reuses the same model for i2i via inline fields', () => {
+  // Nano Banana Pro / 2 take references via `image_input`, 2 Lite via
+  // `image_urls` — the SAME model id, so no imageToImageModel is required.
+  assert.equal(kieSameModelI2iField('nano-banana-pro'), 'image_input')
+  assert.equal(kieSameModelI2iField('nano-banana-2'), 'image_input')
+  assert.equal(kieSameModelI2iField('nano-banana-2-lite'), 'image_urls')
+  // Distinct i2i capability ids keep the imageToImageModel + input_urls path.
+  assert.equal(kieSameModelI2iField('bytedance/seedream'), undefined)
+  assert.equal(kieSameModelI2iField('gpt-image-2-text-to-image'), undefined)
+  assert.equal(kieSameModelI2iField('flux-2/pro-text-to-image'), undefined)
 })
 
 test('kie resolution degrades per aspect ratio (4K → 2K → 1K)', () => {
