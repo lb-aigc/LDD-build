@@ -50,7 +50,6 @@ export const IMAGE_PRESETS: readonly ClientPreset[] = [
     suggestedModels: [
       // 文生图
       { id: 'gpt-image-2-text-to-image', label: 'GPT Image 2（文生图）' },
-      { id: 'google/nano-banana', label: 'Nano Banana（文生图）' },
       { id: 'nano-banana-pro', label: 'Nano Banana Pro（文生图）' },
       { id: 'nano-banana-2', label: 'Nano Banana 2（文生图）' },
       { id: 'nano-banana-2-lite', label: 'Nano Banana 2 Lite（文生图）' },
