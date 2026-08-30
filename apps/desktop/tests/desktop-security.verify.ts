@@ -17,6 +17,8 @@ test('renderer API is narrow and rejects command/path injection', () => {
     'importOfflineRuntime',
     'rollback',
     'setImageMode',
+    'getDataDirectory',
+    'setDataDirectory',
     'openPluginCenter',
     'retryBoot',
     'openLogDirectory',
