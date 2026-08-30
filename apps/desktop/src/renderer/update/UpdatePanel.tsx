@@ -26,6 +26,7 @@ export function UpdatePanel({ api }: UpdatePanelProps) {
   const [progress, setProgress] = useState<RuntimeProgressEvent | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [dataDirectory, setDataDirectoryState] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -42,6 +43,12 @@ export function UpdatePanel({ api }: UpdatePanelProps) {
       .catch((cause: unknown) => {
         if (active) setError(errorMessage(cause))
       })
+    void api
+      .getDataDirectory()
+      .then((result) => {
+        if (active) setDataDirectoryState(result.dataDirectory)
+      })
+      .catch(() => undefined)
     return () => {
       active = false
       unsubscribe()
@@ -92,6 +99,13 @@ export function UpdatePanel({ api }: UpdatePanelProps) {
     await runAction('image-mode', async () => {
       await api.setImageMode(mode)
       setStatus((current) => (current === null ? current : { ...current, imageMode: mode }))
+    })
+  }
+
+  const changeDataDirectory = async () => {
+    await runAction('data-directory', async () => {
+      const result = await api.setDataDirectory()
+      if (!result.cancelled) setDataDirectoryState(result.dataDirectory)
     })
   }
 
@@ -178,6 +192,25 @@ export function UpdatePanel({ api }: UpdatePanelProps) {
           <option value="standard">普通 · 20 MiB</option>
           <option value="large">高级 · 64 MiB</option>
         </select>
+      </section>
+
+      <section className="settings-card">
+        <div>
+          <h2>数据目录</h2>
+          <p>
+            会话、图片附件、内核与日志的存放位置。
+            {dataDirectory === null
+              ? '当前使用系统盘默认位置。'
+              : `当前：${dataDirectory}`}
+          </p>
+        </div>
+        <button
+          className="button secondary"
+          disabled={busy !== null}
+          onClick={() => void changeDataDirectory()}
+        >
+          {busy === 'data-directory' ? '正在迁移…' : '更改数据目录'}
+        </button>
       </section>
 
       {status.diagnostics.length > 0 ? (

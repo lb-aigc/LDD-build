@@ -14,6 +14,8 @@ describe('renderer IPC contract', () => {
       'importOfflineRuntime',
       'rollback',
       'setImageMode',
+      'getDataDirectory',
+      'setDataDirectory',
       'openPluginCenter',
       'retryBoot',
       'openLogDirectory',

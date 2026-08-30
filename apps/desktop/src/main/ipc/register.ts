@@ -19,6 +19,8 @@ export interface DesktopIpcServices {
   importOfflineRuntime(): Promise<unknown>
   rollback(): Promise<unknown>
   setImageMode(mode: 'standard' | 'large'): Promise<unknown>
+  getDataDirectory(): Promise<{ dataDirectory: string | null }>
+  setDataDirectory(): Promise<{ dataDirectory: string; cancelled: false } | { cancelled: true }>
   openPluginCenter(): Promise<void>
   retryBoot(): Promise<unknown>
   openLogDirectory(): Promise<void>
@@ -43,6 +45,8 @@ export function registerDesktopIpc(
   register(ipcMain, 'setImageMode', async (input) =>
     services.setImageMode((input.value as { mode: 'standard' | 'large' }).mode),
   )
+  register(ipcMain, 'getDataDirectory', async () => services.getDataDirectory())
+  register(ipcMain, 'setDataDirectory', async () => services.setDataDirectory())
   register(ipcMain, 'openPluginCenter', async () => services.openPluginCenter())
   register(ipcMain, 'retryBoot', async () => services.retryBoot())
   register(ipcMain, 'openLogDirectory', async () => services.openLogDirectory())
@@ -81,6 +85,8 @@ function register(
     | 'importOfflineRuntime'
     | 'rollback'
     | 'setImageMode'
+    | 'getDataDirectory'
+    | 'setDataDirectory'
     | 'openPluginCenter'
     | 'retryBoot'
     | 'openLogDirectory'

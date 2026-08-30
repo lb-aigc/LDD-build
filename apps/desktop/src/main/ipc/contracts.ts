@@ -8,6 +8,8 @@ export const rendererApiKeys = [
   'importOfflineRuntime',
   'rollback',
   'setImageMode',
+  'getDataDirectory',
+  'setDataDirectory',
   'openPluginCenter',
   'retryBoot',
   'openLogDirectory',
@@ -27,6 +29,8 @@ export const ipcChannels: Readonly<Record<RendererApiKey, string>> = Object.free
   importOfflineRuntime: 'ldd:runtime:import-offline',
   rollback: 'ldd:runtime:rollback',
   setImageMode: 'ldd:settings:image-mode',
+  getDataDirectory: 'ldd:data:get',
+  setDataDirectory: 'ldd:data:set',
   openPluginCenter: 'ldd:plugins:open-center',
   retryBoot: 'ldd:boot:retry',
   openLogDirectory: 'ldd:logs:open',
@@ -75,6 +79,8 @@ export interface LddRendererApi {
   importOfflineRuntime(): Promise<unknown>
   rollback(): Promise<unknown>
   setImageMode(mode: ImageMode): Promise<unknown>
+  getDataDirectory(): Promise<{ dataDirectory: string | null }>
+  setDataDirectory(): Promise<{ dataDirectory: string; cancelled: false } | { cancelled: true }>
   openPluginCenter(): Promise<void>
   retryBoot(): Promise<unknown>
   openLogDirectory(): Promise<void>
@@ -91,6 +97,8 @@ export type IpcRequest =
   | { readonly method: 'importOfflineRuntime'; readonly value: undefined }
   | { readonly method: 'rollback'; readonly value: undefined }
   | { readonly method: 'setImageMode'; readonly value: { readonly mode: ImageMode } }
+  | { readonly method: 'getDataDirectory'; readonly value: undefined }
+  | { readonly method: 'setDataDirectory'; readonly value: undefined }
   | { readonly method: 'openPluginCenter'; readonly value: undefined }
   | { readonly method: 'retryBoot'; readonly value: undefined }
   | { readonly method: 'openLogDirectory'; readonly value: undefined }
@@ -106,6 +114,8 @@ export function parseIpcRequest(method: InvokeApiKey, value: unknown): IpcReques
     case 'openPluginCenter':
     case 'retryBoot':
     case 'openLogDirectory':
+    case 'getDataDirectory':
+    case 'setDataDirectory':
       requireNoInput(method, value)
       return { method, value: undefined }
     case 'downloadUpdate':

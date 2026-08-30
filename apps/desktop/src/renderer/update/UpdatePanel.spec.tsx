@@ -22,6 +22,8 @@ function apiFixture(): LddRendererApi {
     importOfflineRuntime: vi.fn(),
     rollback: vi.fn(),
     setImageMode: vi.fn(),
+    getDataDirectory: vi.fn().mockResolvedValue({ dataDirectory: null }),
+    setDataDirectory: vi.fn().mockResolvedValue({ dataDirectory: 'D:\\LDD', cancelled: false }),
     openPluginCenter: vi.fn(),
     retryBoot: vi.fn(),
     openLogDirectory: vi.fn(),

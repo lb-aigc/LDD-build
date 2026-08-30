@@ -12,6 +12,8 @@ import type { LddPaths } from '../paths.ts'
 import { writeManagedImagePatch } from '../profile/write-managed-patch.ts'
 import { createVersionBackup } from '../migration/backup.ts'
 import { copyInventory, inventoryTree, verifyInventory } from '../migration/inventory.ts'
+import { migrateDataDirectory } from '../data-migration.ts'
+import { readDataLocation, writeDataLocation } from '../data-location.ts'
 import { readLddSettings, writeLddSettings } from '../settings.ts'
 import { HarnessSupervisor } from '../harness/supervisor.ts'
 import type { HarnessRuntime, HarnessStartOptions } from '../harness/types.ts'
@@ -182,6 +184,31 @@ export class DesktopRuntimeController implements DesktopRuntimePort {
       if (result.kind === 'failure') throw new Error(result.diagnostics.join('\n'))
     }
     return { kind: 'updated', imageMode: mode }
+  }
+
+  async getDataDirectory(): Promise<{ dataDirectory: string | null }> {
+    const location = await readDataLocation(this.#options.paths.locationPath)
+    return { dataDirectory: location.dataDirectory ?? null }
+  }
+
+  async setDataDirectory(newDataDirectory: string): Promise<{ dataDirectory: string }> {
+    // A running Harness holds live session/attachment files; stop it before
+    // copying so the snapshot is consistent.
+    await this.#supervisor.stop()
+    const result = await migrateDataDirectory(
+      {
+        oldDataRoot: this.#options.paths.dataRoot,
+        oldDshHome: this.#options.paths.dshHome,
+        newDataDirectory,
+      },
+      (phase, detail) => { void this.#progress('data-migration', null, detail) },
+    )
+    await writeDataLocation(this.#options.paths.locationPath, {
+      schemaVersion: 1,
+      dataDirectory: result.dataDirectory,
+    })
+    await this.#log(`数据目录已迁移至 ${result.dataDirectory}（重启后生效）`)
+    return { dataDirectory: result.dataDirectory }
   }
 
   async disposeUpdater(): Promise<void> {}

@@ -37,6 +37,8 @@ export interface DesktopRuntimePort {
   importOfflineRuntime(archivePath: string): Promise<unknown>
   rollback(): Promise<BootResult>
   setImageMode(mode: 'standard' | 'large'): Promise<unknown>
+  getDataDirectory(): Promise<{ dataDirectory: string | null }>
+  setDataDirectory(newDataDirectory: string): Promise<{ dataDirectory: string }>
   disposeUpdater(): Promise<void>
   stopHarness(): Promise<void>
 }
@@ -187,6 +189,29 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     return result
   }
 
+  const setDataDirectory = async (): Promise<{ dataDirectory: string; cancelled: false } | { cancelled: true }> => {
+    const selected = await dialog.showOpenDialog(mainWindow, {
+      title: '选择 LDD 数据目录',
+      buttonLabel: '选择此目录',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (selected.canceled || selected.filePaths.length === 0) return { cancelled: true }
+    const dataDirectory = selected.filePaths[0]!
+    await options.runtime.setDataDirectory(dataDirectory)
+    await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: '数据目录已迁移',
+      message: `数据已复制到 ${dataDirectory}，需要重启 LDD 生效。`,
+      detail: '原数据目录仍保留在系统盘，确认无误后可手动删除以释放空间。',
+      buttons: ['立即重启'],
+      defaultId: 0,
+      noLink: true,
+    })
+    app.relaunch()
+    app.exit(0)
+    return { dataDirectory, cancelled: false }
+  }
+
   const unregisterIpc = registerDesktopIpc(ipcMain, {
     getStatus: () => options.runtime.getStatus(),
     checkForUpdates: () => options.runtime.checkForUpdates(),
@@ -195,6 +220,8 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     importOfflineRuntime,
     rollback: rollbackAndLoad,
     setImageMode: (mode) => options.runtime.setImageMode(mode),
+    getDataDirectory: () => options.runtime.getDataDirectory(),
+    setDataDirectory,
     openPluginCenter: async () => shell.openExternal(pluginCenterUrl),
     retryBoot: retryAndLoad,
     openLogDirectory: openLogs,
