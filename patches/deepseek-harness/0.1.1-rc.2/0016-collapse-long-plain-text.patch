@@ -1,0 +1,99 @@
+--- a/packages/client/ui-primitives/src/markdown/CodeBlock.tsx
++++ b/packages/client/ui-primitives/src/markdown/CodeBlock.tsx
+@@ -29,6 +29,8 @@
+   copiedLabel?: string | undefined
+   /** Height cap in content lines before the block collapses (default {@link DEFAULT_CODE_MAX_LINES}); Infinity disables the cap. */
+   maxLines?: number | undefined
++  /** Character cap before the block collapses (default {@link DEFAULT_CODE_MAX_CHARS}); Infinity disables it. */
++  maxChars?: number | undefined
+   /** Expand-toggle text while collapsed, given the total line count. */
+   expandLabel?: ((total: number) => string) | undefined
+   /** Collapse-toggle text while expanded. */
+@@ -37,6 +39,8 @@
+ 
+ /** Content lines shown before a long code block collapses to a capped window. */
+ export const DEFAULT_CODE_MAX_LINES = 20
++/** Characters shown before a long code block collapses (a single long paragraph, a full prompt). */
++export const DEFAULT_CODE_MAX_CHARS = 600
+ 
+ export function CodeBlock({
+   code,
+@@ -45,6 +49,7 @@
+   copyLabel = '复制',
+   copiedLabel = '复制成功',
+   maxLines = DEFAULT_CODE_MAX_LINES,
++  maxChars = DEFAULT_CODE_MAX_CHARS,
+   expandLabel = total => `展开全部 ${total} 行`,
+   collapseLabel = '收起',
+ }: CodeBlockProps) {
+@@ -72,11 +77,13 @@
+ 
+   const onToggle = useCallback(() => { setExpanded(value => !value) }, [])
+ 
+-  // Collapse decision is line-count based (a long prompt / pasted file), never
+-  // a pixel measure, so it is stable across widths and does not fire for short
+-  // blocks. Infinity (an explicit opt-out) never collapses.
++  // Collapse decision is line- or character-count based (a long prompt / pasted
++  // file), never a pixel measure, so it is stable across widths and does not
++  // fire for short blocks. Infinity (an explicit opt-out) never collapses.
+   const lineCount = useMemo(() => trimmed.split('\n').length, [trimmed])
+-  const collapsible = Number.isFinite(maxLines) && lineCount > maxLines
++  const charCount = trimmed.length
++  const collapsible = (Number.isFinite(maxLines) && lineCount > maxLines)
++    || (Number.isFinite(maxChars) && charCount > maxChars)
+   const collapsed = collapsible && !expanded
+ 
+   const body = html === undefined
+--- a/packages/client/ui-primitives/src/markdown/MarkdownText.tsx
++++ b/packages/client/ui-primitives/src/markdown/MarkdownText.tsx
+@@ -15,15 +15,31 @@
+ import type { ReactNode } from 'react'
+ import { IncrementalMarkdownParser } from './incremental.ts'
+ import { parseGfm, parseGfmWithMath } from './parse.ts'
++import { CodeBlock, DEFAULT_CODE_MAX_CHARS, DEFAULT_CODE_MAX_LINES } from './CodeBlock.tsx'
+ import {
+   collectReferenceTargets, createReferenceTargets, renderBlocks, renderFootnoteSection,
+   wrapBlockChildren,
+ } from './render.tsx'
+ import type { MarkdownCodeLabels, MarkdownFileMentions, MarkdownRenderContext, ReferenceTargets } from './render.tsx'
++import type { Root } from 'mdast'
+ import 'katex/dist/katex.min.css'
+ import css from './MarkdownText.module.css'
+ 
+ export type { MarkdownCodeLabels, MarkdownFileMentions } from './render.tsx'
++
++/**
++ * A long, structurally-flat reply (a full prompt, a pasted blob) collapses
++ * into a copyable, height-capped code block so it does not flood the chat.
++ * Only flat paragraph-only documents qualify — a structured reply (headings,
++ * lists, tables, fences) keeps its normal rendering, since those blocks carry
++ * meaning the collapse would flatten away. Applied on the settled render only,
++ * so streaming never jumps between collapsed and expanded.
++ */
++function isCollapsiblePlainText(root: Root, text: string): boolean {
++  if (root.children.length === 0) return false
++  if (!root.children.every(node => node.type === 'paragraph')) return false
++  return text.length > DEFAULT_CODE_MAX_CHARS || text.split('\n').length > DEFAULT_CODE_MAX_LINES
++}
+ 
+ /** One settled full render: parse with math, resolve references, append the footnote section. */
+ function renderSettled(
+@@ -32,6 +48,18 @@
+   fileMentions: MarkdownFileMentions | undefined,
+ ): ReactNode[] {
+   const root = parseGfmWithMath(text)
++  // Long, structurally-flat output (a full prompt, a pasted blob) collapses to
++  // a copyable, height-capped code block so it does not flood the chat. This is
++  // a client-side affordance — it needs no skill or agent output convention.
++  if (isCollapsiblePlainText(root, text)) {
++    return [
++      <CodeBlock
++        code={text}
++        copyLabel={codeLabels?.copyLabel}
++        copiedLabel={codeLabels?.copiedLabel}
++      />,
++    ]
++  }
+   const targets = createReferenceTargets()
+   collectReferenceTargets(root.children, targets)
+   const context: MarkdownRenderContext = {

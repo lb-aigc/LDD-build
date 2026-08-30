@@ -33,9 +33,15 @@ registration API.
 
 `0015-collapse-long-code-blocks.patch` caps a long `CodeBlock` (a full video
 prompt, a pasted source file) to a 400px window with a fade and an expand
-toggle, so a huge prompt does not flood the chat. The collapse is line-count
-gated (over 20 lines) and purely visual — the copy control still writes the
-complete source. This pairs with the generation skills' "emit the prompt in a
-fenced code block" rule: the agent wraps a long prompt in a fence, and this
-patch turns that fence into a collapse-on-open, copy-on-click unit.
+toggle, so a huge prompt does not flood the chat. The collapse is purely visual
+— the copy control still writes the complete source.
+
+`0016-collapse-long-plain-text.patch` makes the collapse a client-side
+affordance rather than an agent convention: `MarkdownText` collapses a long,
+structurally-flat reply (paragraph-only, over 600 chars or 20 lines) into a
+copyable, height-capped code block automatically, so any skill or plain reply
+that emits a long blob of text gets the same collapse-on-open, copy-on-click
+treatment with no per-skill instruction. It also extends `CodeBlock`'s collapse
+trigger with a character-count dimension so a single long paragraph collapses
+the same as many short lines.
 
