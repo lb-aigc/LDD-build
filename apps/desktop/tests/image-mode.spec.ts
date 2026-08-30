@@ -37,7 +37,10 @@ describe('LDD image modes', () => {
     expect(first).toContain('timeoutMs: 600000')
     expect(first).toMatch(/createRequire\(baseUrl\).*package\.json/)
     expect(first).toContain('maxImageBytes: 20971520')
-    expect(first).toContain('normalizedImageMaxBytes: 4194304')
+    // Generated 4K images must survive normalization so the user can download
+    // the original: long edge up to 4096px, encoded bytes up to 20MiB.
+    expect(first).toContain('normalizedImageMaxDimension: 4096')
+    expect(first).toContain('normalizedImageMaxBytes: 20971520')
     expect(first).not.toMatch(/(api[_-]?key|password|authorization|access[_-]?token|secret)\s*[:=]/i)
   })
 
