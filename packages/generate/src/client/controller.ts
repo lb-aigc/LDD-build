@@ -13,7 +13,16 @@ import type {
   SnapshotStore,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
-import { DEFAULT_PROVIDER, routeKeyOf } from './presets.ts'
+import {
+  DEFAULT_PROVIDER,
+  IMAGE_PRESETS,
+  VIDEO_PRESETS,
+  defaultApiKeyEnvOf,
+  firstModelOf,
+  i2iModelOf,
+  routeKeyOf,
+} from './presets.ts'
+import type { ClientPreset } from './presets.ts'
 
 /** One model row's persisted fields (written to `settings.models`). */
 export interface ModelDraft {
@@ -184,6 +193,10 @@ export class GenerateSettingsController {
     })
   }
 
+  private get presets(): readonly ClientPreset[] {
+    return this.kind === 'image' ? IMAGE_PRESETS : VIDEO_PRESETS
+  }
+
   private projection(): GenerationCardState {
     const snapshot = this.scope.getSnapshot()
     return {
@@ -215,6 +228,18 @@ export class GenerateSettingsController {
         const model = this.staged.models[index]
         if (model === undefined) return
         model[field] = text
+        if (field === 'provider') {
+          const preset = this.presets.find((p) => p.id === text)
+          model.apiKeyEnv = preset === undefined ? '' : defaultApiKeyEnvOf(preset)
+          // A different provider has a different model namespace; seed the
+          // first suggestion and its i2i counterpart instead of keeping a
+          // stale model id from the previous provider.
+          model.model = preset === undefined ? '' : firstModelOf(preset)
+          model.imageToImageModel = preset === undefined || model.model === '' ? '' : i2iModelOf(preset, model.model)
+        } else if (field === 'model') {
+          const preset = this.presets.find((p) => p.id === model.provider)
+          model.imageToImageModel = preset === undefined ? '' : i2iModelOf(preset, text)
+        }
         this.failed = false
         this.publish()
       },
