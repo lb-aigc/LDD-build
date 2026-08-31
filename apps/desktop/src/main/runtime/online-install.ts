@@ -112,7 +112,6 @@ export async function installOnlineRuntime(
       'install',
       '--prod',
       '--no-frozen-lockfile',
-      '--save-exact',
     ], { cwd: payload, env: installerEnvironment(options.host) })
     const dshEntry = join(payload, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
     await assertRegularFile(dshEntry, 'installed dsh entry')
