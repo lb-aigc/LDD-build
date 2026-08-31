@@ -42,8 +42,9 @@ describe('data-directory migration', () => {
     await writeFile(join(oldDataRoot, 'settings.json'), '{}')
     // Harness keeps a profiles/node_modules tree with symlinks to the installed
     // runtime (created at boot; recreating them in a copy needs elevation and
-    // fails EPERM on Windows). The migration must skip node_modules entirely
-    // (it is regenerated from manifests), never copying it into the target.
+    // fails EPERM on Windows). The migration must skip the top-level
+    // profiles/node_modules tree entirely (it is regenerated from manifests),
+    // never copying it into the target.
     await writeFile(join(oldDshHome, 'note.txt'), 'hello')
     const profilesNodeModules = join(oldDshHome, 'profiles', 'node_modules', '@anthropic-ai')
     await mkdir(profilesNodeModules, { recursive: true })
@@ -57,6 +58,35 @@ describe('data-directory migration', () => {
       readFile(join(result.dshHome, 'profiles', 'node_modules', '@anthropic-ai', 'sdk'), 'utf8'),
     ).rejects.toThrow()
     expect(await readdir(join(result.dshHome))).toContain('note.txt')
+  })
+
+  it('preserves user-installed profile plugins (profiles/web/node_modules) during migration', async () => {
+    const oldDataRoot = await makeDir('data')
+    const oldDshHome = await makeDir('home')
+    const target = join(await makeDir('target'), 'LDD')
+    await writeFile(join(oldDataRoot, 'settings.json'), '{}')
+    // A real harness home has BOTH the top-level profiles/node_modules runtime
+    // tree (symlinks, skipped) AND a per-profile node_modules holding plugins
+    // the user installed through the plugin center (dshmarket) — the latter is
+    // user data and must survive a data-directory move.
+    const runtimeTree = join(oldDshHome, 'profiles', 'node_modules', '@anthropic-ai')
+    await mkdir(runtimeTree, { recursive: true })
+    await writeFile(join(runtimeTree, 'sdk'), 'runtime-link-target')
+    const webProfile = join(oldDshHome, 'profiles', 'web', 'node_modules', 'dshmarket')
+    await mkdir(webProfile, { recursive: true })
+    await writeFile(join(webProfile, 'package.json'), '{"name":"dshmarket","version":"1.36.0"}')
+    await writeFile(join(oldDshHome, 'profiles', 'web', 'package.json'), '{"dependencies":{"dshmarket":"^1.36.0"}}')
+
+    const result = await migrateDataDirectory({ oldDataRoot, oldDshHome, newDataDirectory: target })
+
+    // The runtime tree is skipped…
+    await expect(
+      readFile(join(result.dshHome, 'profiles', 'node_modules', '@anthropic-ai', 'sdk'), 'utf8'),
+    ).rejects.toThrow()
+    // …but the user's installed plugin survives.
+    expect(
+      await readFile(join(result.dshHome, 'profiles', 'web', 'node_modules', 'dshmarket', 'package.json'), 'utf8'),
+    ).toContain('dshmarket')
   })
 
   it('skips an absent sessions home and still lands app data', async () => {

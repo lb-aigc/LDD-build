@@ -67,15 +67,20 @@ async function walk(
   for (const directoryEntry of directoryEntries) {
     const absolutePath = join(absoluteDirectory, directoryEntry.name)
     const childSegments = [...relativeSegments, directoryEntry.name]
-    // Profile node_modules trees are installation-owned and regenerated from
-    // their manifests/locks. They also contain Harness-created symlinks to the
-    // active runtime, which must never be copied into a data backup or health
-    // probe for another candidate runtime.
-    if (directoryEntry.name === 'node_modules') continue
     const relativePath = childSegments.join('/')
+    // The TOP-LEVEL profiles/node_modules tree is installation-owned: Harness
+    // recreates it at boot as symlinks to the active runtime, so it must never
+    // be copied into a backup or another candidate's data. Deeper node_modules
+    // dirs (profiles/*/node_modules) hold user-installed profile plugins (e.g.
+    // the dshmarket plugin center) and MUST be preserved.
+    if (relativePath === 'profiles/node_modules') continue
     const metadata = await lstat(absolutePath)
     if (metadata.isSymbolicLink()) {
-      throw new Error(`link-shaped Harness data entry is not allowed: ${relativePath}`)
+      // Link-shaped entries (pnpm junctions / Harness runtime links) must not
+      // be materialized into a copy; skip them rather than failing the whole
+      // tree. Symlinked directories are skipped here; plain symlinked files
+      // never reach the file branch below.
+      continue
     }
     if (metadata.isDirectory()) {
       output.push({ kind: 'directory', path: relativePath })
