@@ -72,15 +72,12 @@ async function walk(
     // recreates it at boot as symlinks to the active runtime, so it must never
     // be copied into a backup or another candidate's data. Deeper node_modules
     // dirs (profiles/*/node_modules) hold user-installed profile plugins (e.g.
-    // the dshmarket plugin center) and MUST be preserved.
+    // the dshmarket plugin center) and MUST be preserved — they contain no
+    // link-shaped entries, so the refusal below still applies to them.
     if (relativePath === 'profiles/node_modules') continue
     const metadata = await lstat(absolutePath)
     if (metadata.isSymbolicLink()) {
-      // Link-shaped entries (pnpm junctions / Harness runtime links) must not
-      // be materialized into a copy; skip them rather than failing the whole
-      // tree. Symlinked directories are skipped here; plain symlinked files
-      // never reach the file branch below.
-      continue
+      throw new Error(`link-shaped Harness data entry is not allowed: ${relativePath}`)
     }
     if (metadata.isDirectory()) {
       output.push({ kind: 'directory', path: relativePath })
