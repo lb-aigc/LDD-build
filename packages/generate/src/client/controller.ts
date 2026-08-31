@@ -34,11 +34,16 @@ export interface ModelDraft {
   apiKeyEnv: string
 }
 
-/** A draft row plus a stable front-end id so per-row API keys survive reorder. */
+/** A draft row plus a stable front-end id so per-row edits survive reorder. */
 export interface ModelRow extends ModelDraft {
   readonly uid: number
-  /** Current per-row API-key input (never persisted to settings). */
-  apiKeyText: string
+}
+
+/** The credential reference a row resolves to (its `apiKeyEnv`, or the
+ *  default when blank). All rows with the same ref share ONE API key. */
+export function apiKeyRefOf(model: ModelDraft): string {
+  const ref = model.apiKeyEnv.trim()
+  return ref === '' ? DEFAULT_API_KEY_REF : ref
 }
 
 /** Internal edit shape: a persisted row plus its front-end id. */
@@ -68,6 +73,8 @@ export interface GenerationCardState {
   failed: boolean
   models: ModelRow[]
   defaultKey: string
+  /** API-key input text keyed by credential reference (shared across rows). */
+  apiKeyTexts: Record<string, string>
 }
 
 /** Face the card's slot entry injects (hooks + actions). */
@@ -79,7 +86,7 @@ export interface GenerationCardFace {
   addModel: () => void
   removeModel: (index: number) => void
   setDefault: (index: number) => void
-  setApiKey: (index: number, text: string) => void
+  setApiKey: (ref: string, text: string) => void
   save: () => void
   discard: () => void
 }
@@ -152,8 +159,8 @@ export class GenerateSettingsController {
   private readonly store: SnapshotStore<GenerationCardState>
   private readonly staged: { models: StagedModel[]; defaultKey: string }
   private readonly original: { models: ModelDraft[]; defaultKey: string }
-  /** Per-row API-key text, keyed by the row's stable uid (never persisted to settings). */
-  private readonly apiKeys = new Map<number, string>()
+  /** API-key input text, keyed by credential reference (shared across rows). */
+  private readonly apiKeys = new Map<string, string>()
   private nextUid = 1
   private saving = false
   private failed = false
@@ -206,8 +213,9 @@ export class GenerateSettingsController {
       dirty: this.isDirty(),
       saving: this.saving,
       failed: this.failed,
-      models: this.staged.models.map((m) => ({ ...m, apiKeyText: this.apiKeys.get(m.uid) ?? '' })),
+      models: this.staged.models.map((m) => ({ ...m })),
       defaultKey: this.staged.defaultKey,
+      apiKeyTexts: Object.fromEntries(this.apiKeys),
     }
   }
 
@@ -258,8 +266,7 @@ export class GenerateSettingsController {
       },
       removeModel: (index) => {
         if (this.staged.models.length <= 1) return
-        const [removed] = this.staged.models.splice(index, 1)
-        if (removed !== undefined) this.apiKeys.delete(removed.uid)
+        this.staged.models.splice(index, 1)
         this.failed = false
         this.publish()
       },
@@ -270,10 +277,8 @@ export class GenerateSettingsController {
         this.failed = false
         this.publish()
       },
-      setApiKey: (index, text) => {
-        const model = this.staged.models[index]
-        if (model === undefined) return
-        this.apiKeys.set(model.uid, text)
+      setApiKey: (ref, text) => {
+        this.apiKeys.set(ref, text)
         this.failed = false
         this.publish()
       },
@@ -314,10 +319,8 @@ export class GenerateSettingsController {
       if (defaultChanged) {
         await this.scope.set('default', this.staged.defaultKey)
       }
-      for (const model of this.staged.models) {
-        const text = this.apiKeys.get(model.uid)
-        if (text === undefined || text.trim() === '') continue
-        const ref = model.apiKeyEnv.trim() === '' ? DEFAULT_API_KEY_REF : model.apiKeyEnv.trim()
+      for (const [ref, text] of this.apiKeys) {
+        if (text.trim() === '') continue
         await this.api.credentials.set({ ref, value: text.trim() })
       }
     } catch {
