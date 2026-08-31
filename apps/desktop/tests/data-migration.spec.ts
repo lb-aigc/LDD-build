@@ -35,6 +35,30 @@ describe('data-directory migration', () => {
     expect(await readFile(join(oldDshHome, 'note.txt'), 'utf8')).toBe('hello')
   })
 
+  it('skips Harness node_modules (which holds runtime symlinks) instead of failing', async () => {
+    const oldDataRoot = await makeDir('data')
+    const oldDshHome = await makeDir('home')
+    const target = join(await makeDir('target'), 'LDD')
+    await writeFile(join(oldDataRoot, 'settings.json'), '{}')
+    // Harness keeps a profiles/node_modules tree with symlinks to the installed
+    // runtime (created at boot; recreating them in a copy needs elevation and
+    // fails EPERM on Windows). The migration must skip node_modules entirely
+    // (it is regenerated from manifests), never copying it into the target.
+    await writeFile(join(oldDshHome, 'note.txt'), 'hello')
+    const profilesNodeModules = join(oldDshHome, 'profiles', 'node_modules', '@anthropic-ai')
+    await mkdir(profilesNodeModules, { recursive: true })
+    await writeFile(join(profilesNodeModules, 'sdk'), 'runtime-link-target')
+
+    const result = await migrateDataDirectory({ oldDataRoot, oldDshHome, newDataDirectory: target })
+
+    expect(await readFile(join(result.dshHome, 'note.txt'), 'utf8')).toBe('hello')
+    // node_modules must not be copied into the target.
+    await expect(
+      readFile(join(result.dshHome, 'profiles', 'node_modules', '@anthropic-ai', 'sdk'), 'utf8'),
+    ).rejects.toThrow()
+    expect(await readdir(join(result.dshHome))).toContain('note.txt')
+  })
+
   it('skips an absent sessions home and still lands app data', async () => {
     const oldDataRoot = await makeDir('data')
     const oldDshHome = join(await makeDir('missing'), 'harness') // never created

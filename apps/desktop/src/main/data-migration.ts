@@ -14,6 +14,8 @@
 import { cp, mkdir, readdir, stat } from 'node:fs/promises'
 import { isAbsolute, join, resolve } from 'node:path'
 
+import { copyInventory, inventoryTree } from './migration/inventory.ts'
+
 export interface DataMigrationPaths {
   readonly oldDataRoot: string
   readonly oldDshHome: string
@@ -43,14 +45,26 @@ export async function migrateDataDirectory(
   onProgress?.('validate', `校验目标目录 ${newDataDirectory}`)
   await assertRelocationTarget(newDataDirectory, oldDataRoot, oldDshHome)
 
-  // App data first: it creates the target root and its contents.
+  // App data first: it creates the target root and its contents. The runtime
+  // tree is a pnpm "copy" layout (no symlinks), so a plain cp is safe.
   onProgress?.('copy-app-data', `复制应用数据（内核/日志/缓存）`)
   await mkdir(newDataDirectory, { mode: 0o700, recursive: true })
   await copyTreeIfPresent(oldDataRoot, newDataDirectory)
 
-  // Sessions/attachments land under <target>\harness.
+  // Sessions/attachments land under <target>\harness. The harness home contains
+  // Harness-created symlinks under profiles/node_modules pointing at the
+  // installed runtime; those must never be copied (Windows symlink creation
+  // needs elevation and the trees are regenerated from their manifests on the
+  // next boot). Use the inventory copier, which skips node_modules and rejects
+  // link-shaped entries instead of failing on EPERM.
   onProgress?.('copy-sessions', `复制会话与附件数据`)
-  await copyTreeIfPresent(oldDshHome, join(newDataDirectory, 'harness'))
+  const harnessInventory = await inventoryTree(oldDshHome)
+  const harnessDestination = join(newDataDirectory, 'harness')
+  if (harnessInventory.length === 0) {
+    await mkdir(harnessDestination, { mode: 0o700, recursive: true })
+  } else {
+    await copyInventory(oldDshHome, harnessDestination, harnessInventory)
+  }
 
   onProgress?.('done', '数据目录迁移完成')
   return {
