@@ -106,3 +106,27 @@ test('modelCatalog marks the default and lists strengths', () => {
   assert.match(catalog, /gpt-image: GPT Image/)
   assert.match(catalog, /seedream \(default\): Seedream/)
 })
+
+test('modelCatalog names each concrete KIE model so the agent can route by name', () => {
+  const resolved = resolveModels({
+    models: [
+      { provider: 'kie', model: 'gpt-image-2-text-to-image' },
+      { provider: 'kie', model: 'flux-2/pro-text-to-image' },
+      { provider: 'kie', model: 'z-image' },
+    ],
+    default: 'kie',
+  })
+  const catalog = modelCatalog(resolved, IMAGE_PROVIDER_PRESETS)
+  // Each row names its concrete model, not three identical "KIE" rows.
+  assert.match(catalog, /kie \(default\): KIE（聚合中转） · GPT Image 2（文生图 \+ 图生图）/)
+  assert.match(catalog, /kie#2: KIE（聚合中转） · Flux-2 Pro（文生图 \+ 图生图）/)
+  assert.match(catalog, /kie#3: KIE（聚合中转） · Z-image（文生图）/)
+})
+
+test('modelCatalog falls back to the raw id for an unmapped model', () => {
+  const resolved = resolveModels({
+    models: [{ provider: 'kie', model: 'some-future-model-id' }],
+  })
+  const catalog = modelCatalog(resolved, IMAGE_PROVIDER_PRESETS)
+  assert.match(catalog, /some-future-model-id/)
+})

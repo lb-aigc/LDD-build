@@ -40,7 +40,7 @@ test('presets carry the expected protocol and defaults', () => {
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'seedream')?.protocol, 'volcengine')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'kie')?.protocol, 'kie')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'kie')?.defaultBaseURL, 'https://api.kie.ai')
-  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'kie')?.defaultModel, 'bytedance/seedream')
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'kie')?.defaultModel, 'gpt-image-2-text-to-image')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'legnext')?.protocol, 'legnext')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'legnext')?.defaultBaseURL, 'https://api.legnext.ai/api')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'legnext')?.defaultModel, '8.2')

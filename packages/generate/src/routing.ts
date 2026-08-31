@@ -150,9 +150,16 @@ export function pickProvider(resolved: ResolvedModels, requested: string | undef
 export function modelCatalog(resolved: ResolvedModels, presets: readonly ProviderPreset[]): string {
   return resolved.entries.map((entry) => {
     const preset = findPreset(presets, entry.provider)
-    const label = entry.provider === CUSTOM_PROVIDER_ID
+    const baseLabel = entry.provider === CUSTOM_PROVIDER_ID
       ? `custom (${entry.protocol})`
       : (preset?.label ?? entry.provider)
+    // Aggregators (KIE) expose many models under one provider. Name the
+    // CONCRETE model so the agent can route to a specific one by prompt or
+    // skill; an unknown id falls back to the raw id verbatim.
+    const modelLabel = entry.model === ''
+      ? ''
+      : (preset?.modelLabels?.[entry.model] ?? entry.model)
+    const label = modelLabel === '' ? baseLabel : `${baseLabel} · ${modelLabel}`
     const strengths = preset?.strengths ?? ''
     const isDefault = entry.key === resolved.defaultKey
     const i2i = preset === undefined

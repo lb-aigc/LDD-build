@@ -45,6 +45,14 @@ export interface ProviderPreset {
   /** Whether the protocol supports image-to-image generation. Midjourney relays
    *  are false — their i2i consistency is too poor to be worth exposing. */
   readonly imageToImage: boolean
+  /**
+   * Optional model-id → human label map for aggregators that expose many
+   * models under one provider (e.g. KIE). `modelCatalog` uses it to name each
+   * configured model distinctly, so the agent can route to a SPECIFIC model by
+   * prompt or skill instead of seeing N identical "KIE" rows. Absent (or for
+   * an unknown id) the raw model id is shown verbatim.
+   */
+  readonly modelLabels?: Readonly<Record<string, string>>
 }
 
 export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
@@ -98,9 +106,24 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     label: 'KIE（聚合中转）',
     protocol: 'kie',
     defaultBaseURL: 'https://api.kie.ai',
-    defaultModel: 'bytedance/seedream',
-    strengths: '聚合中转：一个 key 调 Seedream/Nano Banana/GPT Image 等几十个图像模型',
+    defaultModel: 'gpt-image-2-text-to-image',
+    strengths: '聚合中转：一个 key 调 Seedream/Nano Banana/GPT Image/Flux/Grok 等几十个图像模型',
     imageToImage: true,
+    // Concrete model labels so the agent can route to a specific model by name
+    // (the default `provider` arg selects `model`, not a preset-level default).
+    modelLabels: {
+      'gpt-image-2-text-to-image': 'GPT Image 2（文生图 + 图生图）',
+      'nano-banana-pro': 'Nano Banana Pro（文生图 + 图生图）',
+      'nano-banana-2': 'Nano Banana 2（文生图 + 图生图）',
+      'nano-banana-2-lite': 'Nano Banana 2 Lite（文生图 + 图生图）',
+      'bytedance/seedream': 'Seedream 4.0（文生图）',
+      'seedream/5-pro-text-to-image': 'Seedream 5.0 Pro（文生图 + 图生图）',
+      'seedream/5-lite-text-to-image': 'Seedream 5.0 Lite（文生图 + 图生图）',
+      'flux-2/pro-text-to-image': 'Flux-2 Pro（文生图 + 图生图）',
+      'flux-2/flex-text-to-image': 'Flux-2（文生图 + 图生图）',
+      'z-image': 'Z-image（文生图）',
+      'grok-imagine/text-to-image': 'Grok Imagine（文生图 + 图生图）',
+    },
   },
   {
     id: 'legnext',
