@@ -76,11 +76,27 @@ const DISTINCT_I2I_COUNTERPART: Readonly<Record<string, string>> = {
   'seedream/5-lite-text-to-image': 'seedream/5-lite-image-to-image',
   'flux-2/pro-text-to-image': 'flux-2/pro-image-to-image',
   'flux-2/flex-text-to-image': 'flux-2/flex-image-to-image',
+  'grok-imagine/text-to-image': 'grok-imagine/image-to-image',
 }
 
 /** The distinct i2i counterpart for a t2i capability id, or `undefined`. */
 export function kieDistinctI2iCounterpart(model: string): string | undefined {
   return DISTINCT_I2I_COUNTERPART[model]
+}
+
+/**
+ * The reference-image field a distinct i2i capability accepts. GPT Image /
+ * Seedream / Flux use `input_urls`; Grok Imagine's image-to-image endpoint
+ * takes `image_urls` (same field the Nano Banana 2 Lite inline protocol uses).
+ * Defaults to `input_urls` for any capability not listed here.
+ */
+const DISTINCT_I2I_IMAGE_FIELD: Readonly<Record<string, string>> = {
+  'grok-imagine/image-to-image': 'image_urls',
+}
+
+/** The image-reference field for a distinct i2i capability, default `input_urls`. */
+export function kieDistinctI2iImageField(i2iModel: string): string {
+  return DISTINCT_I2I_IMAGE_FIELD[i2iModel] ?? 'input_urls'
 }
 
 /** Highest resolution tier KIE supports for a given aspect ratio. */
@@ -233,7 +249,7 @@ export class KieProvider implements GenerationProvider {
     return {
       taskId: await this.submit(signal, i2iModel, {
         prompt,
-        input_urls: inputUrls,
+        [kieDistinctI2iImageField(i2iModel)]: inputUrls,
         aspect_ratio: aspectRatio,
         resolution,
       }),

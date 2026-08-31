@@ -73,6 +73,8 @@ export const IMAGE_PRESETS: readonly ClientPreset[] = [
       { id: 'seedream/5-lite-text-to-image', label: 'Seedream 5.0 Lite（文生图 + 图生图）', i2iModel: 'seedream/5-lite-image-to-image' },
       { id: 'flux-2/pro-text-to-image', label: 'Flux-2 Pro（文生图 + 图生图）', i2iModel: 'flux-2/pro-image-to-image' },
       { id: 'flux-2/flex-text-to-image', label: 'Flux-2（文生图 + 图生图）', i2iModel: 'flux-2/flex-image-to-image' },
+      { id: 'z-image', label: 'Z-image（文生图）' },
+      { id: 'grok-imagine/text-to-image', label: 'Grok Imagine（文生图 + 图生图）', i2iModel: 'grok-imagine/image-to-image' },
     ],
     defaultApiKeyEnv: 'KIE_API_KEY',
   },

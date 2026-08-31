@@ -10,7 +10,7 @@ import {
 } from '../src/presets.ts'
 import { createProvider } from '../src/providers/index.ts'
 import { buildText } from '../src/providers/legnext.ts'
-import { kieClampResolution, kieDistinctI2iCounterpart, kieMaxResolution, kieSameModelI2iField } from '../src/providers/kie.ts'
+import { kieClampResolution, kieDistinctI2iCounterpart, kieDistinctI2iImageField, kieMaxResolution, kieSameModelI2iField } from '../src/providers/kie.ts'
 import { aspectRatioToImageSize, resolutionAspectPixels } from '../src/provider.ts'
 
 const emptyOptions = { baseURL: '', model: '', apiKey: 'k', imageToImageModel: '' }
@@ -169,9 +169,20 @@ test('kie distinct-i2i models auto-route to their i2i counterpart', () => {
   assert.equal(kieDistinctI2iCounterpart('seedream/5-lite-text-to-image'), 'seedream/5-lite-image-to-image')
   assert.equal(kieDistinctI2iCounterpart('flux-2/pro-text-to-image'), 'flux-2/pro-image-to-image')
   assert.equal(kieDistinctI2iCounterpart('flux-2/flex-text-to-image'), 'flux-2/flex-image-to-image')
+  assert.equal(kieDistinctI2iCounterpart('grok-imagine/text-to-image'), 'grok-imagine/image-to-image')
   // Same-model (Nano Banana) and unknown ids have no distinct counterpart.
   assert.equal(kieDistinctI2iCounterpart('nano-banana-pro'), undefined)
   assert.equal(kieDistinctI2iCounterpart('bytedance/seedream'), undefined)
+  assert.equal(kieDistinctI2iCounterpart('z-image'), undefined)
+})
+
+test('kie distinct-i2i reference field: Grok Imagine uses image_urls, others input_urls', () => {
+  // Grok Imagine's image-to-image endpoint takes `image_urls` (documented in
+  // its "文件上传要求" section), while GPT Image / Seedream / Flux use `input_urls`.
+  assert.equal(kieDistinctI2iImageField('grok-imagine/image-to-image'), 'image_urls')
+  assert.equal(kieDistinctI2iImageField('gpt-image-2-image-to-image'), 'input_urls')
+  assert.equal(kieDistinctI2iImageField('seedream/5-pro-image-to-image'), 'input_urls')
+  assert.equal(kieDistinctI2iImageField('flux-2/pro-image-to-image'), 'input_urls')
 })
 
 test('kie resolution degrades per aspect ratio (4K → 2K → 1K)', () => {
