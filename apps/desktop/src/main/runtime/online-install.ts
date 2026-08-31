@@ -4,6 +4,7 @@ import { copyFile, lstat, mkdir, open, readFile, rename, writeFile } from 'node:
 import { basename, dirname, join, resolve, sep } from 'node:path'
 
 import {
+  runApprovedRuntimeLifecycles,
   wireRuntimeExtensionIntoDsh,
   writePortableRuntimePnpmConfig,
   writeRuntimeMetadata,
@@ -107,12 +108,21 @@ export async function installOnlineRuntime(
 
     await progress(options, 'install', 45, '正在安装精确版本依赖')
     const command = pnpmCommand(options.host)
+    const environment = installerEnvironment(options.host)
+    // `--ignore-scripts` stops pnpm from running every package's postinstall,
+    // which would try to compile native modules (node-pty/koffi) or shell out
+    // to a bare `node` that is not on this compact PATH. The approved native
+    // lifecycles are then run explicitly below with the runtime-host Node's
+    // absolute path (the same scheme the offline runtime build uses), so the
+    // prebuilt binaries are wired up without requiring a compiler toolchain.
     await run(command.executable, [
       ...command.prefix,
       'install',
       '--prod',
       '--no-frozen-lockfile',
-    ], { cwd: payload, env: installerEnvironment(options.host) })
+      '--ignore-scripts',
+    ], { cwd: payload, env: environment })
+    await runApprovedRuntimeLifecycles(payload, environment, run, options.host.nodePath)
     const dshEntry = join(payload, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
     await assertRegularFile(dshEntry, 'installed dsh entry')
     const reported = (await run(options.host.nodePath, [dshEntry, '--version'], {
@@ -340,7 +350,13 @@ async function runCommand(
     child.once('error', reject)
     child.once('close', (code, signal) => {
       if (code === 0) resolveOutput(stdout)
-      else reject(new Error(`runtime command failed (${String(code)}/${String(signal)}): ${stderr.trim()}`))
+      else {
+        // pnpm and some native toolchains print their failure on stdout rather
+        // than stderr; surface whichever channel actually has the message so
+        // the caller can diagnose instead of seeing an empty error.
+        const detail = (stderr.trim() || stdout.trim()).trim()
+        reject(new Error(`runtime command failed (${String(code)}/${String(signal)}): ${detail}`))
+      }
     })
   })
 }

@@ -58,6 +58,7 @@ export async function runApprovedRuntimeLifecycles(
   runtimeRoot: string,
   baseEnvironment: Readonly<NodeJS.ProcessEnv>,
   run: BuildCommandRunner,
+  nodeExecutable: string = process.execPath,
 ): Promise<void> {
   const validated: ValidatedLifecycle[] = []
   for (const policy of approvedRuntimeLifecycles) {
@@ -92,10 +93,10 @@ export async function runApprovedRuntimeLifecycles(
     validated.push({ policy, packageRoot })
   }
 
-  const environment = compactLifecycleEnvironment(runtimeRoot, baseEnvironment)
+  const environment = compactLifecycleEnvironment(runtimeRoot, baseEnvironment, process.platform, nodeExecutable)
   for (const { policy, packageRoot } of validated) {
     try {
-      await run(process.execPath, policy.command.args, {
+      await run(nodeExecutable, policy.command.args, {
         cwd: packageRoot,
         env: environment,
       })
@@ -103,7 +104,7 @@ export async function runApprovedRuntimeLifecycles(
       if (policy.fallback !== 'node-gyp-rebuild') throw error
       const nodeGyp = join(runtimeRoot, 'node_modules', 'node-gyp', 'bin', 'node-gyp.js')
       await assertRegularFile(nodeGyp, 'node-pty fallback node-gyp entry')
-      await run(process.execPath, [nodeGyp, 'rebuild'], {
+      await run(nodeExecutable, [nodeGyp, 'rebuild'], {
         cwd: packageRoot,
         env: environment,
       })

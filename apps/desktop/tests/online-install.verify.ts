@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import test from 'node:test'
 
 import { installOnlineRuntime, type OnlineInstallCommandRunner } from '../src/main/runtime/online-install.ts'
@@ -56,6 +56,23 @@ test('online runtime install applies pnpm portable layout before dependency inst
           version,
           dependencies: {},
         })}\n`)
+        // The online install now runs the approved native lifecycles after a
+        // --ignore-scripts install. Materialize those packages (manifest with
+        // the exact expected script + a stub entry) so the lifecycle runner
+        // validates and "runs" them against the mock.
+        await writeLifecyclePackage(options.cwd, 'esbuild', {
+          postinstall: 'node install.js',
+        }, ['install.js'])
+        await writeLifecyclePackage(options.cwd, 'koffi', {
+          install: 'node ./cnoke.cjs -P . -D src/koffi --prebuild --release',
+        }, ['cnoke.cjs'])
+        await writeLifecyclePackage(options.cwd, 'node-pty', {
+          install: 'node scripts/prebuild.js || node-gyp rebuild',
+          postinstall: 'node scripts/post-install.js',
+        }, ['scripts/prebuild.js', 'scripts/post-install.js'])
+        await writeLifecyclePackage(options.cwd, '@deepseek-ai/dsh-subprocess-local', {
+          postinstall: 'node scripts/ensure-spawn-helper.mjs',
+        }, ['scripts/ensure-spawn-helper.mjs'])
         return ''
       }
       if (args.includes('--version')) return `${version}\n`
@@ -85,6 +102,21 @@ test('online runtime install applies pnpm portable layout before dependency inst
     await rm(parent, { recursive: true, force: true })
   }
 })
+
+async function writeLifecyclePackage(
+  root: string,
+  name: string,
+  scripts: Readonly<Record<string, string>>,
+  entries: readonly string[],
+): Promise<void> {
+  const packageRoot = join(root, 'node_modules', ...name.split('/'))
+  await mkdir(packageRoot, { recursive: true })
+  await writeFile(join(packageRoot, 'package.json'), `${JSON.stringify({ name, scripts })}\n`)
+  for (const entry of entries) {
+    await mkdir(join(packageRoot, dirname(entry)), { recursive: true })
+    await writeFile(join(packageRoot, entry), '')
+  }
+}
 
 function packageTarball(name: string, version: string): Buffer {
   const data = Buffer.from(`${JSON.stringify({ name, version })}\n`, 'utf8')
