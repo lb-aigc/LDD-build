@@ -34,8 +34,8 @@ import {
 import type { SessionsLike } from './file-import.ts'
 import { en, zh } from './locales.ts'
 import { GenerateModelPicker } from './model-picker.tsx'
-import { ModelPickerController } from './model-picker.ts'
-import type { CommandableSessions } from './model-picker.ts'
+import { ModelPickerController } from './model-picker-controller.ts'
+import type { CommandableSessions } from './model-picker-controller.ts'
 
 /** Harness-side hook shape: the conversation service folds staged files into
  *  the prompt text on send, then clears them once the send succeeds. */
