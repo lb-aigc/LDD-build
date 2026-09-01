@@ -185,7 +185,7 @@ export function apply(ctx: ClientContext): void {
     yield ctx.slots.register({
       name: 'conversation.input.generate-model',
       locale: NS,
-      inject: (sessionId: SessionId | undefined) => {
+      inject: (sessionId: SessionId) => {
         pickerController.setSessionId(sessionId)
         return pickerController.inject()
       },

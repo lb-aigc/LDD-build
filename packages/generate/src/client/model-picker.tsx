@@ -8,15 +8,14 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactElement } from 'react'
-import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelPickerFace } from './model-picker.ts'
 import type { GenerateLocaleKey } from './locales.ts'
 
 export type GenerateModelPickerProps =
   PropsRuntime<'conversation.input.generate-model'>
   & PropsLocale<'generate'>
-  & ModelPickerFace
-  & { locked: boolean }
+  & InjectFace<ModelPickerFace>
 
 /** A small image/generate glyph, currentColor so it tints with the button. */
 function GenerateGlyph(): ReactElement {
