@@ -11,6 +11,7 @@ export type GenerateLocaleKey =
   | 'apiKey' | 'apiKeyHint'
   | 'unsaved' | 'save' | 'saving' | 'discard' | 'readOnly' | 'saveFailed'
   | 'fileImport.commandDescription' | 'fileImport.optionLabel' | 'fileImport.optionDetail' | 'fileImport.remove'
+  | 'modelPicker.trigger' | 'modelPicker.default' | 'modelPicker.setDefault'
 
 export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
@@ -42,6 +43,9 @@ export const zh: Record<GenerateLocaleKey, string> = {
   'fileImport.optionLabel': '选择文件',
   'fileImport.optionDetail': '从本地选择文件导入到当前工作区',
   'fileImport.remove': '移除文件卡片',
+  'modelPicker.trigger': '切换生图模型',
+  'modelPicker.default': '默认',
+  'modelPicker.setDefault': '设为默认',
 }
 
 export const en: Record<GenerateLocaleKey, string> = {
@@ -74,4 +78,7 @@ export const en: Record<GenerateLocaleKey, string> = {
   'fileImport.optionLabel': 'Choose file',
   'fileImport.optionDetail': 'Import a local file into the current workspace',
   'fileImport.remove': 'Remove file card',
+  'modelPicker.trigger': 'Switch generation model',
+  'modelPicker.default': 'Default',
+  'modelPicker.setDefault': 'Set default',
 }

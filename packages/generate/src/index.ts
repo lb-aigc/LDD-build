@@ -27,7 +27,7 @@ import {
 } from './settings.ts'
 
 export const name = 'ldd-generate'
-export const inject = ['tools']
+export const inject = ['tools', 'commands']
 
 export interface Config extends GenerationConfig {}
 
@@ -128,6 +128,7 @@ function defineImageTool(
   config: Config,
   secret: { resolve: SecretResolver },
   attachments: { current?: AttachmentStoreLike },
+  sessionOverrides: { get(key: object): string | undefined },
 ) {
   const providerKeys = resolved.entries.map((entry) => entry.key)
   return defineTool({
@@ -175,7 +176,13 @@ function defineImageTool(
     },
     isConcurrencySafe: () => true,
     async execute(args, exec) {
-      const entry = pickProvider(resolved, args.provider)
+      // Priority: an explicit tool `provider` (prompt/skill routing) wins over
+      // a user's per-session button override, which wins over the default.
+      const session = (exec as unknown as { agent?: { session?: object } }).agent?.session
+      const requested = (args.provider !== undefined && args.provider !== '')
+        ? args.provider
+        : (session !== undefined ? sessionOverrides.get(session) : undefined)
+      const entry = pickProvider(resolved, requested)
       const references = await resolveReferenceImages(
         args.inputImages,
         exec as unknown as { agent?: UploadedAgentLike; signal: AbortSignal },
@@ -219,7 +226,12 @@ function defineImageTool(
   })
 }
 
-function defineVideoTool(resolved: ResolvedModels, config: Config, secret: { resolve: SecretResolver }) {
+function defineVideoTool(
+  resolved: ResolvedModels,
+  config: Config,
+  secret: { resolve: SecretResolver },
+  sessionOverrides: { get(key: object): string | undefined },
+) {
   const providerKeys = resolved.entries.map((entry) => entry.key)
   return defineTool({
     name: 'generate_video',
@@ -240,7 +252,11 @@ function defineVideoTool(resolved: ResolvedModels, config: Config, secret: { res
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
-      const entry = pickProvider(resolved, args.provider)
+      const session = (exec as unknown as { agent?: { session?: object } }).agent?.session
+      const requested = (args.provider !== undefined && args.provider !== '')
+        ? args.provider
+        : (session !== undefined ? sessionOverrides.get(session) : undefined)
+      const entry = pickProvider(resolved, requested)
       const provider = await buildProvider(entry, VIDEO_PROVIDER_PRESETS, secret.resolve)
       const durationSeconds = args.durationSeconds === undefined
         ? 5
@@ -268,6 +284,13 @@ export function apply(ctx: Context, config: Config): void {
   let disposeImage: (() => void) | undefined
   let disposeVideo: (() => void) | undefined
 
+  // Per-session generation-model override, set by the composer's
+  // `generate-model` button command and read by the tools. Keyed by the live
+  // Session object (the same reference the command handler and tool execution
+  // both receive for one session), so a button pick routes this session only
+  // and vanishes with it — the settings `default` is never touched.
+  const sessionOverrides = new WeakMap<object, string>()
+
   // Secret resolver: env-only by default, upgraded to the harness credentials
   // service (env + store + .env) when it is present, so the settings card's
   // "API Key" field (credentials store) actually reaches the provider.
@@ -284,11 +307,33 @@ export function apply(ctx: Context, config: Config): void {
     attachments.current = (attCtx as unknown as { attachments: AttachmentStoreLike }).attachments
   })
 
+  // The composer button's slash command: `/<provider-key>` temporarily routes
+  // the current session's generation to that model; `default`/`clear` restores
+  // the settings default. Optional (headless hosts have no command registry).
+  ctx.inject(['commands'], (commandCtx) => {
+    commandCtx.commands?.register({
+      name: 'generate-model',
+      description: '为当前会话临时选择生图模型，或恢复默认',
+      input: { hint: '<provider-key | default>' },
+      recordInput: false,
+      handler: ({ agent, rawInput }) => {
+        const key = rawInput.trim()
+        const session = agent.session as object
+        if (key === '' || key === 'default' || key === 'clear') {
+          sessionOverrides.delete(session)
+          return { kind: 'success', text: '已恢复默认生图模型。' }
+        }
+        sessionOverrides.set(session, key)
+        return { kind: 'success', text: `已临时切换到生图模型「${key}」（仅当前会话，不改默认）。` }
+      },
+    })
+  })
+
   const registerTools = (): void => {
     disposeImage?.()
     disposeVideo?.()
-    disposeImage = ctx.tools.register(defineImageTool(state.image, config, secret, attachments))
-    disposeVideo = ctx.tools.register(defineVideoTool(state.video, config, secret))
+    disposeImage = ctx.tools.register(defineImageTool(state.image, config, secret, attachments, sessionOverrides))
+    disposeVideo = ctx.tools.register(defineVideoTool(state.video, config, secret, sessionOverrides))
   }
   registerTools()
 

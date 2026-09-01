@@ -114,5 +114,21 @@ declare module '@deepseek-ai/cordis' {
   interface Context {
     settings: GenerationSettingsProvider
     credentials: import('./credentials.ts').CredentialsResolveLike
+    /**
+     * Structural face of @deepseek-ai/dsh-commands (kept local so this plugin
+     * adds no dsh-commands import): enough of the registry to register the
+     * composer's `/generate-model` slash command. Optional — headless hosts
+     * compose no command registry.
+     */
+    commands?: {
+      register(definition: {
+        name: string
+        description: string
+        input?: { hint: string }
+        recordInput?: boolean
+        handler: (invocation: { agent: { session: object }; rawInput: string }) =>
+          { kind: 'success' | 'error'; text?: string }
+      }): () => void
+    }
   }
 }

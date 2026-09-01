@@ -126,3 +126,46 @@ export function i2iModelOf(preset: ClientPreset, modelId: string): string {
 export function firstModelOf(preset: ClientPreset): string {
   return preset.suggestedModels[0]?.id ?? ''
 }
+
+/** One selectable generation model (routing key + human label + default flag). */
+export interface PickerModel {
+  readonly key: string
+  readonly label: string
+  readonly isDefault: boolean
+}
+
+/**
+ * Resolve the generate-image settings value into the composer picker's list.
+ * Mirrors the host's routing-key rule (`routeKeyOf` → `provider` / `provider#n`)
+ * and the client preset labels, so a button row shows "KIE（聚合中转） ·
+ * GPT Image 2" rather than a raw capability id. Kept dependency-light (only the
+ * preset table) so it is directly testable under the strip-only verify harness.
+ */
+export function resolvePickerModels(value: {
+  default?: string
+  models?: Array<{ provider?: string; model?: string }>
+} | undefined): { models: PickerModel[]; defaultKey: string } {
+  const v = (value ?? {}) as Record<string, unknown>
+  const rawModels = Array.isArray(v.models) && (v.models as unknown[]).length > 0
+    ? v.models as Array<Record<string, unknown>>
+    : [{ provider: typeof v.provider === 'string' ? v.provider : 'mock' }]
+  const keyed = rawModels.map((entry) => ({
+    provider: typeof entry.provider === 'string' && entry.provider !== '' ? entry.provider : 'mock',
+  }))
+  const models = rawModels.map((entry, index) => {
+    const provider = keyed[index]?.provider ?? 'mock'
+    const key = routeKeyOf(keyed, index)
+    const preset = IMAGE_PRESETS.find((p) => p.id === provider)
+    const modelId = typeof entry.model === 'string' ? entry.model : ''
+    const suggestion = preset?.suggestedModels.find((s) => s.id === modelId)
+    const label = suggestion?.label ?? preset?.label ?? provider
+    return { key, label, isDefault: false }
+  })
+  const defaultKey = typeof v.default === 'string' && v.default !== ''
+    ? v.default
+    : (models[0]?.key ?? 'mock')
+  return {
+    models: models.map((m) => ({ ...m, isDefault: m.key === defaultKey })),
+    defaultKey,
+  }
+}

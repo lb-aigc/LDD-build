@@ -571,6 +571,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0014-send-session-file-notice.patch',
       '0015-collapse-long-code-blocks.patch',
       '0016-collapse-long-plain-text.patch',
+      '0017-generate-model-slot.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -646,10 +647,14 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const inputFilesContract = await readFile(copiedInputFilesSlotContract, 'utf8')
     assert.match(inputFilesContract, /'conversation\.input\.files': \{ kind: 'list'; scope: 'session' \}/u)
     assert.match(inputFilesContract, /\| 'conversation\.input\.files'/u)
+    assert.match(inputFilesContract, /'conversation\.input\.generate-model': \{ kind: 'single'; scope: 'session'; owner: InputControlOwnerProps \}/u)
+    assert.match(inputFilesContract, /\| 'conversation\.input\.generate-model'/u)
     const inputFilesApply = await readFile(copiedInputFilesSlotApply, 'utf8')
     assert.match(inputFilesApply, /'conversation\.input\.files': \{ kind: 'list', scope: 'session' \},/u)
+    assert.match(inputFilesApply, /'conversation\.input\.generate-model': \{ kind: 'single', scope: 'session' \},/u)
     const inputFilesBar = await readFile(copiedInputFilesSlotInputBar, 'utf8')
     assert.match(inputFilesBar, /renderSlot\('conversation\.input\.files', \{\}\)/u)
+    assert.match(inputFilesBar, /renderSlot\('conversation\.input\.generate-model', \{ locked \}\)/u)
     const sendSessionService = await readFile(copiedSendSessionService, 'utf8')
     assert.match(sendSessionService, /injectLddImportedFiles\(session\.sessionId, text\)/u)
     assert.match(sendSessionService, /commitLddImportedFiles\(session\.sessionId\)/u)

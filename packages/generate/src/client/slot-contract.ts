@@ -13,6 +13,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     /** One plugin's card inside the plugin configuration section. */
     'settings.plugin.item': { kind: 'keyed'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
+    /** The composer tool-row generation-model seat (single, session-scoped). */
+    'conversation.input.generate-model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
   }
   interface LocaleNamespaceMap {
     /** The generation-settings card's own copy. */
@@ -23,4 +25,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Owner share of a plugin card (the section supplies nothing). */
 export interface SettingsPluginItemOwnerProps {
   children?: never
+}
+
+/** Owner share of a composer input control seat (the bar supplies its lock). */
+export interface InputControlOwnerProps {
+  locked: boolean
 }

@@ -1,0 +1,45 @@
+--- a/packages/client/ui-conversation/src/client/contract/slots.ts
++++ b/packages/client/ui-conversation/src/client/contract/slots.ts
+@@ -273,6 +273,13 @@
+      * a model here.
+      */
+     'conversation.input.model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
++    /**
++     * The named generation-model seat in the composer tool row, beside the
++     * access control — one occupant, so taking it means rendering the whole
++     * model affordance yourself. Same `locked`-only owner share as the plan
++     * seat.
++     */
++    'conversation.input.generate-model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
+   }
+ 
+   /**
+@@ -609,7 +616,7 @@
+ export type ComposerBarProps =
+   PropsRuntime<'conversation.composer.bar'>
+   & PropsRenderSlots<
+-    'conversation.input.attachments' | 'conversation.input.plan' | 'conversation.input.model' | 'conversation.input.files'
++    'conversation.input.attachments' | 'conversation.input.plan' | 'conversation.input.model' | 'conversation.input.files' | 'conversation.input.generate-model'
+   >
+   & InjectFace<ComposerBarInjected>
+   & PropsLocale<'conversation'>
+--- a/packages/client/ui-conversation/src/client/apply.ts
++++ b/packages/client/ui-conversation/src/client/apply.ts
+@@ -288,6 +288,7 @@
+       'conversation.input.files': { kind: 'list', scope: 'session' },
+       'conversation.input.plan': { kind: 'single', scope: 'session' },
+       'conversation.input.model': { kind: 'single', scope: 'session' },
++      'conversation.input.generate-model': { kind: 'single', scope: 'session' },
+     },
+     inject: (sessionId: SessionId | undefined): ComposerBarInjected => {
+       if (sessionId === undefined) {
+--- a/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
+@@ -787,6 +787,7 @@
+             <div className={css.modes}>
+               {accessSelect}
+               {renderSlot('conversation.input.plan', { locked })}
++              {renderSlot('conversation.input.generate-model', { locked })}
+             </div>
+             {leftItems}
+           </div>

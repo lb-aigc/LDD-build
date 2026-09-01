@@ -33,6 +33,9 @@ import {
 } from './file-import.ts'
 import type { SessionsLike } from './file-import.ts'
 import { en, zh } from './locales.ts'
+import { GenerateModelPicker } from './model-picker.tsx'
+import { ModelPickerController } from './model-picker.ts'
+import type { CommandableSessions } from './model-picker.ts'
 
 /** Harness-side hook shape: the conversation service folds staged files into
  *  the prompt text on send, then clears them once the send succeeds. */
@@ -168,4 +171,24 @@ export function apply(ctx: ClientContext): void {
       removeFile: (id: string) => { removeImportedFile(sessionId, id) },
     }),
   }, FileDock))
+
+  // Composer generation-model button: a single seat in the composer tool row
+  // (beside the access control). The picker reads the configured image models
+  // and issues either a per-session temporary switch (a `/generate-model`
+  // command) or the settings-default write. Works without a sessions service
+  // (headless browser shells) — the command just no-ops.
+  const pickerController = new ModelPickerController(
+    ctx.settingsScope.bind({ namespace: IMAGE_NS }),
+    sessionsService as CommandableSessions | undefined,
+  )
+  ctx.slots.inject('conversation.input.generate-model', function* () {
+    yield ctx.slots.register({
+      name: 'conversation.input.generate-model',
+      locale: NS,
+      inject: (sessionId: SessionId | undefined) => {
+        pickerController.setSessionId(sessionId)
+        return pickerController.inject()
+      },
+    }, GenerateModelPicker)
+  })
 }
