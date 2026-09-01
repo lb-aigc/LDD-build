@@ -278,8 +278,8 @@ export function apply(ctx: Context, config: Config): void {
   // every settings change. `registerTools` disposes and re-registers the two
   // tools so the model-facing `provider` enum and catalog track the list.
   const state = {
-    image: resolveModels(undefined),
-    video: resolveModels(undefined),
+    image: resolveModels(undefined, IMAGE_PROVIDER_PRESETS),
+    video: resolveModels(undefined, VIDEO_PROVIDER_PRESETS),
   }
   let disposeImage: (() => void) | undefined
   let disposeVideo: (() => void) | undefined
@@ -350,8 +350,8 @@ export function apply(ctx: Context, config: Config): void {
       VideoGenerationSettingsSchema,
     )
     const sync = () => {
-      state.image = resolveModels(imageScope.get())
-      state.video = resolveModels(videoScope.get())
+      state.image = resolveModels(imageScope.get(), IMAGE_PROVIDER_PRESETS)
+      state.video = resolveModels(videoScope.get(), VIDEO_PROVIDER_PRESETS)
       registerTools()
     }
     sync()

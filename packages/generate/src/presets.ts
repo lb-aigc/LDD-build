@@ -28,6 +28,17 @@ export const PROVIDER_PROTOCOLS = [
 
 export type ProviderProtocol = (typeof PROVIDER_PROTOCOLS)[number]
 
+/** One capability exposed by an aggregator preset (e.g. KIE's many models). */
+export interface PresetModel {
+  /** The exact capability id sent to the provider. */
+  readonly id: string
+  /** Human label shown in the picker and the agent's catalog. */
+  readonly label: string
+  /** Distinct image-to-image capability id; omitted when the model reuses its
+   *  own id for i2i, or has no i2i at all. */
+  readonly i2iModel?: string
+}
+
 /** A named, user-selectable provider preset shown in the settings card. */
 export interface ProviderPreset {
   /** Stable preset id, stored verbatim in `settings.provider`. */
@@ -46,13 +57,13 @@ export interface ProviderPreset {
    *  are false — their i2i consistency is too poor to be worth exposing. */
   readonly imageToImage: boolean
   /**
-   * Optional model-id → human label map for aggregators that expose many
-   * models under one provider (e.g. KIE). `modelCatalog` uses it to name each
-   * configured model distinctly, so the agent can route to a SPECIFIC model by
-   * prompt or skill instead of seeing N identical "KIE" rows. Absent (or for
-   * an unknown id) the raw model id is shown verbatim.
+   * Aggregator model list. When present, ONE configured entry of this provider
+   * EXPANDS into N routable models (one per capability), so a single API key
+   * reaches every model and the composer picker lists them all. Absent (or for
+   * a non-aggregator), one entry = one model. `defaultModel` is the preset's
+   * first/default capability; `imageToImage` describes the protocol family.
    */
-  readonly modelLabels?: Readonly<Record<string, string>>
+  readonly models?: readonly PresetModel[]
 }
 
 export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
@@ -109,21 +120,22 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultModel: 'gpt-image-2-text-to-image',
     strengths: '聚合中转：一个 key 调 Seedream/Nano Banana/GPT Image/Flux/Grok 等几十个图像模型',
     imageToImage: true,
-    // Concrete model labels so the agent can route to a specific model by name
-    // (the default `provider` arg selects `model`, not a preset-level default).
-    modelLabels: {
-      'gpt-image-2-text-to-image': 'GPT Image 2（文生图 + 图生图）',
-      'nano-banana-pro': 'Nano Banana Pro（文生图 + 图生图）',
-      'nano-banana-2': 'Nano Banana 2（文生图 + 图生图）',
-      'nano-banana-2-lite': 'Nano Banana 2 Lite（文生图 + 图生图）',
-      'bytedance/seedream': 'Seedream 4.0（文生图）',
-      'seedream/5-pro-text-to-image': 'Seedream 5.0 Pro（文生图 + 图生图）',
-      'seedream/5-lite-text-to-image': 'Seedream 5.0 Lite（文生图 + 图生图）',
-      'flux-2/pro-text-to-image': 'Flux-2 Pro（文生图 + 图生图）',
-      'flux-2/flex-text-to-image': 'Flux-2（文生图 + 图生图）',
-      'z-image': 'Z-image（文生图）',
-      'grok-imagine/text-to-image': 'Grok Imagine（文生图 + 图生图）',
-    },
+    // One configured KIE entry expands into all these capabilities: a single
+    // key reaches every model, the composer picker lists them all, and the
+    // agent routes to a specific one by name.
+    models: [
+      { id: 'gpt-image-2-text-to-image', label: 'GPT Image 2（文生图 + 图生图）', i2iModel: 'gpt-image-2-image-to-image' },
+      { id: 'nano-banana-pro', label: 'Nano Banana Pro（文生图 + 图生图）' },
+      { id: 'nano-banana-2', label: 'Nano Banana 2（文生图 + 图生图）' },
+      { id: 'nano-banana-2-lite', label: 'Nano Banana 2 Lite（文生图 + 图生图）' },
+      { id: 'bytedance/seedream', label: 'Seedream 4.0（文生图）' },
+      { id: 'seedream/5-pro-text-to-image', label: 'Seedream 5.0 Pro（文生图 + 图生图）', i2iModel: 'seedream/5-pro-image-to-image' },
+      { id: 'seedream/5-lite-text-to-image', label: 'Seedream 5.0 Lite（文生图 + 图生图）', i2iModel: 'seedream/5-lite-image-to-image' },
+      { id: 'flux-2/pro-text-to-image', label: 'Flux-2 Pro（文生图 + 图生图）', i2iModel: 'flux-2/pro-image-to-image' },
+      { id: 'flux-2/flex-text-to-image', label: 'Flux-2（文生图 + 图生图）', i2iModel: 'flux-2/flex-image-to-image' },
+      { id: 'z-image', label: 'Z-image（文生图）' },
+      { id: 'grok-imagine/text-to-image', label: 'Grok Imagine（文生图 + 图生图）', i2iModel: 'grok-imagine/image-to-image' },
+    ],
   },
   {
     id: 'legnext',

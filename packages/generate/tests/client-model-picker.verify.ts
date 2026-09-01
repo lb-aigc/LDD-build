@@ -3,22 +3,19 @@ import test from 'node:test'
 
 import { resolvePickerModels } from '../src/client/presets.ts'
 
-test('resolvePickerModels lists each configured model with a routing key', () => {
+test('resolvePickerModels expands one KIE entry into every capability', () => {
   const { models, defaultKey } = resolvePickerModels({
-    models: [
-      { provider: 'kie', model: 'gpt-image-2-text-to-image' },
-      { provider: 'kie', model: 'flux-2/pro-text-to-image' },
-      { provider: 'kie', model: 'z-image' },
-    ],
+    models: [{ provider: 'kie', model: 'gpt-image-2-text-to-image' }],
     default: 'kie',
   } as never)
-  assert.equal(models.length, 3)
-  assert.deepEqual(models.map((m) => m.key), ['kie', 'kie#2', 'kie#3'])
-  // Concrete model labels, not three identical "KIE" rows.
+  // A single KIE key lists ALL its models (11 capabilities), not just the one
+  // selected in the settings card.
+  assert.equal(models.length, 11)
+  assert.equal(models[0]!.key, 'kie:gpt-image-2-text-to-image')
   assert.match(models[0]!.label, /GPT Image 2/)
-  assert.match(models[1]!.label, /Flux-2 Pro/)
-  assert.match(models[2]!.label, /Z-image/)
-  assert.equal(defaultKey, 'kie')
+  assert.match(models[1]!.label, /Nano Banana Pro/)
+  // The default resolves from the legacy `kie` form to the concrete key.
+  assert.equal(defaultKey, 'kie:gpt-image-2-text-to-image')
   assert.equal(models[0]!.isDefault, true)
 })
 
@@ -29,14 +26,21 @@ test('resolvePickerModels falls back to a single mock entry when unset', () => {
   assert.equal(defaultKey, 'mock')
 })
 
-test('resolvePickerModels honours an explicit default key', () => {
+test('resolvePickerModels honours a concrete default key', () => {
   const { models } = resolvePickerModels({
-    models: [
-      { provider: 'kie', model: 'gpt-image-2-text-to-image' },
-      { provider: 'kie', model: 'z-image' },
-    ],
-    default: 'kie#2',
+    models: [{ provider: 'kie' }],
+    default: 'kie:z-image',
   } as never)
-  assert.equal(models[1]!.isDefault, true)
+  const zImage = models.find((m) => m.key === 'kie:z-image')
+  assert.equal(zImage?.isDefault, true)
   assert.equal(models[0]!.isDefault, false)
+})
+
+test('resolvePickerModels keeps non-aggregators as one entry each', () => {
+  const { models } = resolvePickerModels({
+    models: [{ provider: 'gpt-image' }, { provider: 'nano-banana' }],
+    default: 'nano-banana',
+  } as never)
+  assert.deepEqual(models.map((m) => m.key), ['gpt-image', 'nano-banana'])
+  assert.equal(models[1]!.isDefault, true)
 })

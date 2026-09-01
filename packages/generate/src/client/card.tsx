@@ -210,7 +210,7 @@ export function GenerateSettingsCard(props: GenerationCardProps): ReactElement |
                 key={model.uid}
                 model={model}
                 index={index}
-                isDefault={routeKeyOf(state.models, index) === state.defaultKey}
+                isDefault={routeKeyOf(state.models, index, presets) === state.defaultKey}
                 disabled={disabled}
                 presets={presets}
                 t={t}

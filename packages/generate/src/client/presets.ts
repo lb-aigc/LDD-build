@@ -31,6 +31,13 @@ export interface ClientPreset {
    * only enters the API key value and picks a model — no manual reference.
    */
   readonly defaultApiKeyEnv?: string
+  /**
+   * True for an AGGREGATOR (KIE): one configured entry + one key reaches EVERY
+   * suggested model, so the composer picker lists them all. False (default)
+   * keeps one entry = one chosen model (a version selector like GPT Image 2
+   * vs 1.5, or an MJ version). Mirrors the Host's `ProviderPreset.models`.
+   */
+  readonly aggregator?: boolean
 }
 
 /** Sentinel value: reveals the protocol/endpoint fields for a manual host. */
@@ -61,6 +68,7 @@ export const IMAGE_PRESETS: readonly ClientPreset[] = [
   {
     id: 'kie',
     label: 'KIE（聚合中转）',
+    aggregator: true,
     // 每个选项标清文生图 + 图生图；i2iModel 让图生图自动路由到对应 capability，
     // 用户无需手动填「图生图模型」。Nano Banana 系列同 id 支持图生图，故无 i2iModel。
     suggestedModels: [
@@ -101,11 +109,23 @@ export const VIDEO_PRESETS: readonly ClientPreset[] = [
 ]
 
 /**
- * Stable routing key for one list entry, mirroring the Host's rule: the preset
- * id is the key; duplicate ids get a `#n` suffix. `default` stores this key.
+ * Stable routing key for one list entry, mirroring the Host's rule. An
+ * AGGREGATOR entry (a preset with `suggestedModels`) keys as `provider:model`
+ * (its chosen default capability); a non-aggregator keys as the preset id with
+ * a `#n` suffix on duplicates. `default` stores this key, so it survives
+ * add/remove/reorder of other rows. Byte-identical to the Host's rule.
  */
-export function routeKeyOf(models: readonly { provider?: string }[], index: number): string {
+export function routeKeyOf(
+  models: readonly { provider?: string; model?: string }[],
+  index: number,
+  presets: readonly ClientPreset[],
+): string {
   const provider = models[index]?.provider || DEFAULT_PROVIDER
+  const preset = presets.find((p) => p.id === provider)
+  if (preset?.aggregator === true && provider !== CUSTOM_PROVIDER_ID) {
+    const modelId = models[index]?.model || preset.suggestedModels[0]!.id
+    return `${provider}:${modelId}`
+  }
   const prior = models
     .slice(0, index)
     .filter((m) => (m.provider || DEFAULT_PROVIDER) === provider).length
@@ -127,6 +147,32 @@ export function firstModelOf(preset: ClientPreset): string {
   return preset.suggestedModels[0]?.id ?? ''
 }
 
+/**
+ * Normalize a stored `default` key into the current routing-key form. The old
+ * provider-level form (`kie`) maps to the entry's concrete model key
+ * (`kie:gpt-image-2-text-to-image`) when the provider is an aggregator; an
+ * already-concrete key or a non-aggregator provider key passes through.
+ * Mirrors the Host's `resolveDefaultKey` so a stale `default` self-heals on
+ * both sides.
+ */
+export function normalizeDefaultKey(
+  rawDefault: string,
+  entries: readonly { provider?: string; model?: string }[],
+  presets: readonly ClientPreset[],
+): string {
+  if (rawDefault === '') return rawDefault
+  // Already a concrete model key (contains ':') → trust it.
+  if (rawDefault.includes(':')) return rawDefault
+  const hit = entries.find((e) => (e.provider || DEFAULT_PROVIDER) === rawDefault)
+  if (hit === undefined) return rawDefault
+  const preset = presets.find((p) => p.id === (hit.provider || DEFAULT_PROVIDER))
+  if (preset?.aggregator === true && hit.provider !== CUSTOM_PROVIDER_ID) {
+    const modelId = hit.model || preset.suggestedModels[0]!.id
+    return `${hit.provider}:${modelId}`
+  }
+  return rawDefault
+}
+
 /** One selectable generation model (routing key + human label + default flag). */
 export interface PickerModel {
   readonly key: string
@@ -136,10 +182,12 @@ export interface PickerModel {
 
 /**
  * Resolve the generate-image settings value into the composer picker's list.
- * Mirrors the host's routing-key rule (`routeKeyOf` → `provider` / `provider#n`)
- * and the client preset labels, so a button row shows "KIE（聚合中转） ·
- * GPT Image 2" rather than a raw capability id. Kept dependency-light (only the
- * preset table) so it is directly testable under the strip-only verify harness.
+ * An AGGREGATOR entry (KIE) expands into every one of its capabilities, so a
+ * single key lists all its models; non-aggregators stay one entry = one model.
+ * Keys mirror the Host (`provider:modelId` for aggregators, `provider` /
+ * `provider#n` otherwise), so a pick routes to the exact same model the tool
+ * would. Kept dependency-light (only the preset table) so it is directly
+ * testable under the strip-only verify harness.
  */
 export function resolvePickerModels(value: {
   default?: string
@@ -151,19 +199,35 @@ export function resolvePickerModels(value: {
     : [{ provider: typeof v.provider === 'string' ? v.provider : 'mock' }]
   const keyed = rawModels.map((entry) => ({
     provider: typeof entry.provider === 'string' && entry.provider !== '' ? entry.provider : 'mock',
+    model: typeof entry.model === 'string' ? entry.model : '',
   }))
-  const models = rawModels.map((entry, index) => {
+  const models: PickerModel[] = []
+  const seenKeys = new Set<string>()
+  rawModels.forEach((entry, index) => {
     const provider = keyed[index]?.provider ?? 'mock'
-    const key = routeKeyOf(keyed, index)
     const preset = IMAGE_PRESETS.find((p) => p.id === provider)
-    const modelId = typeof entry.model === 'string' ? entry.model : ''
-    const suggestion = preset?.suggestedModels.find((s) => s.id === modelId)
-    const label = suggestion?.label ?? preset?.label ?? provider
-    return { key, label, isDefault: false }
+    if (preset?.aggregator === true && provider !== CUSTOM_PROVIDER_ID) {
+      for (const suggestion of preset.suggestedModels) {
+        const key = `${provider}:${suggestion.id}`
+        if (seenKeys.has(key)) continue
+        seenKeys.add(key)
+        models.push({ key, label: suggestion.label, isDefault: false })
+      }
+    } else {
+      const key = routeKeyOf(keyed, index, IMAGE_PRESETS)
+      if (seenKeys.has(key)) return
+      seenKeys.add(key)
+      const modelId = keyed[index]?.model ?? ''
+      const suggestion = preset?.suggestedModels.find((s) => s.id === modelId)
+      const label = suggestion?.label ?? preset?.label ?? provider
+      models.push({ key, label, isDefault: false })
+    }
   })
-  const defaultKey = typeof v.default === 'string' && v.default !== ''
-    ? v.default
-    : (models[0]?.key ?? 'mock')
+  const defaultKey = normalizeDefaultKey(
+    typeof v.default === 'string' ? v.default : '',
+    keyed,
+    IMAGE_PRESETS,
+  ) || models[0]?.key || 'mock'
   return {
     models: models.map((m) => ({ ...m, isDefault: m.key === defaultKey })),
     defaultKey,

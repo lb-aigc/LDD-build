@@ -61,8 +61,16 @@ export function routeKeyOf(raws: readonly RawEntry[], index: number): string {
  * the preference order). A configured `models` array wins; the legacy flat
  * fields upgrade to a single-entry list; empty/unset falls back to one mock
  * entry so the tools stay functional headless.
+ *
+ * An AGGREGATOR entry (a preset with `models`) expands into one routable model
+ * per capability, keyed `provider:modelId`, so a single key reaches every
+ * model and the composer lists them all. Non-aggregators stay one-entry-one-
+ * model keyed by the legacy `routeKeyOf` rule (`provider` / `provider#n`).
  */
-export function resolveModels(raw: GenerationSettings | undefined): ResolvedModels {
+export function resolveModels(
+  raw: GenerationSettings | undefined,
+  presets: readonly ProviderPreset[],
+): ResolvedModels {
   let raws: RawEntry[]
   if (Array.isArray(raw?.models) && raw.models.length > 0) {
     raws = raw.models
@@ -71,20 +79,66 @@ export function resolveModels(raw: GenerationSettings | undefined): ResolvedMode
   } else {
     raws = [{ provider: DEFAULT_PROVIDER }]
   }
-  const entries: RoutedModel[] = raws.map((entry, index) => ({
-    key: routeKeyOf(raws, index),
-    provider: entry.provider || DEFAULT_PROVIDER,
-    protocol: entry.protocol ?? '',
-    model: entry.model ?? '',
-    baseURL: entry.baseURL ?? '',
-    apiKeyEnv: entry.apiKeyEnv ?? '',
-    imageToImageModel: entry.imageToImageModel ?? '',
-  }))
+  const entries: RoutedModel[] = []
+  const seenKeys = new Set<string>()
+  raws.forEach((entry, index) => {
+    const provider = entry.provider || DEFAULT_PROVIDER
+    const preset = findPreset(presets, provider)
+    const models = preset === undefined || provider === CUSTOM_PROVIDER_ID ? undefined : preset.models
+    if (models !== undefined && models.length > 0) {
+      for (const capability of models) {
+        const key = `${provider}:${capability.id}`
+        if (seenKeys.has(key)) continue // de-dupe across repeated same-provider entries
+        seenKeys.add(key)
+        entries.push({
+          key,
+          provider,
+          protocol: entry.protocol ?? '',
+          model: capability.id,
+          baseURL: entry.baseURL ?? '',
+          apiKeyEnv: entry.apiKeyEnv ?? '',
+          imageToImageModel: capability.i2iModel ?? '',
+        })
+      }
+    } else {
+      const key = routeKeyOf(raws, index)
+      seenKeys.add(key)
+      entries.push({
+        key,
+        provider,
+        protocol: entry.protocol ?? '',
+        model: entry.model ?? '',
+        baseURL: entry.baseURL ?? '',
+        apiKeyEnv: entry.apiKeyEnv ?? '',
+        imageToImageModel: entry.imageToImageModel ?? '',
+      })
+    }
+  })
   const first = entries[0]
-  const defaultKey = entries.some((entry) => entry.key === raw?.default)
-    ? (raw?.default as string)
-    : (first?.key ?? DEFAULT_PROVIDER)
+  const defaultKey = resolveDefaultKey(raws, entries, raw?.default, presets) ?? first?.key ?? DEFAULT_PROVIDER
   return { entries, defaultKey }
+}
+
+/** Resolve the settings `default` into a concrete routing key, tolerating the
+ *  old provider-level form (`kie`) by mapping it to the entry's default model. */
+function resolveDefaultKey(
+  raws: readonly RawEntry[],
+  entries: readonly RoutedModel[],
+  rawDefault: string | undefined,
+  presets: readonly ProviderPreset[],
+): string | undefined {
+  if (rawDefault === undefined || rawDefault === '') return undefined
+  if (entries.some((entry) => entry.key === rawDefault)) return rawDefault
+  // Legacy provider-level default: map `kie` → `kie:<that entry's model>`.
+  const hit = raws.find((entry) => (entry.provider || DEFAULT_PROVIDER) === rawDefault)
+  if (hit === undefined) return undefined
+  const provider = hit.provider || DEFAULT_PROVIDER
+  const preset = findPreset(presets, provider)
+  if (preset?.models !== undefined && preset.models.length > 0 && provider !== CUSTOM_PROVIDER_ID) {
+    const modelId = hit.model || preset.defaultModel || preset.models[0]!.id
+    return `${provider}:${modelId}`
+  }
+  return rawDefault
 }
 
 /**
@@ -158,7 +212,7 @@ export function modelCatalog(resolved: ResolvedModels, presets: readonly Provide
     // skill; an unknown id falls back to the raw id verbatim.
     const modelLabel = entry.model === ''
       ? ''
-      : (preset?.modelLabels?.[entry.model] ?? entry.model)
+      : (preset?.models?.find((m) => m.id === entry.model)?.label ?? entry.model)
     const label = modelLabel === '' ? baseLabel : `${baseLabel} · ${modelLabel}`
     const strengths = preset?.strengths ?? ''
     const isDefault = entry.key === resolved.defaultKey

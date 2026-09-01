@@ -20,6 +20,7 @@ import {
   defaultApiKeyEnvOf,
   firstModelOf,
   i2iModelOf,
+  normalizeDefaultKey,
   routeKeyOf,
 } from './presets.ts'
 import type { ClientPreset } from './presets.ts'
@@ -115,7 +116,10 @@ function toRow(entry: unknown, uid: number): StagedModel {
 }
 
 /** Read the current settings snapshot into a staged list plus default key. */
-function readOriginal(snapshot: SettingsScopeSnapshot<GenerationCardSettings>): {
+function readOriginal(
+  snapshot: SettingsScopeSnapshot<GenerationCardSettings>,
+  presets: readonly ClientPreset[],
+): {
   models: StagedModel[]
   defaultKey: string
 } {
@@ -137,9 +141,10 @@ function readOriginal(snapshot: SettingsScopeSnapshot<GenerationCardSettings>): 
   } else {
     models = [toRow({}, uid++)]
   }
-  const defaultKey = typeof value.default === 'string' && value.default !== ''
-    ? value.default
-    : routeKeyOf(models, 0)
+  const rawDefault = typeof value.default === 'string' && value.default !== '' ? value.default : ''
+  const defaultKey = rawDefault === ''
+    ? routeKeyOf(models, 0, presets)
+    : normalizeDefaultKey(rawDefault, models, presets)
   return { models, defaultKey }
 }
 
@@ -170,7 +175,7 @@ export class GenerateSettingsController {
     private readonly api: Pick<IApiClient, 'credentials'>,
     private readonly kind: 'image' | 'video',
   ) {
-    const initial = readOriginal(scope.getSnapshot())
+    const initial = readOriginal(scope.getSnapshot(), this.presets)
     this.original = {
       models: initial.models.map(persistOf),
       defaultKey: initial.defaultKey,
@@ -188,7 +193,7 @@ export class GenerateSettingsController {
       // save() writes the LATEST value instead of clobbering the external edit
       // with the stale value captured at construction time.
       if (!this.isDirty() && !this.saving) {
-        const latest = readOriginal(this.scope.getSnapshot())
+        const latest = readOriginal(this.scope.getSnapshot(), this.presets)
         this.staged.models = latest.models.map((m) => ({ ...m }))
         this.staged.defaultKey = latest.defaultKey
         this.original.models = latest.models.map(persistOf)
@@ -273,7 +278,7 @@ export class GenerateSettingsController {
       setDefault: (index) => {
         const model = this.staged.models[index]
         if (model === undefined) return
-        this.staged.defaultKey = routeKeyOf(this.staged.models, index)
+        this.staged.defaultKey = routeKeyOf(this.staged.models, index, this.presets)
         this.failed = false
         this.publish()
       },
@@ -285,7 +290,7 @@ export class GenerateSettingsController {
       save: () => { void this.save() },
       discard: () => {
         if (!this.isDirty()) return
-        const initial = readOriginal(this.scope.getSnapshot())
+        const initial = readOriginal(this.scope.getSnapshot(), this.presets)
         this.staged.models = initial.models.map((m) => ({ ...m }))
         this.staged.defaultKey = initial.defaultKey
         this.apiKeys.clear()
