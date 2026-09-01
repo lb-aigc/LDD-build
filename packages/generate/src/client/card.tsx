@@ -71,10 +71,15 @@ function ModelRow(props: {
   onEditModel: (index: number, field: EditableModelField, text: string) => void
   onRemove: (index: number) => void
   onSetDefault: (index: number) => void
+  /** Whether THIS row shows the shared API-key input (first row of a ref). */
+  showApiKey: boolean
+  apiKeyText: string
+  onSetApiKey: (ref: string, text: string) => void
 }): ReactElement {
   const { model, index, isDefault, disabled, presets, t } = props
   const isCustom = model.provider === CUSTOM_PROVIDER_ID
   const suggested = presets.find((preset) => preset.id === model.provider)?.suggestedModels ?? []
+  const ref = apiKeyRefOf(model)
   return (
     <div style={{ border: '1px solid var(--dsh-border, #e4e7ec)', borderRadius: '6px', padding: '12px', marginBottom: '10px', background: 'var(--dsh-bg-field, #fff)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
@@ -140,6 +145,21 @@ function ModelRow(props: {
       {isCustom
         ? <Field label={t('apiKeyEnv')} hint={t('apiKeyEnvHint')} value={model.apiKeyEnv} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'apiKeyEnv', text) }} />
         : null}
+      {props.showApiKey
+        ? (
+          <div style={{ marginBottom: '10px' }}>
+            <label style={labelStyle}>{t('apiKey')}</label>
+            <input
+              type="password"
+              style={inputStyle}
+              value={props.apiKeyText}
+              disabled={disabled}
+              placeholder={t('apiKeyHint')}
+              onChange={(event) => { props.onSetApiKey(ref, event.target.value) }}
+            />
+          </div>
+        )
+        : null}
     </div>
   )
 }
@@ -155,16 +175,17 @@ export function GenerateSettingsCard(props: GenerationCardProps): ReactElement |
   const canSave = state.dirty && !state.saving && state.writable
   const presets = state.kind === 'image' ? IMAGE_PRESETS : VIDEO_PRESETS
 
-  // Deduplicate API-key inputs by credential reference: every row resolves its
-  // key through apiKeyRefOf(model), and rows sharing a ref (e.g. all KIE models
-  // → KIE_API_KEY) show ONE key field instead of one per row.
-  const keyGroups: { ref: string; label: string }[] = []
-  for (const model of state.models) {
+  // API-key inputs sit INLINE in the first row of each credential reference, so
+  // the key field lives in the same form as the provider that uses it (KIE →
+  // one key field right under the KIE model row). Rows that share a ref (extra
+  // KIE models) reuse the first row's key and show no duplicate input.
+  const seenRefs = new Set<string>()
+  const firstRefRow = state.models.map((model) => {
     const ref = apiKeyRefOf(model)
-    if (keyGroups.some((group) => group.ref === ref)) continue
-    const preset = presets.find((p) => p.defaultApiKeyEnv === ref)
-    keyGroups.push({ ref, label: preset ? preset.label : ref })
-  }
+    if (seenRefs.has(ref)) return null
+    seenRefs.add(ref)
+    return ref
+  })
 
   return (
     <li style={{ listStyle: 'none', border: '1px solid var(--dsh-border, #e4e7ec)', borderRadius: '8px', marginBottom: '8px', background: 'var(--dsh-bg-card, #fff)' }}>
@@ -196,6 +217,9 @@ export function GenerateSettingsCard(props: GenerationCardProps): ReactElement |
                 onEditModel={props.editModel}
                 onRemove={props.removeModel}
                 onSetDefault={props.setDefault}
+                showApiKey={firstRefRow[index] !== null && firstRefRow[index] !== undefined}
+                apiKeyText={firstRefRow[index] !== null && firstRefRow[index] !== undefined ? (state.apiKeyTexts[firstRefRow[index] as string] ?? '') : ''}
+                onSetApiKey={props.setApiKey}
               />
             ))}
             <button
@@ -206,28 +230,6 @@ export function GenerateSettingsCard(props: GenerationCardProps): ReactElement |
             >
               {t('addModel')}
             </button>
-            {keyGroups.length > 0
-              ? (
-                <div style={{ border: '1px solid var(--dsh-border, #e4e7ec)', borderRadius: '6px', padding: '12px', marginTop: '10px', background: 'var(--dsh-bg-field, #fff)' }}>
-                  {keyGroups.map((group) => (
-                    <div key={group.ref} style={{ marginBottom: keyGroups.length > 1 ? '10px' : '0' }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' }}>
-                        <label style={labelStyle}>{t('apiKey')}</label>
-                        <span style={{ fontSize: '11px', color: 'var(--dsh-fg-muted, #667085)' }}>{group.label}</span>
-                      </div>
-                      <input
-                        type="password"
-                        style={inputStyle}
-                        value={state.apiKeyTexts[group.ref] ?? ''}
-                        disabled={disabled}
-                        placeholder={t('apiKeyHint')}
-                        onChange={(event) => { props.setApiKey(group.ref, event.target.value) }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )
-              : null}
             {state.failed
               ? <p style={{ fontSize: '12px', color: '#b42318' }}>{t('saveFailed')}</p>
               : null}
