@@ -572,6 +572,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0015-collapse-long-code-blocks.patch',
       '0016-collapse-long-plain-text.patch',
       '0017-generate-model-slot.patch',
+      '0018-count-imported-files.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)

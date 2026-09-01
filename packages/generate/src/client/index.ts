@@ -27,9 +27,11 @@ import { FileDock } from './file-dock.tsx'
 import {
   clearImportedFiles,
   describeImportedFiles,
+  hasImportedFiles,
   importFilesIntoWorkspace,
   importWorkspaceFiles,
   removeImportedFile,
+  subscribeImportedFiles,
 } from './file-import.ts'
 import type { SessionsLike } from './file-import.ts'
 import { en, zh } from './locales.ts'
@@ -38,10 +40,14 @@ import { ModelPickerController } from './model-picker-controller.ts'
 import type { CommandableSessions } from './model-picker-controller.ts'
 
 /** Harness-side hook shape: the conversation service folds staged files into
- *  the prompt text on send, then clears them once the send succeeds. */
+ *  the prompt text on send, then clears them once the send succeeds. The
+ *  `hasFiles`/`subscribeFiles` pair lets the upstream composer's "can submit"
+ *  test count non-image files (so a video-only draft is sendable). */
 interface LddFileHooks {
   readonly inject?: (sessionId: SessionId, text: string) => string
   readonly commit?: (sessionId: SessionId) => void
+  readonly hasFiles?: (sessionId: SessionId) => boolean
+  readonly subscribeFiles?: (cb: () => void) => () => void
 }
 
 declare global {
@@ -74,6 +80,8 @@ export function apply(ctx: ClientContext): void {
     commit: (sessionId: SessionId): void => {
       clearImportedFiles(sessionId)
     },
+    hasFiles: (sessionId: SessionId): boolean => hasImportedFiles(sessionId),
+    subscribeFiles: (cb: () => void): (() => void) => subscribeImportedFiles(cb),
   }
 
   const image = new GenerateSettingsController(

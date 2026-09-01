@@ -1,0 +1,56 @@
+--- a/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
+@@ -6,7 +6,7 @@
+  * region-slot content) ride the owner props. Session facts
+  * (running/removed/promptError) are self-selected via useSession. */
+ 
+-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
++import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+ import type { ChangeEvent, KeyboardEvent, MouseEvent, ReactNode } from 'react'
+ import clsx from 'clsx'
+ import {
+@@ -22,6 +22,7 @@
+ // api-remotes import already places it in every client program.
+ import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
+ import type { ComposerBarProps } from '../contract/slots.ts'
++import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+ import { deriveDecorations } from '../input/decorations.ts'
+ import type { DraftDecorations } from '../input/decorations.ts'
+ import type { EditRange } from '../input/contract.ts'
+@@ -34,6 +35,26 @@
+ 
+ /** Decoration product of the no-session state (no machine, empty draft). */
+ const INERT_DECORATIONS: DraftDecorations = { token: null, chips: [], textRefs: [], hint: null }
++
++/**
++ * LDD file-import bridge (upstream patch 0018): the composer's "can submit"
++ * test counts non-image files so a video-only draft is sendable. The generate
++ * plugin wires `__lddFileHooks.hasFiles` / `subscribeFiles`; absent in a stock
++ * Harness build this reads false and the composer behaves exactly as before.
++ */
++interface LddFileHooks {
++  readonly hasFiles?: (sessionId: SessionId | undefined) => boolean
++  readonly subscribeFiles?: (cb: () => void) => () => void
++}
++function lddFileHooks(): LddFileHooks {
++  return (globalThis as { __lddFileHooks?: LddFileHooks }).__lddFileHooks ?? {}
++}
++function useImportedFileCount(sessionId: SessionId | undefined): boolean {
++  return useSyncExternalStore(
++    (cb) => lddFileHooks().subscribeFiles?.(cb) ?? (() => {}),
++    () => lddFileHooks().hasFiles?.(sessionId) ?? false,
++  )
++}
+ 
+ /** The selection and edit family a `beforeinput` recorded, with the draft length it applied to. */
+ interface PendingEdit {
+@@ -105,7 +126,8 @@
+     () => input === undefined || draftImages === undefined ? [] : draftImages(input.imageIds),
+     [draftImages, input?.imageIds],
+   )
+-  const empty = draft.trim() === '' && attachments.length === 0
++  const importedFiles = useImportedFileCount(sessionId)
++  const empty = draft.trim() === '' && attachments.length === 0 && !importedFiles
+   // Transient error banner (machine notices, image-intake rejections, and
+   // prompt failures): the seq keys the Toast so an identical repeated message
+   // restarts the hold-then-fade cycle instead of reusing the faded one.

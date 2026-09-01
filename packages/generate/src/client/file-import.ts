@@ -113,6 +113,16 @@ export function useImportedFiles(sessionId: SessionId): readonly ImportedFile[] 
   return useSyncExternalStore(subscribeFiles, () => snapshot(sessionId))
 }
 
+/** Whether one session currently has any staged non-image files. */
+export function hasImportedFiles(sessionId: SessionId): boolean {
+  return snapshot(sessionId).length > 0
+}
+
+/** Subscribe to the imported-file list changes (module-wide). */
+export function subscribeImportedFiles(cb: () => void): () => void {
+  return subscribeFiles(cb)
+}
+
 /** Remove one imported file card (the file stays in the workspace). */
 export function removeImportedFile(sessionId: SessionId, id: string): void {
   const current = filesBySession.get(sessionId)
