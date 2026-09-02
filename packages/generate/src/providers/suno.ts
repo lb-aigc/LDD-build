@@ -12,7 +12,9 @@ const RETRY_BASE_MS = 1000
  * endpoint protocol, distinct from the image/video `createTask` path:
  *
  *   submit: POST {baseURL}/api/v1/generate
- *           { prompt, customMode, instrumental, model, style?, title?, callBackUrl? }
+ *           { prompt, customMode, instrumental, model, style?, title?,
+ *             callBackUrl: "playground" }  // required non-empty; KIE's own
+ *                                          // playground sends this literal
  *           -> { code: 200, msg, data: { taskId } }
  *   poll:   GET {baseURL}/api/v1/generate/record-info?taskId=xxx
  *           -> { code: 200, data: { status, response: { sunoData: [...] } } }
@@ -58,6 +60,11 @@ export class SunoProvider implements GenerationProvider {
       customMode: request.customMode,
       instrumental: request.instrumental,
       model,
+      // KIE's Suno endpoints reject requests without a non-empty callBackUrl
+      // (HTTP 422 "Please enter callBackUrl"). Their own playground always
+      // sends the literal "playground" (not a real URL) — a sentinel the
+      // server accepts and treats as "no async callback, poll record-info".
+      callBackUrl: 'playground',
     }
     if (request.customMode) {
       if (request.style !== undefined && request.style !== '') body.style = request.style

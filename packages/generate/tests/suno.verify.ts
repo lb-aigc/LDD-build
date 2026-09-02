@@ -69,6 +69,8 @@ test('suno generateMusic submits and polls the Suno endpoint', async () => {
     assert.equal(body.model, 'V5_5')
     assert.equal(body.prompt, 'a happy song')
     assert.equal(body.style, undefined)
+    // callBackUrl must be non-empty or KIE returns 422 "Please enter callBackUrl".
+    assert.equal(body.callBackUrl, 'playground')
   } finally {
     globalThis.fetch = originalFetch
   }
