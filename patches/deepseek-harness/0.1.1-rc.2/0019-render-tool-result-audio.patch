@@ -8,7 +8,7 @@
 +  // a native <audio> player plus a download link below the row (the OUT text
 +  // skips them; see resultText).
 +  const audios = 'kind' in block
-+    ? block.content.filter(item => item.type === 'audio').map(item => {
++    ? block.content.filter(item => (item.type as string) === 'audio').map(item => {
 +        const audio = item as unknown as { url: string; title: string; durationSeconds: number }
 +        return { url: audio.url, title: audio.title, durationSeconds: audio.durationSeconds }
 +      })
@@ -42,7 +42,7 @@
      // Image blocks render through the attachment slot (see GenericToolCard),
      // not as flattened JSON — skip them so the OUT section stays prose.
 -    else if (block.type !== 'image') parts.push(JSON.stringify(block, null, 2))
-+    else if (block.type !== 'image' && block.type !== 'audio') parts.push(JSON.stringify(block, null, 2))
++    else if (block.type !== 'image' && (block.type as string) !== 'audio') parts.push(JSON.stringify(block, null, 2))
    }
    if (parts.length === 0 && node.error !== undefined) {
      parts.push(`${node.error.name}: ${node.error.code}`)
