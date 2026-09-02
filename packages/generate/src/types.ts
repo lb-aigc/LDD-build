@@ -20,6 +20,22 @@ export interface GeneratedVideo {
   readonly prompt: string
 }
 
+/** One generated music track's model-visible reference. */
+export interface GeneratedMusic {
+  readonly index: number
+  /** Direct audio URL (mp3). */
+  readonly url: string
+  /** Cover image URL when the provider returns one; '' when absent. */
+  readonly coverUrl: string
+  readonly title: string
+  readonly durationSeconds: number
+  /** Comma-separated style tags the provider reported. */
+  readonly tags: string
+  /** The concrete Suno model that produced the track. */
+  readonly modelName: string
+  readonly prompt: string
+}
+
 /** Normalized request a provider receives for one image generation. */
 export interface GenerateImageRequest {
   readonly prompt: string
@@ -57,6 +73,19 @@ export interface GenerateVideoRequest {
   readonly aspectRatio: VideoAspectRatio
 }
 
+/** Normalized request a provider receives for one music generation. */
+export interface GenerateMusicRequest {
+  readonly prompt: string
+  /** True = custom mode (caller supplies style/title/lyrics); false = auto. */
+  readonly customMode: boolean
+  /** True = instrumental (no lyrics). */
+  readonly instrumental: boolean
+  /** Music style (custom mode); blank when unused. */
+  readonly style?: string
+  /** Track title (custom mode); blank when unused. */
+  readonly title?: string
+}
+
 /** Normalized result a provider returns for image generation. */
 export interface GenerateImageResult {
   readonly images: GeneratedImage[]
@@ -67,6 +96,13 @@ export interface GenerateImageResult {
 /** Normalized result a provider returns for video generation. */
 export interface GenerateVideoResult {
   readonly videos: GeneratedVideo[]
+  readonly provider: string
+  readonly model: string
+}
+
+/** Normalized result a provider returns for music generation. */
+export interface GenerateMusicResult {
+  readonly music: GeneratedMusic[]
   readonly provider: string
   readonly model: string
 }

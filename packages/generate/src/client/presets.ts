@@ -108,6 +108,24 @@ export const VIDEO_PRESETS: readonly ClientPreset[] = [
   },
 ]
 
+export const MUSIC_PRESETS: readonly ClientPreset[] = [
+  { id: 'mock', label: 'Mock（占位）', suggestedModels: [] },
+  {
+    id: 'suno',
+    label: 'Suno（KIE 音乐）',
+    // Suno 模型版本（代际，非并列能力）：下拉选一个版本，一键切换。
+    suggestedModels: [
+      { id: 'V5_5', label: 'V5.5（定制模型）' },
+      { id: 'V5', label: 'V5（表现力强、更快）' },
+      { id: 'V4_5PLUS', label: 'V4.5+（更丰富音质，最长 8 分钟）' },
+      { id: 'V4_5', label: 'V4.5（更智能提示词）' },
+      { id: 'V4_5ALL', label: 'V4.5 ALL' },
+      { id: 'V4', label: 'V4' },
+    ],
+    defaultApiKeyEnv: 'KIE_API_KEY',
+  },
+]
+
 /**
  * Stable routing key for one list entry, mirroring the Host's rule. An
  * AGGREGATOR entry (a preset with `suggestedModels`) keys as `provider:model`

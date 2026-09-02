@@ -11,7 +11,7 @@ import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
 import { aspectRatioToImageSize } from './provider.ts'
 import { collectUploadedImages } from './uploaded-images.ts'
 import type { UploadedAgentLike } from './uploaded-images.ts'
-import { CUSTOM_PROVIDER_ID, IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS, findPreset } from './presets.ts'
+import { CUSTOM_PROVIDER_ID, IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS, MUSIC_PROVIDER_PRESETS, findPreset } from './presets.ts'
 import {
   buildProvider,
   modelCatalog,
@@ -22,8 +22,10 @@ import type { ResolvedModels, RoutedModel } from './routing.ts'
 import {
   IMAGE_SETTINGS_NS,
   VIDEO_SETTINGS_NS,
+  MUSIC_SETTINGS_NS,
   ImageGenerationSettingsSchema,
   VideoGenerationSettingsSchema,
+  MusicGenerationSettingsSchema,
 } from './settings.ts'
 
 export const name = 'ldd-generate'
@@ -88,6 +90,45 @@ const videoResultSchema = {
           resolution: { type: 'string', required: true },
           aspectRatio: { type: 'string', required: true },
           prompt: { type: 'string', required: true },
+        },
+      },
+    },
+    provider: { type: 'string', required: true },
+    model: { type: 'string', required: true },
+  },
+} as const
+
+const musicResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    music: {
+      type: 'array',
+      required: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer', required: true },
+          url: { type: 'string', required: true },
+          coverUrl: { type: 'string', required: true },
+          title: { type: 'string', required: true },
+          durationSeconds: { type: 'number', required: true },
+          tags: { type: 'string', required: true },
+          modelName: { type: 'string', required: true },
+          prompt: { type: 'string', required: true },
+          coverAttachment: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              attachmentId: { type: 'string', required: true },
+              mediaType: { type: 'string', required: true },
+              bytes: { type: 'integer', required: true },
+              width: { type: 'integer', required: true },
+              height: { type: 'integer', required: true },
+              name: { type: 'string' },
+            },
+          },
         },
       },
     },
@@ -273,6 +314,96 @@ function defineVideoTool(
   })
 }
 
+function defineMusicTool(
+  resolved: ResolvedModels,
+  config: Config,
+  secret: { resolve: SecretResolver },
+  attachments: { current?: AttachmentStoreLike },
+  sessionOverrides: { get(key: object): string | undefined },
+) {
+  const providerKeys = resolved.entries.map((entry) => entry.key)
+  return defineTool({
+    name: 'generate_music',
+    description:
+      'Generate an AI music track from a prompt (optionally with lyrics) using a Suno music model. Call this when the user asks to create, compose, or produce a song, instrumental, background music, or melody. Returns the audio URL, title, duration, style tags, and a cover image.\n\n'
+      + 'The audio is returned as a URL the user can play/download; describe the result in words, do not write markdown audio syntax.\n\n'
+      + 'Two modes: non-custom (customMode=false, only a prompt, lyrics auto-generated) and custom (customMode=true, you supply style/title and — when instrumental=false — the exact lyrics as the prompt).\n\n'
+      + 'Available models (pick `provider` by need, or omit to use the default):\n'
+      + modelCatalog(resolved, MUSIC_PROVIDER_PRESETS),
+    parameters: {
+      prompt: { type: 'string', required: true, description: 'The music description. Non-custom mode: describe the mood/style/subject; the lyrics are auto-generated. Custom mode with lyrics (instrumental=false): the EXACT lyrics to sing, including [Verse]/[Chorus] section markers.' },
+      provider: { type: 'string', enum: providerKeys, description: 'Which configured music model to use; omit to use the default model.' },
+      customMode: { type: 'boolean', description: 'True = custom mode (you supply style/title/lyrics); false (default) = simplified auto mode with only a prompt.' },
+      instrumental: { type: 'boolean', description: 'True = instrumental (no lyrics). In custom mode this requires style+title; in non-custom mode it is ignored.' },
+      style: { type: 'string', description: 'Music style (custom mode), e.g. Jazz, Classical, Electronic, Pop, Rock, Hip-hop.' },
+      title: { type: 'string', description: 'Track title (custom mode), max 80 chars.' },
+    },
+    output: {
+      schema: musicResultSchema,
+      render: (_args, value) => {
+        // Emit, per track: the cover image (an image block via the attachment
+        // slot), an `audio` block (the frontend's audio renderer plays + offers
+        // download), and a text line the model reads to describe the result.
+        const blocks: Array<{ type: 'text'; text: string } | { type: 'image'; attachment: ImageMeta } | { type: 'audio'; url: string; title: string; durationSeconds: number }> = []
+        for (const track of value.music) {
+          if (track.coverAttachment !== undefined) {
+            blocks.push(imageBlockOf(track.coverAttachment as ImageMeta))
+          }
+          blocks.push({
+            type: 'audio',
+            url: track.url,
+            title: track.title || '未命名',
+            durationSeconds: track.durationSeconds,
+          })
+          const duration = track.durationSeconds > 0 ? `（${Math.round(track.durationSeconds)} 秒）` : ''
+          blocks.push({
+            type: 'text',
+            text: `🎵 ${track.title || '未命名'}${duration}${track.tags !== '' ? ` · ${track.tags}` : ''}\n${track.url}`,
+          })
+        }
+        return blocks as any
+      },
+    },
+    isConcurrencySafe: () => false,
+    async execute(args, exec) {
+      const session = (exec as unknown as { agent?: { session?: object } }).agent?.session
+      const requested = (args.provider !== undefined && args.provider !== '')
+        ? args.provider
+        : (session !== undefined ? sessionOverrides.get(session) : undefined)
+      const entry = pickProvider(resolved, requested)
+      const provider = await buildProvider(entry, MUSIC_PROVIDER_PRESETS, secret.resolve)
+      const request = {
+        prompt: args.prompt,
+        customMode: args.customMode === true,
+        instrumental: args.instrumental === true,
+        ...(args.style === undefined ? {} : { style: args.style }),
+        ...(args.title === undefined ? {} : { title: args.title }),
+      }
+      const taskSignal = AbortSignal.any([exec.signal, AbortSignal.timeout(config.timeoutMs)])
+      const result = await provider.generateMusic(request, taskSignal)
+      const store = attachments.current
+      const music = []
+      for (const track of result.music) {
+        const coverAttachment = store !== undefined && track.coverUrl !== ''
+          ? await attachImageFromUrl(track.coverUrl, store, taskSignal)
+          : undefined
+        music.push({
+          index: track.index,
+          url: track.url,
+          coverUrl: track.coverUrl,
+          title: track.title,
+          durationSeconds: track.durationSeconds,
+          tags: track.tags,
+          modelName: track.modelName,
+          prompt: track.prompt,
+          ...(coverAttachment !== undefined ? { coverAttachment } : {}),
+        })
+      }
+      return { music, provider: result.provider, model: result.model }
+    },
+  })
+}
+
 export function apply(ctx: Context, config: Config): void {
   // Live routing state. Defaults to a single mock entry and is re-resolved on
   // every settings change. `registerTools` disposes and re-registers the two
@@ -280,9 +411,11 @@ export function apply(ctx: Context, config: Config): void {
   const state = {
     image: resolveModels(undefined, IMAGE_PROVIDER_PRESETS),
     video: resolveModels(undefined, VIDEO_PROVIDER_PRESETS),
+    music: resolveModels(undefined, MUSIC_PROVIDER_PRESETS),
   }
   let disposeImage: (() => void) | undefined
   let disposeVideo: (() => void) | undefined
+  let disposeMusic: (() => void) | undefined
 
   // Per-session generation-model override, set by the composer's
   // `generate-model` button command and read by the tools. Keyed by the live
@@ -332,8 +465,10 @@ export function apply(ctx: Context, config: Config): void {
   const registerTools = (): void => {
     disposeImage?.()
     disposeVideo?.()
+    disposeMusic?.()
     disposeImage = ctx.tools.register(defineImageTool(state.image, config, secret, attachments, sessionOverrides))
     disposeVideo = ctx.tools.register(defineVideoTool(state.video, config, secret, sessionOverrides))
+    disposeMusic = ctx.tools.register(defineMusicTool(state.music, config, secret, attachments, sessionOverrides))
   }
   registerTools()
 
@@ -349,13 +484,19 @@ export function apply(ctx: Context, config: Config): void {
       VIDEO_SETTINGS_NS,
       VideoGenerationSettingsSchema,
     )
+    const musicScope = settingsCtx.settings.register(
+      MUSIC_SETTINGS_NS,
+      MusicGenerationSettingsSchema,
+    )
     const sync = () => {
       state.image = resolveModels(imageScope.get(), IMAGE_PROVIDER_PRESETS)
       state.video = resolveModels(videoScope.get(), VIDEO_PROVIDER_PRESETS)
+      state.music = resolveModels(musicScope.get(), MUSIC_PROVIDER_PRESETS)
       registerTools()
     }
     sync()
     imageScope.watch(sync)
     videoScope.watch(sync)
+    musicScope.watch(sync)
   })
 }

@@ -17,6 +17,7 @@ import {
   DEFAULT_PROVIDER,
   IMAGE_PRESETS,
   VIDEO_PRESETS,
+  MUSIC_PRESETS,
   defaultApiKeyEnvOf,
   firstModelOf,
   i2iModelOf,
@@ -66,7 +67,7 @@ export interface GenerationCardSettings {
 
 /** The card's full render state. */
 export interface GenerationCardState {
-  kind: 'image' | 'video'
+  kind: 'image' | 'video' | 'music'
   available: boolean
   writable: boolean
   dirty: boolean
@@ -173,7 +174,7 @@ export class GenerateSettingsController {
   constructor(
     private readonly scope: SettingsScope<GenerationCardSettings>,
     private readonly api: Pick<IApiClient, 'credentials'>,
-    private readonly kind: 'image' | 'video',
+    private readonly kind: 'image' | 'video' | 'music',
   ) {
     const initial = readOriginal(scope.getSnapshot(), this.presets)
     this.original = {
@@ -206,7 +207,7 @@ export class GenerateSettingsController {
   }
 
   private get presets(): readonly ClientPreset[] {
-    return this.kind === 'image' ? IMAGE_PRESETS : VIDEO_PRESETS
+    return this.kind === 'image' ? IMAGE_PRESETS : this.kind === 'video' ? VIDEO_PRESETS : MUSIC_PRESETS
   }
 
   private projection(): GenerationCardState {

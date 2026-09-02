@@ -14,6 +14,7 @@ import z from '@deepseek-ai/schemastery'
  */
 export const IMAGE_SETTINGS_NS = 'generate-image'
 export const VIDEO_SETTINGS_NS = 'generate-video'
+export const MUSIC_SETTINGS_NS = 'generate-music'
 
 /**
  * One configured generation model. `provider` is the preset id (or `custom`)
@@ -61,6 +62,7 @@ export interface GenerationSettings {
 
 export type ImageGenerationSettings = GenerationSettings
 export type VideoGenerationSettings = GenerationSettings
+export type MusicGenerationSettings = GenerationSettings
 
 const modelEntrySchema = z.object({
   provider: z.string(),
@@ -83,6 +85,7 @@ const generationSettingsSchema = z.object({
 
 export const ImageGenerationSettingsSchema: z<ImageGenerationSettings> = generationSettingsSchema
 export const VideoGenerationSettingsSchema: z<VideoGenerationSettings> = generationSettingsSchema
+export const MusicGenerationSettingsSchema: z<MusicGenerationSettings> = generationSettingsSchema
 
 /** Provider id used when settings carry none (headless boot or unconfigured). */
 export const DEFAULT_PROVIDER = 'mock'

@@ -64,6 +64,10 @@ export class LegnextProvider implements GenerationProvider {
     throw new Error(`${this.id}: 视频生成暂未接入（Legnext 视频能力后续单独接线）`)
   }
 
+  async generateMusic(_request: import('../types.ts').GenerateMusicRequest, _signal: AbortSignal): Promise<import('../types.ts').GenerateMusicResult> {
+    throw new Error(`${this.id}: 音乐生成暂未接入`)
+  }
+
   private requireKey(): string {
     const { apiKey } = this.options
     if (apiKey === undefined || apiKey === '') {

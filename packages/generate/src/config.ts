@@ -19,8 +19,13 @@ export type VideoResolution = (typeof videoResolutions)[number]
 export const videoAspectRatios = ['16:9', '9:16', '1:1'] as const
 export type VideoAspectRatio = (typeof videoAspectRatios)[number]
 
+/** Suno music model versions (capability ids, not display names). */
+export const sunoModels = ['V5_5', 'V5', 'V4_5PLUS', 'V4_5', 'V4_5ALL', 'V4'] as const
+export type SunoModel = (typeof sunoModels)[number]
+
 export const maxImagesPerRequest = 4
 export const maxVideoDurationSeconds = 30
+export const maxMusicTracksPerRequest = 4
 
 /** Static plugin config resolved from cordis.patch.yml (technical params only). */
 export interface GenerationConfig {

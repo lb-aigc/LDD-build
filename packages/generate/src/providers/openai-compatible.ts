@@ -114,6 +114,10 @@ export class OpenAICompatibleProvider implements GenerationProvider {
     throw new Error(`${this.id}: 视频生成暂未接入`)
   }
 
+  async generateMusic(_request: import('../types.ts').GenerateMusicRequest, _signal: AbortSignal): Promise<import('../types.ts').GenerateMusicResult> {
+    throw new Error(`${this.id}: 音乐生成暂未接入`)
+  }
+
   private requireApiKey(): void {
     if (this.options.apiKey === undefined || this.options.apiKey === '') {
       throw new Error(`${this.id}: 未配置 API key（请在设置里配置 generate-image.apiKeyEnv）`)

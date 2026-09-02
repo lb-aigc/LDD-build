@@ -8,6 +8,7 @@ import { MidjourneyProvider } from './midjourney.ts'
 import { VolcengineProvider } from './volcengine.ts'
 import { KieProvider } from './kie.ts'
 import { LegnextProvider } from './legnext.ts'
+import { SunoProvider } from './suno.ts'
 
 /**
  * Protocol → adapter factory. A preset (or a custom selection) resolves to one
@@ -33,6 +34,8 @@ export function createProvider(
       return new KieProvider(options)
     case 'legnext':
       return new LegnextProvider(options)
+    case 'suno':
+      return new SunoProvider(options)
     default:
       throw new Error(
         `unknown generation protocol "${protocol}" (available: ${PROVIDER_PROTOCOLS.join(', ')})`,

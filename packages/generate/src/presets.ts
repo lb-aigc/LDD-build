@@ -24,6 +24,7 @@ export const PROVIDER_PROTOCOLS = [
   'volcengine',
   'kie',
   'legnext',
+  'suno',
 ] as const
 
 export type ProviderProtocol = (typeof PROVIDER_PROTOCOLS)[number]
@@ -165,6 +166,27 @@ export const VIDEO_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultBaseURL: 'https://api.kie.ai',
     defaultModel: 'bytedance/seedance-2-5',
     strengths: '聚合中转：一个 key 调 Seedance/Kling/Wan/Hailuo 等几十个视频模型',
+    imageToImage: false,
+  },
+]
+
+export const MUSIC_PROVIDER_PRESETS: readonly ProviderPreset[] = [
+  {
+    id: 'mock',
+    label: 'Mock（占位）',
+    protocol: 'mock',
+    defaultBaseURL: '',
+    defaultModel: 'mock-music',
+    strengths: '占位模型，返回占位音乐，用于验证链路',
+    imageToImage: false,
+  },
+  {
+    id: 'suno',
+    label: 'Suno（KIE 音乐）',
+    protocol: 'suno',
+    defaultBaseURL: 'https://api.kie.ai',
+    defaultModel: 'V5_5',
+    strengths: 'AI 音乐生成：作词作曲、纯音乐、多风格多语言（V4/V4.5/V5/V5.5）',
     imageToImage: false,
   },
 ]

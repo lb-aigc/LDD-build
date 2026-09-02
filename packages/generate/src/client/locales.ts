@@ -1,7 +1,7 @@
 /** Locale dictionaries for the generation settings cards (zh + en). */
 
 export type GenerateLocaleKey =
-  | 'imageTitle' | 'videoTitle'
+  | 'imageTitle' | 'videoTitle' | 'musicTitle'
   | 'defaultLabel' | 'custom' | 'remove' | 'addModel'
   | 'provider' | 'protocol' | 'protocolHint'
   | 'model' | 'modelHint'
@@ -16,6 +16,7 @@ export type GenerateLocaleKey =
 export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
   videoTitle: '生视频模型',
+  musicTitle: '生音乐模型',
   defaultLabel: '默认',
   custom: '自定义',
   remove: '删除',
@@ -51,6 +52,7 @@ export const zh: Record<GenerateLocaleKey, string> = {
 export const en: Record<GenerateLocaleKey, string> = {
   imageTitle: 'Image model',
   videoTitle: 'Video model',
+  musicTitle: 'Music model',
   defaultLabel: 'Default',
   custom: 'Custom',
   remove: 'Remove',

@@ -69,7 +69,7 @@ test('createProvider constructs the matching adapter per protocol', () => {
 test('an unknown protocol throws with the available list', () => {
   assert.throws(
     () => createProvider('nope', emptyOptions),
-    /unknown generation protocol "nope" \(available: mock, openai-compatible, gemini, midjourney, volcengine, kie, legnext\)/,
+    /unknown generation protocol "nope" \(available: mock, openai-compatible, gemini, midjourney, volcengine, kie, legnext, suno\)/,
   )
 })
 

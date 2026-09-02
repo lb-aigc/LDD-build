@@ -1,0 +1,48 @@
+--- a/packages/client/ui-tool/src/client/tool/toolviews/GenericToolCard.tsx
++++ b/packages/client/ui-tool/src/client/tool/toolviews/GenericToolCard.tsx
+@@ -51,6 +51,15 @@
+   const images = 'kind' in block
+     ? block.content.filter(item => item.type === 'image').map(item => ({ attachment: item.attachment }))
+     : []
++  // Audio content blocks from the settled result (generate_music): rendered as
++  // a native <audio> player plus a download link below the row (the OUT text
++  // skips them; see resultText).
++  const audios = 'kind' in block
++    ? block.content.filter(item => item.type === 'audio').map(item => {
++        const audio = item as unknown as { url: string; title: string; durationSeconds: number }
++        return { url: audio.url, title: audio.title, durationSeconds: audio.durationSeconds }
++      })
++    : []
+   return (
+     <>
+     <ToolRow
+@@ -80,6 +89,18 @@
+       inspect={inspect}
+     />
+     {images.length > 0 && renderMessageImages?.({ images, align: 'start' })}
++    {audios.length > 0 && (
++      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' }}>
++        {audios.map((audio, index) => (
++          <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
++            <audio controls src={audio.url} style={{ flex: 1, minWidth: 0, maxWidth: '480px' }} />
++            <a href={audio.url} download target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--dsw-alias-accent, #2563eb)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
++              Download
++            </a>
++          </div>
++        ))}
++      </div>
++    )}
+     </>
+   )
+ }
+--- a/packages/client/ui-tool/src/client/tool/models/tool-call-model.ts
++++ b/packages/client/ui-tool/src/client/tool/models/tool-call-model.ts
+@@ -111,7 +111,7 @@
+     if (block.type === 'text') parts.push(block.text)
+     // Image blocks render through the attachment slot (see GenericToolCard),
+     // not as flattened JSON — skip them so the OUT section stays prose.
+-    else if (block.type !== 'image') parts.push(JSON.stringify(block, null, 2))
++    else if (block.type !== 'image' && block.type !== 'audio') parts.push(JSON.stringify(block, null, 2))
+   }
+   if (parts.length === 0 && node.error !== undefined) {
+     parts.push(`${node.error.name}: ${node.error.code}`)

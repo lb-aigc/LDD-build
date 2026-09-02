@@ -11,7 +11,7 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import type { EditableModelField, GenerationCardFace, ModelRow } from './controller.ts'
 import { apiKeyRefOf } from './controller.ts'
 import type { GenerateLocaleKey } from './locales.ts'
-import { CUSTOM_PROVIDER_ID, IMAGE_PRESETS, VIDEO_PRESETS, routeKeyOf } from './presets.ts'
+import { CUSTOM_PROVIDER_ID, IMAGE_PRESETS, VIDEO_PRESETS, MUSIC_PRESETS, routeKeyOf } from './presets.ts'
 import type { ClientPreset } from './presets.ts'
 
 export type GenerationCardProps =
@@ -170,10 +170,10 @@ export function GenerateSettingsCard(props: GenerationCardProps): ReactElement |
   const [open, setOpen] = useState(false)
   if (!state.available) return null
 
-  const title = state.kind === 'image' ? t('imageTitle') : t('videoTitle')
+  const title = state.kind === 'image' ? t('imageTitle') : state.kind === 'video' ? t('videoTitle') : t('musicTitle')
   const disabled = !state.writable
   const canSave = state.dirty && !state.saving && state.writable
-  const presets = state.kind === 'image' ? IMAGE_PRESETS : VIDEO_PRESETS
+  const presets = state.kind === 'image' ? IMAGE_PRESETS : state.kind === 'video' ? VIDEO_PRESETS : MUSIC_PRESETS
 
   // API-key inputs sit INLINE in the first row of each credential reference, so
   // the key field lives in the same form as the provider that uses it (KIE →

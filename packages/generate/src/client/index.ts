@@ -59,6 +59,7 @@ declare global {
 /** Namespace strings the Host half registers (must match src/settings.ts). */
 export const IMAGE_NS = 'generate-image'
 export const VIDEO_NS = 'generate-video'
+export const MUSIC_NS = 'generate-music'
 
 const NS = 'generate'
 
@@ -94,6 +95,11 @@ export function apply(ctx: ClientContext): void {
     api,
     'video',
   )
+  const music = new GenerateSettingsController(
+    ctx.settingsScope.bind({ namespace: MUSIC_NS }),
+    api,
+    'music',
+  )
 
   ctx.slots.inject('settings.plugin.item', function* () {
     yield ctx.slots.register({
@@ -107,6 +113,12 @@ export function apply(ctx: ClientContext): void {
       key: VIDEO_NS,
       locale: NS,
       inject: () => video.inject(),
+    }, GenerateSettingsCard)
+    yield ctx.slots.register({
+      name: 'settings.plugin.item',
+      key: MUSIC_NS,
+      locale: NS,
+      inject: () => music.inject(),
     }, GenerateSettingsCard)
   })
 

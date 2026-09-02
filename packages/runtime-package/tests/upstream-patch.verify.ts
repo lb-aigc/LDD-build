@@ -573,6 +573,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0016-collapse-long-plain-text.patch',
       '0017-generate-model-slot.patch',
       '0018-count-imported-files.patch',
+      '0019-render-tool-result-audio.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -597,8 +598,13 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(toolSlots, /renderMessageImages\?: RenderMessageImages/u)
     const toolCallModel = await readFile(copiedToolCallModel, 'utf8')
     assert.match(toolCallModel, /block\.type !== 'image'/u)
+    // 0019: audio blocks skip JSON flattening like image blocks do.
+    assert.match(toolCallModel, /block\.type !== 'image' && block\.type !== 'audio'/u)
     const genericToolCard = await readFile(copiedGenericToolCard, 'utf8')
     assert.match(genericToolCard, /renderMessageImages\?\.\(\{ images, align: 'start' \}\)/u)
+    // 0019: audio blocks render a native <audio> player + download link.
+    assert.match(genericToolCard, /item\.type === 'audio'/u)
+    assert.match(genericToolCard, /<audio controls src=\{audio\.url\}/u)
     const imageLightbox = await readFile(copiedImageLightbox, 'utf8')
     assert.match(imageLightbox, /IconDownloadOutline16/u)
     assert.match(imageLightbox, /downloadName\?/u)

@@ -77,6 +77,10 @@ export class MidjourneyProvider implements GenerationProvider {
   async generateVideo(_request: GenerateVideoRequest, _signal: AbortSignal): Promise<GenerateVideoResult> {
     throw new Error(`${this.id}: 视频生成暂未接入`)
   }
+
+  async generateMusic(_request: import('../types.ts').GenerateMusicRequest, _signal: AbortSignal): Promise<import('../types.ts').GenerateMusicResult> {
+    throw new Error(`${this.id}: 音乐生成暂未接入`)
+  }
 }
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {

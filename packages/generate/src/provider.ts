@@ -1,8 +1,11 @@
 import type {
   GeneratedImage,
+  GeneratedMusic,
   GeneratedVideo,
   GenerateImageRequest,
   GenerateImageResult,
+  GenerateMusicRequest,
+  GenerateMusicResult,
   GenerateVideoRequest,
   GenerateVideoResult,
 } from './types.ts'
@@ -14,7 +17,7 @@ import type {
  *
  * The shipped {@link MockGenerationProvider} proves the routing link — user
  * request → LLM decision → tool dispatch → provider result → LLM follow-up —
- * without a live image/video API. Swap in a real implementation (e.g. a
+ * without a live image/video/audio API. Swap in a real implementation (e.g. a
  * Seedance video provider or a Flux image provider) without touching the
  * tools, skill, or plugin-tree wiring.
  */
@@ -23,6 +26,7 @@ export interface GenerationProvider {
   readonly id: string
   generateImage(request: GenerateImageRequest, signal: AbortSignal): Promise<GenerateImageResult>
   generateVideo(request: GenerateVideoRequest, signal: AbortSignal): Promise<GenerateVideoResult>
+  generateMusic(request: GenerateMusicRequest, signal: AbortSignal): Promise<GenerateMusicResult>
 }
 
 /** Resolved inputs every wire-protocol adapter needs (see `src/providers/`). */
@@ -118,5 +122,20 @@ export class MockGenerationProvider implements GenerationProvider {
       prompt: request.prompt,
     }]
     return { videos, provider: 'mock', model: 'mock-video' }
+  }
+
+  async generateMusic(request: GenerateMusicRequest, signal: AbortSignal): Promise<GenerateMusicResult> {
+    signal.throwIfAborted()
+    const music: GeneratedMusic[] = [{
+      index: 0,
+      url: `mock-music://0?prompt=${encodeURIComponent(request.prompt)}`,
+      coverUrl: '',
+      title: request.title ?? 'Mock Track',
+      durationSeconds: 120,
+      tags: 'mock, placeholder',
+      modelName: 'mock-music',
+      prompt: request.prompt,
+    }]
+    return { music, provider: 'mock', model: 'mock-music' }
   }
 }

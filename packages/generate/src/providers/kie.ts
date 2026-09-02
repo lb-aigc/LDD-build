@@ -194,6 +194,10 @@ export class KieProvider implements GenerationProvider {
     }
   }
 
+  async generateMusic(_request: import('../types.ts').GenerateMusicRequest, _signal: AbortSignal): Promise<import('../types.ts').GenerateMusicResult> {
+    throw new Error(`${this.id}: 音乐生成请使用 Suno 协议（generate-music 配置里选 Suno）`)
+  }
+
   /** Validate the api key and model, returning the capability id. */
   private requireCredentials(): { model: string } {
     const { apiKey, model } = this.options
