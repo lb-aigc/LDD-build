@@ -4,10 +4,11 @@ import { imageSizeOf } from '../provider.ts'
 import type { GenerationProvider, ProviderOptions } from '../provider.ts'
 
 const POLL_INTERVAL_MS = 3000
-// BYOK tasks queue engine-side for the bound Midjourney account for up to 1
-// hour when it is busy (Legnext docs: "up to 1 hour"), so the poll ceiling
-// must reach that — 1200 × 3s = 60 min — or a busy account reads as a timeout.
-const MAX_POLLS = 1200
+// Poll ceiling: 200 × 3s = 10 min — a deliberate cap. BYOK tasks CAN queue
+// up to 1 hour for a busy bound account, but the user prefers a fast, explicit
+// timeout over waiting out the queue. On timeout we report that the task is
+// still queued server-side (job_id kept for later lookup, not a failure).
+const MAX_POLLS = 200
 const RETRY_ATTEMPTS = 3
 const RETRY_BASE_MS = 1000
 
@@ -128,7 +129,7 @@ export class LegnextProvider implements GenerationProvider {
       }
       await sleep(POLL_INTERVAL_MS, signal)
     }
-    throw new Error(`${this.id}: 轮询超时（超过 ${MAX_POLLS} 次）`)
+    throw new Error(`${this.id}: 任务超过 10 分钟未完成（已轮询 ${MAX_POLLS} 次）。任务仍在服务端排队/生成中，未失败。\n任务 ID：${jobId}\n可能原因：BYOK 模式下 Midjourney 账号繁忙，任务在排队等待。建议稍后在 Legnext 后台查看该任务状态，或稍后重试。`)
   }
 }
 

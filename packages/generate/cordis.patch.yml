@@ -4,10 +4,10 @@
     - id: ldd-generate
       name: '@ldd/dsh-generate'
       config:
-        # 61 min: Legnext BYOK queues for the bound MJ account up to 1 hour
-        # when busy (docs). KIE/Suno poll loops self-limit at ~10 min, so the
-        # wider ceiling only affects Legnext and long-poll providers.
-        timeoutMs: 3660000
+        # 10 min: matches the provider poll loops (KIE/Suno/Legnext all poll
+        # 200 × 3s = 10 min). Legnext BYOK can queue up to 1h for a busy
+        # account, but the user wants a fast explicit timeout, not a long wait.
+        timeoutMs: 600000
 
     - id: ldd-generate-skills
       name: '@deepseek-ai/dsh-skill-filesystem'
