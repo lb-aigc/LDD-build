@@ -23,6 +23,7 @@ test('renderer API is narrow and rejects command/path injection', () => {
     'retryBoot',
     'openLogDirectory',
     'saveImage',
+    'saveAudio',
     'importFile',
     'subscribeProgress',
   ])

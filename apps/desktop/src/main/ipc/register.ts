@@ -25,6 +25,7 @@ export interface DesktopIpcServices {
   retryBoot(): Promise<unknown>
   openLogDirectory(): Promise<void>
   saveImage(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
+  saveAudio(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
   importFile(data: ArrayBuffer, fileName: string, workspacePath: string): Promise<ImportFileResult>
 }
 
@@ -52,6 +53,12 @@ export function registerDesktopIpc(
   register(ipcMain, 'openLogDirectory', async () => services.openLogDirectory())
   register(ipcMain, 'saveImage', async (input) =>
     services.saveImage(
+      (input.value as { data: ArrayBuffer; defaultName: string }).data,
+      (input.value as { data: ArrayBuffer; defaultName: string }).defaultName,
+    ),
+  )
+  register(ipcMain, 'saveAudio', async (input) =>
+    services.saveAudio(
       (input.value as { data: ArrayBuffer; defaultName: string }).data,
       (input.value as { data: ArrayBuffer; defaultName: string }).defaultName,
     ),
@@ -91,6 +98,7 @@ function register(
     | 'retryBoot'
     | 'openLogDirectory'
     | 'saveImage'
+    | 'saveAudio'
     | 'importFile',
   invoke: (input: ReturnType<typeof parseIpcRequest>) => Promise<unknown>,
 ): void {

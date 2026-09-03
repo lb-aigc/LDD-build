@@ -20,6 +20,7 @@ describe('renderer IPC contract', () => {
       'retryBoot',
       'openLogDirectory',
       'saveImage',
+      'saveAudio',
       'importFile',
       'subscribeProgress',
     ])

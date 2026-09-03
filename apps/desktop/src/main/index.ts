@@ -155,6 +155,17 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     return { saved: true, path: result.filePath }
   }
 
+  const saveAudio = async (data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }> => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '保存音频',
+      defaultPath: defaultName,
+      filters: [{ name: '音频', extensions: ['mp3', 'wav', 'm4a', 'flac', 'ogg', 'aac', 'opus'] }],
+    })
+    if (result.canceled || result.filePath === undefined) return { saved: false }
+    await writeFile(result.filePath, Buffer.from(data))
+    return { saved: true, path: result.filePath }
+  }
+
   const importFile = (data: ArrayBuffer, fileName: string, workspacePath: string) =>
     importWorkspaceFile(data, fileName, workspacePath)
 
@@ -226,6 +237,7 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     retryBoot: retryAndLoad,
     openLogDirectory: openLogs,
     saveImage,
+    saveAudio,
     importFile,
   })
 

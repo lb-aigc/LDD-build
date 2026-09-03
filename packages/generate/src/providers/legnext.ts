@@ -4,7 +4,12 @@ import { imageSizeOf } from '../provider.ts'
 import type { GenerationProvider, ProviderOptions } from '../provider.ts'
 
 const POLL_INTERVAL_MS = 3000
-const MAX_POLLS = 200
+// BYOK tasks queue engine-side for the bound Midjourney account for up to 1
+// hour when it is busy (Legnext docs: "up to 1 hour"), so the poll ceiling
+// must reach that — 1200 × 3s = 60 min — or a busy account reads as a timeout.
+const MAX_POLLS = 1200
+const RETRY_ATTEMPTS = 3
+const RETRY_BASE_MS = 1000
 
 /** image size → Midjourney `--ar` aspect-ratio flag. */
 const SIZE_ASPECT_RATIOS: Readonly<Record<ImageSize, string>> = {
@@ -79,12 +84,11 @@ export class LegnextProvider implements GenerationProvider {
   /** Submit a diffusion task and return its job_id. */
   private async submit(signal: AbortSignal, apiKey: string, text: string): Promise<string> {
     const { baseURL } = this.options
-    const response = await fetch(`${trimSlash(baseURL)}/v1/diffusion`, {
+    const response = await fetchWithRetry(`${trimSlash(baseURL)}/v1/diffusion`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': apiKey },
       body: JSON.stringify({ text }),
-      signal,
-    })
+    }, signal)
     if (!response.ok) {
       const body = await response.text().catch(() => '')
       throw new Error(`${this.id} diffusion 提交失败 ${response.status}${body ? `: ${body}` : ''}`)
@@ -101,7 +105,7 @@ export class LegnextProvider implements GenerationProvider {
     const { baseURL } = this.options
     for (let attempt = 0; attempt < MAX_POLLS; attempt++) {
       signal.throwIfAborted()
-      const response = await fetch(`${trimSlash(baseURL)}/v1/job/${encodeURIComponent(jobId)}`, { signal })
+      const response = await fetchWithRetry(`${trimSlash(baseURL)}/v1/job/${encodeURIComponent(jobId)}`, {}, signal)
       if (!response.ok) {
         const body = await response.text().catch(() => '')
         throw new Error(`${this.id} job 轮询失败 ${response.status}${body ? `: ${body}` : ''}`)
@@ -148,6 +152,33 @@ export function buildText(request: GenerateImageRequest, model: string): string 
 
 function trimSlash(baseURL: string): string {
   return baseURL.replace(/\/+$/, '')
+}
+
+/** Fetch with bounded exponential-backoff retry for transient server errors
+ *  (429 = account concurrency/queue, 5xx, 408) and network failures. Client
+ *  errors (400/401/402/403) return as-is; user aborts rethrow immediately.
+ *  Legnext docs prescribe retrying exactly these classes. */
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  signal: AbortSignal,
+  attempts = RETRY_ATTEMPTS,
+): Promise<Response> {
+  let lastError: unknown
+  for (let i = 0; i < attempts; i++) {
+    signal.throwIfAborted()
+    try {
+      const response = await fetch(url, { ...init, signal })
+      const retryable = response.status >= 500 || response.status === 429 || response.status === 408
+      if (!retryable) return response
+      lastError = new Error(`HTTP ${response.status}`)
+    } catch (error) {
+      if ((error as { name?: string }).name === 'AbortError') throw error
+      lastError = error
+    }
+    if (i < attempts - 1) await sleep(RETRY_BASE_MS * 2 ** i, signal)
+  }
+  throw lastError
 }
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {

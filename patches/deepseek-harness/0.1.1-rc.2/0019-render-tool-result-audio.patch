@@ -1,22 +1,38 @@
 --- a/packages/client/ui-tool/src/client/tool/toolviews/GenericToolCard.tsx
 +++ b/packages/client/ui-tool/src/client/tool/toolviews/GenericToolCard.tsx
-@@ -51,6 +51,15 @@
+@@ -51,6 +51,31 @@
    const images = 'kind' in block
      ? block.content.filter(item => item.type === 'image').map(item => ({ attachment: item.attachment }))
      : []
 +  // Audio content blocks from the settled result (generate_music): rendered as
-+  // a native <audio> player plus a download link below the row (the OUT text
-+  // skips them; see resultText).
++  // a native <audio> player plus a save-to-disk button below the row (the OUT
++  // text skips them; see resultText).
 +  const audios = 'kind' in block
 +    ? block.content.filter(item => (item.type as string) === 'audio').map(item => {
 +        const audio = item as unknown as { url: string; title: string; durationSeconds: number }
 +        return { url: audio.url, title: audio.title, durationSeconds: audio.durationSeconds }
 +      })
 +    : []
++  // Hand audio bytes to the desktop host's native save dialog. Injected by the
++  // Electron shell as `window.ldd.saveAudio`; absent (plain browser), no-op.
++  const saveAudio = (audio: { url: string; title: string }): void => {
++    const saver = (globalThis as { ldd?: { saveAudio?: (data: ArrayBuffer, name: string) => Promise<unknown> } }).ldd?.saveAudio
++    if (saver === undefined) return
++    void (async () => {
++      try {
++        const response = await fetch(audio.url)
++        const buffer = await response.arrayBuffer()
++        const base = audio.title.trim() || 'audio'
++        await saver(buffer, `${base}.mp3`)
++      } catch {
++        // Save cancelled or failed — nothing to surface.
++      }
++    })()
++  }
    return (
      <>
      <ToolRow
-@@ -80,6 +89,18 @@
+@@ -80,6 +105,22 @@
        inspect={inspect}
      />
      {images.length > 0 && renderMessageImages?.({ images, align: 'start' })}
@@ -25,9 +41,13 @@
 +        {audios.map((audio, index) => (
 +          <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
 +            <audio controls src={audio.url} style={{ flex: 1, minWidth: 0, maxWidth: '480px' }} />
-+            <a href={audio.url} download target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--dsw-alias-accent, #2563eb)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
++            <button
++              type="button"
++              onClick={() => saveAudio(audio)}
++              style={{ fontSize: '12px', color: 'var(--dsw-alias-accent, #2563eb)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', whiteSpace: 'nowrap' }}
++            >
 +              Download
-+            </a>
++            </button>
 +          </div>
 +        ))}
 +      </div>

@@ -14,6 +14,7 @@ export const rendererApiKeys = [
   'retryBoot',
   'openLogDirectory',
   'saveImage',
+  'saveAudio',
   'importFile',
   'subscribeProgress',
 ] as const
@@ -35,6 +36,7 @@ export const ipcChannels: Readonly<Record<RendererApiKey, string>> = Object.free
   retryBoot: 'ldd:boot:retry',
   openLogDirectory: 'ldd:logs:open',
   saveImage: 'ldd:image:save',
+  saveAudio: 'ldd:audio:save',
   importFile: 'ldd:file:import',
   subscribeProgress: 'ldd:progress',
 })
@@ -85,6 +87,7 @@ export interface LddRendererApi {
   retryBoot(): Promise<unknown>
   openLogDirectory(): Promise<void>
   saveImage(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
+  saveAudio(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
   importFile(data: ArrayBuffer, fileName: string, workspacePath: string): Promise<ImportFileResult>
   subscribeProgress(listener: (event: RuntimeProgressEvent) => void): () => void
 }
@@ -103,6 +106,7 @@ export type IpcRequest =
   | { readonly method: 'retryBoot'; readonly value: undefined }
   | { readonly method: 'openLogDirectory'; readonly value: undefined }
   | { readonly method: 'saveImage'; readonly value: { readonly data: ArrayBuffer; readonly defaultName: string } }
+  | { readonly method: 'saveAudio'; readonly value: { readonly data: ArrayBuffer; readonly defaultName: string } }
   | { readonly method: 'importFile'; readonly value: { readonly data: ArrayBuffer; readonly fileName: string; readonly workspacePath: string } }
 
 export function parseIpcRequest(method: InvokeApiKey, value: unknown): IpcRequest {
@@ -124,7 +128,9 @@ export function parseIpcRequest(method: InvokeApiKey, value: unknown): IpcReques
     case 'setImageMode':
       return { method, value: parseImageModeInput(value) }
     case 'saveImage':
-      return { method, value: parseSaveImageInput(value) }
+      return { method, value: parseSaveBinaryInput(value, 'save-image') }
+    case 'saveAudio':
+      return { method, value: parseSaveBinaryInput(value, 'save-audio') }
     case 'importFile':
       return { method, value: parseImportFileInput(value) }
   }
@@ -181,13 +187,13 @@ function parseImageModeInput(value: unknown): { readonly mode: ImageMode } {
   return { mode: record.mode }
 }
 
-function parseSaveImageInput(value: unknown): { readonly data: ArrayBuffer; readonly defaultName: string } {
-  const record = requireExactRecord(value, 'save-image request', ['data', 'defaultName'])
+function parseSaveBinaryInput(value: unknown, label: string): { readonly data: ArrayBuffer; readonly defaultName: string } {
+  const record = requireExactRecord(value, `${label} request`, ['data', 'defaultName'])
   if (!(record.data instanceof ArrayBuffer)) {
-    throw new TypeError('save-image data must be an ArrayBuffer')
+    throw new TypeError(`${label} data must be an ArrayBuffer`)
   }
   if (typeof record.defaultName !== 'string' || record.defaultName.length === 0 || record.defaultName.length > 256) {
-    throw new TypeError('save-image defaultName is invalid')
+    throw new TypeError(`${label} defaultName is invalid`)
   }
   return { data: record.data, defaultName: record.defaultName }
 }

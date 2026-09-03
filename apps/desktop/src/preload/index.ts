@@ -24,6 +24,8 @@ const api: LddRendererApi = {
   openLogDirectory: async () => ipcRenderer.invoke(ipcChannels.openLogDirectory),
   saveImage: async (data, defaultName) =>
     ipcRenderer.invoke(ipcChannels.saveImage, { data, defaultName }),
+  saveAudio: async (data, defaultName) =>
+    ipcRenderer.invoke(ipcChannels.saveAudio, { data, defaultName }),
   importFile: async (data, fileName, workspacePath) =>
     ipcRenderer.invoke(ipcChannels.importFile, { data, fileName, workspacePath }),
   subscribeProgress: (listener) => {
