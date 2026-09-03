@@ -17,6 +17,7 @@ import {
   modelCatalog,
   pickProvider,
   resolveModels,
+  resolveProvider,
 } from './routing.ts'
 import type { ResolvedModels, RoutedModel } from './routing.ts'
 import {
@@ -147,6 +148,7 @@ function supportsImageToImage(entry: RoutedModel): boolean {
   return findPreset(IMAGE_PROVIDER_PRESETS, entry.provider)?.imageToImage ?? false
 }
 
+
 /** Resolve the `inputImages` tool argument, expanding the `@uploaded` sentinel
  *  into the user's most recently uploaded images (data URIs read back from the
  *  attachment store). */
@@ -217,13 +219,10 @@ function defineImageTool(
     },
     isConcurrencySafe: () => true,
     async execute(args, exec) {
-      // Priority: an explicit tool `provider` (prompt/skill routing) wins over
-      // a user's per-session button override, which wins over the default.
+      // A user's per-session button pick is enforced: the agent may not
+      // silently switch models; it must ask the user first (resolveProvider).
       const session = (exec as unknown as { agent?: { session?: object } }).agent?.session
-      const requested = (args.provider !== undefined && args.provider !== '')
-        ? args.provider
-        : (session !== undefined ? sessionOverrides.get(session) : undefined)
-      const entry = pickProvider(resolved, requested)
+      const entry = resolveProvider(resolved, args.provider, session, sessionOverrides)
       const references = await resolveReferenceImages(
         args.inputImages,
         exec as unknown as { agent?: UploadedAgentLike; signal: AbortSignal },
@@ -294,10 +293,7 @@ function defineVideoTool(
     isConcurrencySafe: () => false,
     async execute(args, exec) {
       const session = (exec as unknown as { agent?: { session?: object } }).agent?.session
-      const requested = (args.provider !== undefined && args.provider !== '')
-        ? args.provider
-        : (session !== undefined ? sessionOverrides.get(session) : undefined)
-      const entry = pickProvider(resolved, requested)
+      const entry = resolveProvider(resolved, args.provider, session, sessionOverrides)
       const provider = await buildProvider(entry, VIDEO_PROVIDER_PRESETS, secret.resolve)
       const durationSeconds = args.durationSeconds === undefined
         ? 5
@@ -367,10 +363,7 @@ function defineMusicTool(
     isConcurrencySafe: () => false,
     async execute(args, exec) {
       const session = (exec as unknown as { agent?: { session?: object } }).agent?.session
-      const requested = (args.provider !== undefined && args.provider !== '')
-        ? args.provider
-        : (session !== undefined ? sessionOverrides.get(session) : undefined)
-      const entry = pickProvider(resolved, requested)
+      const entry = resolveProvider(resolved, args.provider, session, sessionOverrides)
       const provider = await buildProvider(entry, MUSIC_PROVIDER_PRESETS, secret.resolve)
       const request = {
         prompt: args.prompt,

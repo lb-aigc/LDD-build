@@ -197,6 +197,33 @@ export function pickProvider(resolved: ResolvedModels, requested: string | undef
 }
 
 /**
+ * Resolve the routed model for one generation call, enforcing the user's
+ * explicit pick. When the user selected a model for this session (the composer
+ * button), the agent may NOT silently switch to a different one — it must ask
+ * the user first. Returns the routed entry.
+ */
+export function resolveProvider(
+  resolved: ResolvedModels,
+  argsProvider: string | undefined,
+  session: object | undefined,
+  sessionOverrides: { get(key: object): string | undefined },
+): RoutedModel {
+  const userPick = session !== undefined ? sessionOverrides.get(session) : undefined
+  const agentPick = argsProvider !== undefined && argsProvider !== '' ? argsProvider : undefined
+  if (userPick !== undefined && agentPick !== undefined) {
+    const userEntry = pickProvider(resolved, userPick)
+    const agentEntry = pickProvider(resolved, agentPick)
+    if (agentEntry.key !== userEntry.key) {
+      throw new Error(
+        `用户已选定生图模型「${userEntry.key}」，但本次请求想用「${agentEntry.key}」。`
+        + ` 不得擅自切换模型：请先向用户说明并询问是否切换、切换到哪个模型，获得同意后再用对应 provider 重新调用。`,
+      )
+    }
+  }
+  return pickProvider(resolved, agentPick ?? userPick)
+}
+
+/**
  * Human routing catalog injected into the tool description so the agent can
  * auto-route without the user switching models. One line per configured model:
  * its key, its human label, and its strengths (the preset's `strengths`).

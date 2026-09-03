@@ -125,17 +125,17 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     // key reaches every model, the composer picker lists them all, and the
     // agent routes to a specific one by name.
     models: [
-      { id: 'gpt-image-2-text-to-image', label: 'GPT Image 2（文生图 + 图生图）', i2iModel: 'gpt-image-2-image-to-image' },
-      { id: 'nano-banana-pro', label: 'Nano Banana Pro（文生图 + 图生图）' },
-      { id: 'nano-banana-2', label: 'Nano Banana 2（文生图 + 图生图）' },
-      { id: 'nano-banana-2-lite', label: 'Nano Banana 2 Lite（文生图 + 图生图）' },
-      { id: 'bytedance/seedream', label: 'Seedream 4.0（文生图）' },
-      { id: 'seedream/5-pro-text-to-image', label: 'Seedream 5.0 Pro（文生图 + 图生图）', i2iModel: 'seedream/5-pro-image-to-image' },
-      { id: 'seedream/5-lite-text-to-image', label: 'Seedream 5.0 Lite（文生图 + 图生图）', i2iModel: 'seedream/5-lite-image-to-image' },
-      { id: 'flux-2/pro-text-to-image', label: 'Flux-2 Pro（文生图 + 图生图）', i2iModel: 'flux-2/pro-image-to-image' },
-      { id: 'flux-2/flex-text-to-image', label: 'Flux-2（文生图 + 图生图）', i2iModel: 'flux-2/flex-image-to-image' },
-      { id: 'z-image', label: 'Z-image（文生图）' },
-      { id: 'grok-imagine/text-to-image', label: 'Grok Imagine（文生图 + 图生图）', i2iModel: 'grok-imagine/image-to-image' },
+      { id: 'gpt-image-2-text-to-image', label: 'GPT Image 2', i2iModel: 'gpt-image-2-image-to-image' },
+      { id: 'nano-banana-pro', label: 'Nano Banana Pro' },
+      { id: 'nano-banana-2', label: 'Nano Banana 2' },
+      { id: 'nano-banana-2-lite', label: 'Nano Banana 2 Lite' },
+      { id: 'bytedance/seedream', label: 'Seedream 4.0' },
+      { id: 'seedream/5-pro-text-to-image', label: 'Seedream 5.0 Pro', i2iModel: 'seedream/5-pro-image-to-image' },
+      { id: 'seedream/5-lite-text-to-image', label: 'Seedream 5.0 Lite', i2iModel: 'seedream/5-lite-image-to-image' },
+      { id: 'flux-2/pro-text-to-image', label: 'Flux-2 Pro', i2iModel: 'flux-2/pro-image-to-image' },
+      { id: 'flux-2/flex-text-to-image', label: 'Flux-2', i2iModel: 'flux-2/flex-image-to-image' },
+      { id: 'z-image', label: 'Z-image' },
+      { id: 'grok-imagine/text-to-image', label: 'Grok Imagine', i2iModel: 'grok-imagine/image-to-image' },
     ],
   },
   {

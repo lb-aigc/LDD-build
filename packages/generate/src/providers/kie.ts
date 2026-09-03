@@ -92,11 +92,41 @@ export function kieDistinctI2iCounterpart(model: string): string | undefined {
  */
 const DISTINCT_I2I_IMAGE_FIELD: Readonly<Record<string, string>> = {
   'grok-imagine/image-to-image': 'image_urls',
+  'seedream/5-pro-image-to-image': 'image_urls',
+  'seedream/5-lite-image-to-image': 'image_urls',
 }
 
 /** The image-reference field for a distinct i2i capability, default `input_urls`. */
 export function kieDistinctI2iImageField(i2iModel: string): string {
   return DISTINCT_I2I_IMAGE_FIELD[i2iModel] ?? 'input_urls'
+}
+
+/** Seedream 5.0 Pro / Lite text-to-image capability ids. These use a `quality`
+ *  field (basic=1K / high=2K) instead of a `resolution` field, top out at 2K
+ *  (no 4K tier), and support only a fixed aspect-ratio set. */
+const SEEDREAM5_T2I = new Set(['seedream/5-pro-text-to-image', 'seedream/5-lite-text-to-image'])
+const SEEDREAM5_I2I = new Set(['seedream/5-pro-image-to-image', 'seedream/5-lite-image-to-image'])
+
+/** Seedream 5 has no 4K: quality `high` = 2K, `basic` = 1K. Map the request's
+ *  resolution tier to the quality field (4K/2K → high, 1K → basic). */
+function seedream5Quality(resolution: ImageResolution): 'basic' | 'high' {
+  return resolution === '1K' ? 'basic' : 'high'
+}
+
+/** Seedream 5 supports 1:1 / 4:3 / 3:4 / 16:9 / 9:16 / 2:3 / 3:2 / 21:9 — the
+ *  tool also offers 2:1 / 1:2 / 4:5 / 5:4 / 9:21, which must clamp to the
+ *  nearest supported ratio or the request is rejected. */
+const SEEDREAM5_ASPECT_CLAMP: Readonly<Record<string, string>> = {
+  '2:1': '21:9',
+  '1:2': '9:16',
+  '4:5': '3:4',
+  '5:4': '4:3',
+  '9:21': '9:16',
+}
+
+/** Clamp an aspect ratio to Seedream 5's supported set. */
+function seedream5AspectRatio(aspectRatio: string): string {
+  return SEEDREAM5_ASPECT_CLAMP[aspectRatio] ?? aspectRatio
 }
 
 /** Highest resolution tier KIE supports for a given aspect ratio. */
@@ -150,8 +180,14 @@ export class KieProvider implements GenerationProvider {
     const { model } = this.requireCredentials()
     const references = request.inputImages ?? []
     const isImageToImage = references.length > 0
-    const aspectRatio = this.resolveAspectRatio(request)
-    const resolution = this.resolveResolution(request.resolution ?? '4K', aspectRatio)
+    // Seedream 5.0 Pro/Lite use `quality` (not `resolution`), cap at 2K, and
+    // only accept a fixed aspect-ratio set — clamp both before submitting.
+    const isSeedream5 = SEEDREAM5_T2I.has(model)
+    const aspectRatio = isSeedream5
+      ? seedream5AspectRatio(this.resolveAspectRatio(request))
+      : this.resolveAspectRatio(request)
+    const requested = this.resolveResolution(request.resolution ?? '4K', aspectRatio)
+    const resolution = isSeedream5 && requested === '4K' ? '2K' : requested
     let taskId: string
     let usedModel = model
     if (isImageToImage) {
@@ -159,7 +195,7 @@ export class KieProvider implements GenerationProvider {
       taskId = submitted.taskId
       usedModel = submitted.model
     } else {
-      taskId = await this.submit(signal, model, { prompt: request.prompt, aspect_ratio: aspectRatio, resolution })
+      taskId = await this.submit(signal, model, this.textInput(model, request.prompt, aspectRatio, resolution))
     }
     const urls = await this.resolveDownloadUrls(await this.poll(signal, taskId), signal)
     const { width, height } = resolutionAspectPixels(resolution, aspectRatio)
@@ -210,6 +246,15 @@ export class KieProvider implements GenerationProvider {
     return { model }
   }
 
+  /** Build the text-to-image `input` for a capability. Seedream 5 uses
+   *  `quality` (basic/high); every other KIE image model uses `resolution`. */
+  private textInput(model: string, prompt: string, aspectRatio: string, resolution: ImageResolution): Record<string, unknown> {
+    if (SEEDREAM5_T2I.has(model)) {
+      return { prompt, aspect_ratio: aspectRatio, quality: seedream5Quality(resolution) }
+    }
+    return { prompt, aspect_ratio: aspectRatio, resolution }
+  }
+
   /** Submit an i2i task. Two protocols: a same-model inline reference field
    *  (Nano Banana series — `image_input` / `image_urls`, reuse `model`) or a
    *  distinct i2i capability id (GPT Image / Seedream / Flux — `input_urls`,
@@ -250,15 +295,15 @@ export class KieProvider implements GenerationProvider {
     if (i2iModel === undefined || i2iModel === '') {
       throw new Error(`${this.id}: 图生图需要配置 imageToImageModel（如 gpt-image-2-image-to-image）`)
     }
-    return {
-      taskId: await this.submit(signal, i2iModel, {
-        prompt,
-        [kieDistinctI2iImageField(i2iModel)]: inputUrls,
-        aspect_ratio: aspectRatio,
-        resolution,
-      }),
-      model: i2iModel,
+    const seedream5 = SEEDREAM5_I2I.has(i2iModel)
+    const input: Record<string, unknown> = {
+      prompt,
+      [kieDistinctI2iImageField(i2iModel)]: inputUrls,
+      aspect_ratio: aspectRatio,
     }
+    if (seedream5) input.quality = seedream5Quality(resolution)
+    else input.resolution = resolution
+    return { taskId: await this.submit(signal, i2iModel, input), model: i2iModel }
   }
 
   /** The aspect ratio to send: the caller's explicit value, else the size

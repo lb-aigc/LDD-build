@@ -7,6 +7,7 @@ import {
   modelCatalog,
   pickProvider,
   resolveModels,
+  resolveProvider,
   routeKeyOf,
 } from '../src/routing.ts'
 
@@ -146,7 +147,39 @@ test('modelCatalog marks the default and lists strengths', () => {
 test('modelCatalog names each concrete KIE model so the agent can route by name', () => {
   const resolved = resolveModels({ models: [{ provider: 'kie' }] }, P)
   const catalog = modelCatalog(resolved, IMAGE_PROVIDER_PRESETS)
-  assert.match(catalog, /kie:gpt-image-2-text-to-image \(default\): KIE（聚合中转） · GPT Image 2（文生图 \+ 图生图）/)
-  assert.match(catalog, /kie:flux-2\/pro-text-to-image: KIE（聚合中转） · Flux-2 Pro（文生图 \+ 图生图）/)
-  assert.match(catalog, /kie:z-image: KIE（聚合中转） · Z-image（文生图）/)
+  assert.match(catalog, /kie:gpt-image-2-text-to-image \(default\): KIE（聚合中转） · GPT Image 2/)
+  assert.match(catalog, /kie:flux-2\/pro-text-to-image: KIE（聚合中转） · Flux-2 Pro/)
+  assert.match(catalog, /kie:z-image: KIE（聚合中转） · Z-image/)
+})
+
+test('resolveProvider honours the agent pick when no user override exists', () => {
+  const resolved = resolveModels({ models: [{ provider: 'kie' }, { provider: 'gpt-image' }], default: 'kie:gpt-image-2-text-to-image' }, P)
+  const entry = resolveProvider(resolved, 'gpt-image', undefined, new Map())
+  assert.equal(entry.key, 'gpt-image')
+})
+
+test('resolveProvider uses the user pick when the agent passes no provider', () => {
+  const resolved = resolveModels({ models: [{ provider: 'kie' }, { provider: 'gpt-image' }] }, P)
+  const session = {}
+  const overrides = new Map<object, string>([[session, 'gpt-image']])
+  const entry = resolveProvider(resolved, undefined, session, overrides)
+  assert.equal(entry.key, 'gpt-image')
+})
+
+test('resolveProvider allows the agent to match the user pick', () => {
+  const resolved = resolveModels({ models: [{ provider: 'kie' }] }, P)
+  const session = {}
+  const overrides = new Map<object, string>([[session, 'kie:gpt-image-2-text-to-image']])
+  const entry = resolveProvider(resolved, 'kie:gpt-image-2-text-to-image', session, overrides)
+  assert.equal(entry.key, 'kie:gpt-image-2-text-to-image')
+})
+
+test('resolveProvider blocks the agent from switching away from the user pick', () => {
+  const resolved = resolveModels({ models: [{ provider: 'kie' }, { provider: 'legnext' }] }, P)
+  const session = {}
+  const overrides = new Map<object, string>([[session, 'kie:gpt-image-2-text-to-image']])
+  assert.throws(
+    () => resolveProvider(resolved, 'legnext', session, overrides),
+    /不得擅自切换模型/,
+  )
 })

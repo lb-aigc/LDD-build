@@ -176,12 +176,15 @@ test('kie distinct-i2i models auto-route to their i2i counterpart', () => {
   assert.equal(kieDistinctI2iCounterpart('z-image'), undefined)
 })
 
-test('kie distinct-i2i reference field: Grok Imagine uses image_urls, others input_urls', () => {
-  // Grok Imagine's image-to-image endpoint takes `image_urls` (documented in
-  // its "文件上传要求" section), while GPT Image / Seedream / Flux use `input_urls`.
+test('kie distinct-i2i reference field: Grok Imagine + Seedream 5 use image_urls, others input_urls', () => {
+  // Grok Imagine's image-to-image endpoint takes `image_urls`, and Seedream 5
+  // Pro/Lite i2i also takes `image_urls` (not `input_urls` — its required set
+  // is prompt/image_urls/aspect_ratio/quality), while GPT Image / Flux use
+  // `input_urls`.
   assert.equal(kieDistinctI2iImageField('grok-imagine/image-to-image'), 'image_urls')
+  assert.equal(kieDistinctI2iImageField('seedream/5-pro-image-to-image'), 'image_urls')
+  assert.equal(kieDistinctI2iImageField('seedream/5-lite-image-to-image'), 'image_urls')
   assert.equal(kieDistinctI2iImageField('gpt-image-2-image-to-image'), 'input_urls')
-  assert.equal(kieDistinctI2iImageField('seedream/5-pro-image-to-image'), 'input_urls')
   assert.equal(kieDistinctI2iImageField('flux-2/pro-image-to-image'), 'input_urls')
 })
 
