@@ -29,10 +29,11 @@ test('a configured models list becomes routable entries in order', () => {
     ],
     default: 'gpt-image',
   }, P)
-  assert.equal(resolved.entries.length, 2)
+  assert.equal(resolved.entries.length, 3)
   assert.equal(resolved.entries[0]?.key, 'seedream')
-  assert.equal(resolved.entries[1]?.key, 'gpt-image')
-  assert.equal(resolved.defaultKey, 'gpt-image')
+  assert.equal(resolved.entries[1]?.key, 'gpt-image:gpt-image-2')
+  assert.equal(resolved.entries[2]?.key, 'gpt-image:gpt-image-1.5')
+  assert.equal(resolved.defaultKey, 'gpt-image:gpt-image-2')
 })
 
 test('duplicate provider ids get a #n suffix so each stays addressable', () => {
@@ -94,7 +95,7 @@ test('pickProvider falls back to the default entry when no key is given', () => 
     default: 'nano-banana',
   }, P)
   const picked = pickProvider(resolved, undefined)
-  assert.equal(picked.key, 'nano-banana')
+  assert.equal(picked.key, 'nano-banana:gemini-2.5-flash-image')
 })
 
 test('pickProvider routes by key and rejects an unknown key with the available list', () => {
@@ -104,7 +105,7 @@ test('pickProvider routes by key and rejects an unknown key with the available l
   assert.equal(pickProvider(resolved, 'seedream').provider, 'seedream')
   assert.throws(
     () => pickProvider(resolved, 'does-not-exist'),
-    /unknown generation provider "does-not-exist" \(available: gpt-image, seedream\)/,
+    /unknown generation provider "does-not-exist" \(available: gpt-image:gpt-image-2, gpt-image:gpt-image-1.5, seedream\)/,
   )
 })
 
@@ -140,7 +141,7 @@ test('modelCatalog marks the default and lists strengths', () => {
     default: 'seedream',
   }, P)
   const catalog = modelCatalog(resolved, IMAGE_PROVIDER_PRESETS)
-  assert.match(catalog, /gpt-image: GPT Image/)
+  assert.match(catalog, /gpt-image:gpt-image-2: GPT Image/)
   assert.match(catalog, /seedream \(default\): Seedream/)
 })
 
@@ -155,7 +156,7 @@ test('modelCatalog names each concrete KIE model so the agent can route by name'
 test('resolveProvider honours the agent pick when no user override exists', () => {
   const resolved = resolveModels({ models: [{ provider: 'kie' }, { provider: 'gpt-image' }], default: 'kie:gpt-image-2-text-to-image' }, P)
   const entry = resolveProvider(resolved, 'gpt-image', undefined, new Map())
-  assert.equal(entry.key, 'gpt-image')
+  assert.equal(entry.key, 'gpt-image:gpt-image-2')
 })
 
 test('resolveProvider uses the user pick when the agent passes no provider', () => {
@@ -163,7 +164,7 @@ test('resolveProvider uses the user pick when the agent passes no provider', () 
   const session = {}
   const overrides = new Map<object, string>([[session, 'gpt-image']])
   const entry = resolveProvider(resolved, undefined, session, overrides)
-  assert.equal(entry.key, 'gpt-image')
+  assert.equal(entry.key, 'gpt-image:gpt-image-2')
 })
 
 test('resolveProvider allows the agent to match the user pick', () => {

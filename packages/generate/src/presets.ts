@@ -85,6 +85,10 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultModel: 'gpt-image-2',
     strengths: '通用写实与风格化图像，指令遵循和文字渲染强',
     imageToImage: true,
+    models: [
+      { id: 'gpt-image-2', label: 'GPT Image 2' },
+      { id: 'gpt-image-1.5', label: 'GPT Image 1.5' },
+    ],
   },
   {
     id: 'nano-banana',
@@ -94,6 +98,9 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultModel: 'gemini-2.5-flash-image',
     strengths: '带文字的设计：logo、UI 图标、信息图、排版',
     imageToImage: true,
+    models: [
+      { id: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image' },
+    ],
   },
   {
     id: 'midjourney',
@@ -146,6 +153,11 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultModel: '8.2',
     strengths: 'Midjourney 中转：艺术风格、概念插画、氛围感画面（V7/V8.1/V8.2）',
     imageToImage: false,
+    models: [
+      { id: '8.2', label: 'MJ V8.2' },
+      { id: '8.1', label: 'MJ V8.1' },
+      { id: '7', label: 'MJ V7' },
+    ],
   },
 ]
 
@@ -188,6 +200,14 @@ export const MUSIC_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultModel: 'V5_5',
     strengths: 'AI 音乐生成：作词作曲、纯音乐、多风格多语言（V4/V4.5/V5/V5.5）',
     imageToImage: false,
+    models: [
+      { id: 'V5_5', label: 'V5.5' },
+      { id: 'V5', label: 'V5' },
+      { id: 'V4_5PLUS', label: 'V4.5+' },
+      { id: 'V4_5', label: 'V4.5' },
+      { id: 'V4_5ALL', label: 'V4.5 ALL' },
+      { id: 'V4', label: 'V4' },
+    ],
   },
 ]
 

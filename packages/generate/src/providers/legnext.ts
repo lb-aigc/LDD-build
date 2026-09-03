@@ -11,6 +11,10 @@ const POLL_INTERVAL_MS = 3000
 const MAX_POLLS = 200
 const RETRY_ATTEMPTS = 3
 const RETRY_BASE_MS = 1000
+// Legnext sits behind Cloudflare which rejects non-browser user agents with
+// "error code: 1010" (a browser-signature check). Node's default UA passes
+// today, but an explicit Chrome UA is safer against future tightening.
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
 /** image size → Midjourney `--ar` aspect-ratio flag. */
 const SIZE_ASPECT_RATIOS: Readonly<Record<ImageSize, string>> = {
@@ -87,7 +91,7 @@ export class LegnextProvider implements GenerationProvider {
     const { baseURL } = this.options
     const response = await fetchWithRetry(`${trimSlash(baseURL)}/v1/diffusion`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': apiKey },
+      headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'user-agent': BROWSER_UA },
       body: JSON.stringify({ text }),
     }, signal)
     if (!response.ok) {
@@ -106,7 +110,7 @@ export class LegnextProvider implements GenerationProvider {
     const { baseURL } = this.options
     for (let attempt = 0; attempt < MAX_POLLS; attempt++) {
       signal.throwIfAborted()
-      const response = await fetchWithRetry(`${trimSlash(baseURL)}/v1/job/${encodeURIComponent(jobId)}`, {}, signal)
+      const response = await fetchWithRetry(`${trimSlash(baseURL)}/v1/job/${encodeURIComponent(jobId)}`, { headers: { 'user-agent': BROWSER_UA } }, signal)
       if (!response.ok) {
         const body = await response.text().catch(() => '')
         throw new Error(`${this.id} job 轮询失败 ${response.status}${body ? `: ${body}` : ''}`)

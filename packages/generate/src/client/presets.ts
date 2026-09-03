@@ -141,7 +141,7 @@ export function routeKeyOf(
 ): string {
   const provider = models[index]?.provider || DEFAULT_PROVIDER
   const preset = presets.find((p) => p.id === provider)
-  if (preset?.aggregator === true && provider !== CUSTOM_PROVIDER_ID) {
+  if (preset !== undefined && preset.suggestedModels.length > 0 && provider !== CUSTOM_PROVIDER_ID) {
     const modelId = models[index]?.model || preset.suggestedModels[0]!.id
     return `${provider}:${modelId}`
   }
@@ -185,7 +185,7 @@ export function normalizeDefaultKey(
   const hit = entries.find((e) => (e.provider || DEFAULT_PROVIDER) === rawDefault)
   if (hit === undefined) return rawDefault
   const preset = presets.find((p) => p.id === (hit.provider || DEFAULT_PROVIDER))
-  if (preset?.aggregator === true && hit.provider !== CUSTOM_PROVIDER_ID) {
+  if (preset !== undefined && preset.suggestedModels.length > 0 && hit.provider !== CUSTOM_PROVIDER_ID) {
     const modelId = hit.model || preset.suggestedModels[0]!.id
     return `${hit.provider}:${modelId}`
   }
@@ -225,7 +225,7 @@ export function resolvePickerModels(value: {
   rawModels.forEach((entry, index) => {
     const provider = keyed[index]?.provider ?? 'mock'
     const preset = IMAGE_PRESETS.find((p) => p.id === provider)
-    if (preset?.aggregator === true && provider !== CUSTOM_PROVIDER_ID) {
+    if (preset !== undefined && preset.suggestedModels.length > 0 && provider !== CUSTOM_PROVIDER_ID) {
       for (const suggestion of preset.suggestedModels) {
         const key = `${provider}:${suggestion.id}`
         if (seenKeys.has(key)) continue
@@ -252,3 +252,34 @@ export function resolvePickerModels(value: {
     defaultKey,
   }
 }
+
+
+/** 配置页的一个 key 输入项：一个中转一个 key。 */
+export interface KeyEntry {
+  /** credentials 域的引用名（如 KIE_API_KEY）。 */
+  readonly ref: string
+  /** 中转显示名（取第一个用该 key 的 preset 的 label）。 */
+  readonly label: string
+}
+
+/** 从 presets 推导配置页的 key 列表：跳过 mock、无 key 引用、无内置模型
+ *  （如火山方舟 seedream，需手填 model，不适合「只配 key」）的中转，且同一
+ *  ref 只列一次（KIE 同时服务生图/视频/音乐，但 key 是全局的）。 */
+export function keyEntriesOf(presets: readonly ClientPreset[]): KeyEntry[] {
+  const map = new Map<string, KeyEntry>()
+  for (const preset of presets) {
+    if (preset.id === DEFAULT_PROVIDER) continue
+    const ref = preset.defaultApiKeyEnv
+    if (ref === undefined || ref === '') continue
+    if (preset.suggestedModels.length === 0) continue
+    if (!map.has(ref)) map.set(ref, { ref, label: preset.label })
+  }
+  return [...map.values()]
+}
+
+/** 生图配置页的 key 列表。 */
+export const IMAGE_KEY_ENTRIES: readonly KeyEntry[] = keyEntriesOf(IMAGE_PRESETS)
+/** 生视频配置页的 key 列表。 */
+export const VIDEO_KEY_ENTRIES: readonly KeyEntry[] = keyEntriesOf(VIDEO_PRESETS)
+/** 音乐配置页的 key 列表。 */
+export const MUSIC_KEY_ENTRIES: readonly KeyEntry[] = keyEntriesOf(MUSIC_PRESETS)

@@ -1,8 +1,7 @@
 /**
  * Composer model-picker controller: reads the configured image models (key +
- * label + default) from the generate-image settings namespace and issues the
- * two button actions — a per-session temporary switch (a `/generate-model`
- * slash command) and a persistent "set default" (a settings write). Kept
+ * label + default) from the generate-image settings namespace and issues a
+ * per-session temporary switch (a `/generate-model` slash command). Kept
  * dependency-light like the card controller: settings scope + a commandable
  * session face are both shimmed, never imported from the harness packages.
  */
@@ -20,11 +19,10 @@ export interface ModelPickerState {
   readonly defaultKey: string
 }
 
-/** The face the slot entry injects (hook + the two actions). */
+/** The face the slot entry injects (hook + the select action). */
 export interface ModelPickerFace {
   readonly hooks: { readonly modelPicker: SnapshotStore<ModelPickerState> }
   readonly select: (key: string) => void
-  readonly setDefault: (key: string) => void
 }
 
 /** The sessions slice needed to run a slash command against one session. */
@@ -69,9 +67,6 @@ export class ModelPickerController {
       select: (key) => {
         if (this.sessionId === undefined || this.sessions === undefined) return
         void this.sessions.binding(this.sessionId)?.session.command(`/generate-model ${key}`)
-      },
-      setDefault: (key) => {
-        void this.scope.set('default', key)
       },
     }
   }

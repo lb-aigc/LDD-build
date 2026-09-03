@@ -36,11 +36,15 @@ test('resolvePickerModels honours a concrete default key', () => {
   assert.equal(models[0]!.isDefault, false)
 })
 
-test('resolvePickerModels keeps non-aggregators as one entry each', () => {
+test('resolvePickerModels expands every provider that lists suggested models', () => {
   const { models } = resolvePickerModels({
     models: [{ provider: 'gpt-image' }, { provider: 'nano-banana' }],
     default: 'nano-banana',
   } as never)
-  assert.deepEqual(models.map((m) => m.key), ['gpt-image', 'nano-banana'])
-  assert.equal(models[1]!.isDefault, true)
+  assert.deepEqual(models.map((m) => m.key), [
+    'gpt-image:gpt-image-2',
+    'gpt-image:gpt-image-1.5',
+    'nano-banana:gemini-2.5-flash-image',
+  ])
+  assert.equal(models[2]!.isDefault, true)
 })

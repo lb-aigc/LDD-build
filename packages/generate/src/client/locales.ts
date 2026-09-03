@@ -2,38 +2,19 @@
 
 export type GenerateLocaleKey =
   | 'imageTitle' | 'videoTitle' | 'musicTitle'
-  | 'defaultLabel' | 'custom' | 'remove' | 'addModel'
-  | 'provider' | 'protocol' | 'protocolHint'
-  | 'model' | 'modelHint'
-  | 'imageToImageModel' | 'imageToImageModelHint'
-  | 'baseURL' | 'baseURLHint'
-  | 'apiKeyEnv' | 'apiKeyEnvHint'
-  | 'apiKey' | 'apiKeyHint'
+  | 'keyListHint' | 'keyPlaceholder' | 'configured' | 'unconfigured'
   | 'unsaved' | 'save' | 'saving' | 'discard' | 'readOnly' | 'saveFailed'
   | 'fileImport.commandDescription' | 'fileImport.optionLabel' | 'fileImport.optionDetail' | 'fileImport.remove'
-  | 'modelPicker.trigger' | 'modelPicker.default' | 'modelPicker.setDefault'
+  | 'modelPicker.trigger'
 
 export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
   videoTitle: '生视频模型',
   musicTitle: '生音乐模型',
-  defaultLabel: '默认',
-  custom: '自定义',
-  remove: '删除',
-  addModel: '+ 添加模型',
-  provider: '服务预设',
-  protocol: '协议',
-  protocolHint: 'openai-compatible / gemini / midjourney / volcengine',
-  model: '模型',
-  modelHint: '留空继承预设默认',
-  imageToImageModel: '图生图模型（可选）',
-  imageToImageModelHint: '留空则与文生图模型相同；KIE 填如 gpt-image-2-image-to-image；Nano Banana 系列无需配置（同一模型自动支持图生图）',
-  baseURL: '接口地址',
-  baseURLHint: '留空继承预设默认',
-  apiKeyEnv: '密钥引用名',
-  apiKeyEnvHint: '环境变量名或凭证引用，默认 GENERATE_API_KEY',
-  apiKey: 'API Key',
-  apiKeyHint: '留空则不修改',
+  keyListHint: '填写各中转的 API Key，配好后该中转的全部模型会出现在输入框上方的模型选择器里。',
+  keyPlaceholder: '粘贴 API Key（留空则不修改）',
+  configured: '已配置',
+  unconfigured: '未配置',
   unsaved: '未保存',
   save: '保存',
   saving: '保存中…',
@@ -45,31 +26,16 @@ export const zh: Record<GenerateLocaleKey, string> = {
   'fileImport.optionDetail': '从本地选择文件导入到当前工作区',
   'fileImport.remove': '移除文件卡片',
   'modelPicker.trigger': '切换生图模型',
-  'modelPicker.default': '默认',
-  'modelPicker.setDefault': '设为默认',
 }
 
 export const en: Record<GenerateLocaleKey, string> = {
   imageTitle: 'Image model',
   videoTitle: 'Video model',
   musicTitle: 'Music model',
-  defaultLabel: 'Default',
-  custom: 'Custom',
-  remove: 'Remove',
-  addModel: '+ Add model',
-  provider: 'Provider',
-  protocol: 'Protocol',
-  protocolHint: 'openai-compatible / gemini / midjourney / volcengine',
-  model: 'Model',
-  modelHint: 'Blank inherits the preset default',
-  imageToImageModel: 'Image-to-image model (optional)',
-  imageToImageModelHint: 'Blank reuses the text-to-image model; e.g. gpt-image-2-image-to-image for KIE; Nano Banana needs no config (same model auto-supports i2i)',
-  baseURL: 'Endpoint',
-  baseURLHint: 'Blank inherits the preset default',
-  apiKeyEnv: 'Key reference',
-  apiKeyEnvHint: 'Env var or credential reference; defaults to GENERATE_API_KEY',
-  apiKey: 'API Key',
-  apiKeyHint: 'Leave blank to keep unchanged',
+  keyListHint: 'Fill in each relay API key; its models then appear in the picker above the composer.',
+  keyPlaceholder: 'Paste the API key (blank = leave unchanged)',
+  configured: 'Configured',
+  unconfigured: 'Not set',
   unsaved: 'Unsaved',
   save: 'Save',
   saving: 'Saving…',
@@ -81,6 +47,4 @@ export const en: Record<GenerateLocaleKey, string> = {
   'fileImport.optionDetail': 'Import a local file into the current workspace',
   'fileImport.remove': 'Remove file card',
   'modelPicker.trigger': 'Switch generation model',
-  'modelPicker.default': 'Default',
-  'modelPicker.setDefault': 'Set default',
 }

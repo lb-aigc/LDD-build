@@ -2,7 +2,7 @@
  * Composer generation-model picker: a chip in the composer tool row (the
  * `conversation.input.generate-model` seat) that opens a harness-native `Menu`
  * listing EVERY configured image model. Picking one runs a per-session
- * temporary switch; a trailing "set default" row persists the current pick.
+ * temporary switch (no "set default" — the model choice IS the pick).
  * Styled to match the sibling PermissionSelect / ModelSelect triggers (same
  * 28px chip, `--dsw-*` tokens, chevron rotation), so it reads as part of the
  * composer rather than a bolted-on control.
@@ -22,9 +22,6 @@ export type GenerateModelPickerProps =
   & PropsLocale<'generate'>
   & InjectFace<ModelPickerFace>
 
-/** Reserved menu id for the "set as default" action row. */
-const SET_DEFAULT_ID = '__set-default'
-
 /** A small image/generate glyph, currentColor so trigger and rows tint it. */
 function generateGlyph(): ReactNode {
   return (
@@ -32,15 +29,6 @@ function generateGlyph(): ReactNode {
       <rect x="1.5" y="2.5" width="13" height="11" rx="2" stroke="currentColor" strokeWidth="1.3" />
       <circle cx="5.5" cy="6.5" r="1.5" fill="currentColor" />
       <path d="M3 12.5L6.2 9.3L9 12.1L11 10.1L13 12.1" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-/** Pin glyph for the "set default" row. */
-function pinGlyph(): ReactNode {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path d="M9.5 2.5L13.5 6.5L10 7.5L8.5 13.5L5 8.5L2.5 11L2 10.5L5 7.5L5 2.5L9.5 2.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -63,26 +51,13 @@ export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode 
     ?? state.models.find((m) => m.isDefault)
     ?? state.models[0]
 
-  const items: MenuEntry[] = [
-    ...state.models.map((model) => ({
-      id: model.key,
-      label: model.label,
-      icon: generateGlyph(),
-    })),
-    { type: 'separator', id: 'picker-separator' },
-    {
-      id: SET_DEFAULT_ID,
-      label: props.t('modelPicker.setDefault'),
-      icon: pinGlyph(),
-    },
-  ]
+  const items: MenuEntry[] = state.models.map((model) => ({
+    id: model.key,
+    label: model.label,
+    icon: generateGlyph(),
+  }))
 
   const onSelect = (id: string): void => {
-    if (id === SET_DEFAULT_ID) {
-      // Persist whichever model is currently active as the settings default.
-      props.setDefault(activeKey)
-      return
-    }
     setCurrentKey(id)
     props.select(id)
   }

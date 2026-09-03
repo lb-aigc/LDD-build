@@ -1,18 +1,15 @@
 /**
- * One generation-settings card ("生图模型" / "生视频模型") rendering a MODEL
- * LIST: each row picks a provider preset (dropdown) or `custom` (revealing
- * protocol + endpoint), carries a default radio, and can be removed. A footer
- * adds rows and saves/discards the whole list. Self-contained controls (the
- * reference package ships only types), so the markup is plain React.
+ * One generation-settings card ("生图模型" / "生视频模型" / "音乐模型")
+ * rendering a KEY list — one credential input per relay. Model choice is
+ * built-in and lives in the composer picker, NOT here. Self-contained
+ * controls (the reference package ships only types), so the markup is plain
+ * React.
  */
 import { useState } from 'react'
 import type { CSSProperties, ReactElement } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { EditableModelField, GenerationCardFace, ModelRow } from './controller.ts'
-import { apiKeyRefOf } from './controller.ts'
+import type { GenerationCardFace } from './controller.ts'
 import type { GenerateLocaleKey } from './locales.ts'
-import { CUSTOM_PROVIDER_ID, IMAGE_PRESETS, VIDEO_PRESETS, MUSIC_PRESETS, routeKeyOf } from './presets.ts'
-import type { ClientPreset } from './presets.ts'
 
 export type GenerationCardProps =
   PropsRuntime<'settings.plugin.item'>
@@ -31,135 +28,53 @@ const inputStyle: CSSProperties = {
 }
 
 const labelStyle: CSSProperties = {
-  display: 'block',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
   fontSize: '12px',
   fontWeight: 600,
   marginBottom: '4px',
   color: 'var(--dsh-fg-muted, #475467)',
 }
 
-function Field(props: {
+const statusStyle: CSSProperties = {
+  fontSize: '11px',
+  fontWeight: 500,
+  padding: '1px 8px',
+  borderRadius: '10px',
+}
+
+function KeyField(props: {
   label: string
-  hint?: string
+  configured: boolean
   value: string
   disabled: boolean
-  type?: 'text' | 'password'
+  placeholder: string
+  configuredText: string
+  unconfiguredText: string
   onEdit: (text: string) => void
 }): ReactElement {
   return (
-    <div style={{ marginBottom: '10px' }}>
-      <label style={labelStyle}>{props.label}</label>
+    <div style={{ marginBottom: '12px' }}>
+      <label style={labelStyle}>
+        <span>{props.label}</span>
+        <span style={{
+          ...statusStyle,
+          color: props.configured ? '#067647' : '#475467',
+          background: props.configured ? 'var(--dsh-bg-success, #ecfdf3)' : 'var(--dsh-bg-field, #f2f4f7)',
+        }}>
+          {props.configured ? props.configuredText : props.unconfiguredText}
+        </span>
+      </label>
       <input
-        type={props.type ?? 'text'}
+        type="password"
         style={inputStyle}
         value={props.value}
         disabled={props.disabled}
-        placeholder={props.hint}
+        placeholder={props.placeholder}
+        autoComplete="off"
         onChange={(event) => { props.onEdit(event.target.value) }}
       />
-    </div>
-  )
-}
-
-function ModelRow(props: {
-  model: ModelRow
-  index: number
-  isDefault: boolean
-  disabled: boolean
-  presets: readonly ClientPreset[]
-  t: (key: GenerateLocaleKey) => string
-  onEditModel: (index: number, field: EditableModelField, text: string) => void
-  onRemove: (index: number) => void
-  onSetDefault: (index: number) => void
-  /** Whether THIS row shows the shared API-key input (first row of a ref). */
-  showApiKey: boolean
-  apiKeyText: string
-  onSetApiKey: (ref: string, text: string) => void
-}): ReactElement {
-  const { model, index, isDefault, disabled, presets, t } = props
-  const isCustom = model.provider === CUSTOM_PROVIDER_ID
-  const suggested = presets.find((preset) => preset.id === model.provider)?.suggestedModels ?? []
-  const ref = apiKeyRefOf(model)
-  return (
-    <div style={{ border: '1px solid var(--dsh-border, #e4e7ec)', borderRadius: '6px', padding: '12px', marginBottom: '10px', background: 'var(--dsh-bg-field, #fff)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', cursor: 'pointer', color: 'var(--dsh-fg, #101828)' }}>
-          <input
-            type="radio"
-            name="generate-default"
-            checked={isDefault}
-            disabled={disabled}
-            onChange={() => { props.onSetDefault(index) }}
-          />
-          <span>{t('defaultLabel')}</span>
-        </label>
-        <select
-          style={{ ...inputStyle, flex: 1 }}
-          value={model.provider}
-          disabled={disabled}
-          onChange={(event) => { props.onEditModel(index, 'provider', event.target.value) }}
-        >
-          {presets.map((preset) => (
-            <option key={preset.id} value={preset.id}>{preset.label}</option>
-          ))}
-          <option value={CUSTOM_PROVIDER_ID}>{t('custom')}</option>
-        </select>
-        <button
-          type="button"
-          onClick={() => { props.onRemove(index) }}
-          disabled={disabled}
-          style={{ padding: '4px 10px', fontSize: '12px', border: '1px solid var(--dsh-border, #d0d5dd)', borderRadius: '6px', background: 'transparent', cursor: disabled ? 'default' : 'pointer', color: '#b42318' }}
-        >
-          {t('remove')}
-        </button>
-      </div>
-      {isCustom
-        ? <Field label={t('protocol')} hint={t('protocolHint')} value={model.protocol} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'protocol', text) }} />
-        : null}
-      {isCustom
-        ? <Field label={t('baseURL')} hint={t('baseURLHint')} value={model.baseURL} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'baseURL', text) }} />
-        : null}
-      {suggested.length > 0
-        ? (
-          <div style={{ marginBottom: '10px' }}>
-            <label style={labelStyle}>{t('model')}</label>
-            <select
-              style={inputStyle}
-              value={model.model}
-              disabled={disabled}
-              onChange={(event) => { props.onEditModel(index, 'model', event.target.value) }}
-            >
-              {model.model && !suggested.some((option) => option.id === model.model)
-                ? <option value={model.model}>{model.model}</option>
-                : null}
-              {suggested.map((option) => (
-                <option key={option.id} value={option.id}>{option.label}</option>
-              ))}
-            </select>
-          </div>
-        )
-        : <Field label={t('model')} hint={t('modelHint')} value={model.model} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'model', text) }} />}
-      {isCustom
-        ? <Field label={t('imageToImageModel')} hint={t('imageToImageModelHint')} value={model.imageToImageModel} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'imageToImageModel', text) }} />
-        : null}
-      {isCustom
-        ? <Field label={t('apiKeyEnv')} hint={t('apiKeyEnvHint')} value={model.apiKeyEnv} disabled={disabled} onEdit={(text) => { props.onEditModel(index, 'apiKeyEnv', text) }} />
-        : null}
-      {props.showApiKey
-        ? (
-          <div style={{ marginBottom: '10px' }}>
-            <label style={labelStyle}>{t('apiKey')}</label>
-            <input
-              type="password"
-              style={inputStyle}
-              value={props.apiKeyText}
-              disabled={disabled}
-              placeholder={t('apiKeyHint')}
-              onChange={(event) => { props.onSetApiKey(ref, event.target.value) }}
-            />
-          </div>
-        )
-        : null}
     </div>
   )
 }
@@ -173,19 +88,6 @@ export function GenerateSettingsCard(props: GenerationCardProps): ReactElement |
   const title = state.kind === 'image' ? t('imageTitle') : state.kind === 'video' ? t('videoTitle') : t('musicTitle')
   const disabled = !state.writable
   const canSave = state.dirty && !state.saving && state.writable
-  const presets = state.kind === 'image' ? IMAGE_PRESETS : state.kind === 'video' ? VIDEO_PRESETS : MUSIC_PRESETS
-
-  // API-key inputs sit INLINE in the first row of each credential reference, so
-  // the key field lives in the same form as the provider that uses it (KIE →
-  // one key field right under the KIE model row). Rows that share a ref (extra
-  // KIE models) reuse the first row's key and show no duplicate input.
-  const seenRefs = new Set<string>()
-  const firstRefRow = state.models.map((model) => {
-    const ref = apiKeyRefOf(model)
-    if (seenRefs.has(ref)) return null
-    seenRefs.add(ref)
-    return ref
-  })
 
   return (
     <li style={{ listStyle: 'none', border: '1px solid var(--dsh-border, #e4e7ec)', borderRadius: '8px', marginBottom: '8px', background: 'var(--dsh-bg-card, #fff)' }}>
@@ -204,32 +106,20 @@ export function GenerateSettingsCard(props: GenerationCardProps): ReactElement |
           <div style={{ padding: '0 16px 16px' }}>
             {!state.writable
               ? <p style={{ fontSize: '12px', color: 'var(--dsh-fg-muted, #667085)' }}>{t('readOnly')}</p>
-              : null}
-            {state.models.map((model, index) => (
-              <ModelRow
-                key={model.uid}
-                model={model}
-                index={index}
-                isDefault={routeKeyOf(state.models, index, presets) === state.defaultKey}
+              : <p style={{ fontSize: '12px', color: 'var(--dsh-fg-muted, #667085)', margin: '0 0 12px' }}>{t('keyListHint')}</p>}
+            {state.keys.map((key) => (
+              <KeyField
+                key={key.ref}
+                label={key.label}
+                configured={key.configured}
+                value={key.value}
                 disabled={disabled}
-                presets={presets}
-                t={t}
-                onEditModel={props.editModel}
-                onRemove={props.removeModel}
-                onSetDefault={props.setDefault}
-                showApiKey={firstRefRow[index] !== null && firstRefRow[index] !== undefined}
-                apiKeyText={firstRefRow[index] !== null && firstRefRow[index] !== undefined ? (state.apiKeyTexts[firstRefRow[index] as string] ?? '') : ''}
-                onSetApiKey={props.setApiKey}
+                placeholder={t('keyPlaceholder')}
+                configuredText={t('configured')}
+                unconfiguredText={t('unconfigured')}
+                onEdit={(text) => { props.setKey(key.ref, text) }}
               />
             ))}
-            <button
-              type="button"
-              onClick={props.addModel}
-              disabled={disabled}
-              style={{ width: '100%', padding: '8px', fontSize: '13px', border: '1px dashed var(--dsh-border, #d0d5dd)', borderRadius: '6px', background: 'transparent', cursor: disabled ? 'default' : 'pointer', color: 'var(--dsh-fg-muted, #475467)' }}
-            >
-              {t('addModel')}
-            </button>
             {state.failed
               ? <p style={{ fontSize: '12px', color: '#b42318' }}>{t('saveFailed')}</p>
               : null}
