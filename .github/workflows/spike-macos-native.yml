@@ -1,0 +1,63 @@
+name: Spike macOS native modules (arm64)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  spike:
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - name: Show platform + toolchain
+        run: |
+          echo "node default: $(node -e 'console.log(process.platform, process.arch, process.version)')"
+          echo "uname: $(uname -m)"
+          sw_vers
+          echo "clang: $(clang --version 2>/dev/null | head -1 || echo MISSING)"
+          echo "python3: $(python3 --version 2>/dev/null || echo MISSING)"
+          echo "xcode-select: $(xcode-select -p 2>/dev/null || echo MISSING)"
+
+      - name: Use Node 24 (match runtime build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+
+      - name: Use pinned pnpm 11.7.0
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.7.0 --activate
+          pnpm --version
+
+      - name: Install native modules (ignore scripts, then run lifecycles manually)
+        run: |
+          set -eux
+          SPIKE="$RUNNER_TEMP/ldd-spike"
+          mkdir -p "$SPIKE" && cd "$SPIKE"
+          printf '%s\n' '{ "name": "ldd-spike", "private": true }' > package.json
+          pnpm add --ignore-scripts node-pty@1.2.0-beta.15 koffi@3.1.1 esbuild@0.28.1
+
+          echo "=== esbuild lifecycle (node install.js) ==="
+          ( cd node_modules/esbuild && node install.js )
+
+          echo "=== koffi lifecycle (cnoke prebuild --release) ==="
+          ( cd node_modules/koffi && node ./cnoke.cjs -P . -D src/koffi --prebuild --release )
+
+          echo "=== node-pty lifecycle (prebuild.js then post-install.js) ==="
+          ( cd node_modules/node-pty && node scripts/prebuild.js && node scripts/post-install.js )
+
+          echo "=== installed native artifacts ==="
+          ls -la node_modules/node-pty/prebuilds/darwin-arm64/ || true
+          ls -la node_modules/koffi/build/ 2>/dev/null || ls -la node_modules/@koromix/ 2>/dev/null || true
+
+      - name: Probe native imports (mirror runtime-install-verification)
+        run: |
+          set -eux
+          cd "$RUNNER_TEMP/ldd-spike"
+          node --input-type=module --eval "
+            const esbuild = await import('esbuild');
+            const t = await esbuild.transform('export const ready = true');
+            if (typeof t.code !== 'string' || t.code.length === 0) { console.error('esbuild transform failed'); process.exit(41); }
+            await import('koffi');
+            const pty = await import('node-pty');
+            console.log('SPIKE_RESULT: NATIVE_OK platform=' + process.platform + ' arch=' + process.arch + ' node=' + process.version);
+          "
