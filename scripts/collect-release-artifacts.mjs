@@ -2,8 +2,10 @@ import { randomBytes } from 'node:crypto'
 import { copyFile, lstat, mkdir, rename, rm } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 
+import { runtimeArchiveFilename } from './runtime-platform.mjs'
+
 const repositoryRoot = resolve(import.meta.dirname, '..')
-const filename = 'deepseek-harness-0.1.1-rc.2-windows-x64.lddruntime'
+const filename = runtimeArchiveFilename('0.1.1-rc.2')
 const source = join(repositoryRoot, 'dist', 'runtime', filename)
 const releaseRoot = join(repositoryRoot, 'release')
 const destination = join(releaseRoot, filename)

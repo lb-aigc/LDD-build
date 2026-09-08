@@ -31,7 +31,11 @@ async function startApplication(): Promise<void> {
   try {
     await app.whenReady()
     const roamingAppData = app.getPath('appData')
-    const localAppData = process.env.LOCALAPPDATA ?? app.getPath('userData')
+    // On Windows LOCALAPPDATA is the machine-scoped data root (no app name);
+    // on macOS there is no Local/Roaming split, so fall back to `appData`
+    // (also app-name-less) — `userData` would prepend the product name and
+    // make the data root double up (…/LDD/LDD).
+    const localAppData = process.env.LOCALAPPDATA ?? app.getPath('appData')
     const location = await readDataLocation(locationFilePath(roamingAppData))
     if (location.dataDirectory !== undefined) {
       // The installer records the relocation out-of-band (no Node runtime to

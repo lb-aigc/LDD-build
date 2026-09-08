@@ -244,17 +244,23 @@ function installerEnvironment(host: OnlineRuntimeHost): NodeJS.ProcessEnv {
   const environment: NodeJS.ProcessEnv = {}
   for (const key of [
     'SystemRoot', 'SYSTEMROOT', 'TEMP', 'TMP', 'LOCALAPPDATA', 'APPDATA', 'USERPROFILE',
+    'HOME', 'LANG', 'LC_ALL',
     'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy',
     'NODE_EXTRA_CA_CERTS',
   ]) {
     if (process.env[key] !== undefined) environment[key] = process.env[key]
   }
-  const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT
-  environment.PATH = [
+  const pathEntries = [
     dirname(host.nodePath),
     dirname(host.pnpmPath),
-    ...(systemRoot === undefined ? [] : [join(systemRoot, 'System32')]),
-  ].join(process.platform === 'win32' ? ';' : ':')
+  ]
+  if (process.platform === 'win32') {
+    const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT
+    if (systemRoot !== undefined) pathEntries.push(join(systemRoot, 'System32'))
+  } else {
+    pathEntries.push('/usr/bin', '/bin')
+  }
+  environment.PATH = pathEntries.join(process.platform === 'win32' ? ';' : ':')
   environment.CI = '1'
   environment.DSH_TELEMETRY_DISABLED = '1'
   return environment

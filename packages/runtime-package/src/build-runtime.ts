@@ -47,7 +47,7 @@ export interface BuildRuntimeOptions {
   readonly harnessVersion?: string
   readonly pnpmExecutable?: string
   readonly verificationCommands?: readonly BuildCommand[]
-  readonly requireWindowsHost?: boolean
+  readonly requireHostPlatform?: boolean
   readonly environment?: Readonly<NodeJS.ProcessEnv>
 }
 
@@ -71,9 +71,15 @@ export async function buildRuntime(
   run: BuildCommandRunner = runCommand,
 ): Promise<BuildRuntimeResult> {
   validateBuildInputs(sourceRoot, outputRoot, options)
-  const requireWindowsHost = options.requireWindowsHost ?? true
-  if (requireWindowsHost && (process.platform !== 'win32' || process.arch !== 'x64')) {
-    throw new Error('the Windows x64 Harness runtime must be assembled on a Windows x64 host')
+  const requireHostPlatform = options.requireHostPlatform ?? true
+  if (requireHostPlatform) {
+    const host = `${process.platform}-${process.arch}`
+    const supported = new Set(['win32-x64', 'darwin-arm64'])
+    if (!supported.has(host)) {
+      throw new Error(
+        `the Harness runtime must be assembled on a supported host (win32-x64 or darwin-arm64), received ${host}`,
+      )
+    }
   }
   if (Number(process.versions.node.split('.', 1)[0]) !== expectedNodeMajor) {
     throw new Error(`Harness runtime assembly requires Node ${expectedNodeMajor}`)

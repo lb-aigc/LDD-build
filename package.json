@@ -20,7 +20,8 @@
     "package:source": "node scripts/package-source.mjs",
     "package:windows-build": "node scripts/package-source.mjs && node scripts/package-windows-build-bundle.mjs",
     "checksums:release": "node scripts/write-release-checksums.mjs",
-    "dist:win": "pnpm prepare:runtime-host && pnpm build:runtime && pnpm build && pnpm --filter @ldd/desktop dist:win && pnpm collect:release && pnpm package:source && pnpm checksums:release"
+    "dist:win": "pnpm prepare:runtime-host && pnpm build:runtime && pnpm build && pnpm --filter @ldd/desktop dist:win && pnpm collect:release && pnpm package:source && pnpm checksums:release",
+    "dist:mac": "pnpm prepare:runtime-host && pnpm build:runtime && pnpm build && pnpm --filter @ldd/desktop dist:mac && pnpm collect:release && pnpm package:source && pnpm checksums:release"
   },
   "devDependencies": {
     "@types/node": "24.0.0",

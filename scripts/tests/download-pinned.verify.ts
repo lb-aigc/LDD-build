@@ -53,11 +53,29 @@ test('pinned downloader retries a transiently unavailable primary source and fal
 
 test('FFmpeg runtime source has an official GitHub release fallback with one pinned digest', async () => {
   const manifest = JSON.parse(await readFile(resolve(root, 'vendor/runtime-sources.json'), 'utf8')) as {
-    ffmpeg?: { urls?: unknown; sha256?: unknown }
+    ffmpeg?: { targets?: { 'win32-x64'?: { urls?: unknown; archiveSha256?: unknown } } }
   }
-  assert.deepEqual(manifest.ffmpeg?.urls, [
+  assert.deepEqual(manifest.ffmpeg?.targets?.['win32-x64']?.urls, [
     'https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.1-essentials_build.zip',
     'https://github.com/GyanD/codexffmpeg/releases/download/9.0.1/ffmpeg-9.0.1-essentials_build.zip',
   ])
-  assert.equal(manifest.ffmpeg?.sha256, 'fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9')
+  assert.equal(manifest.ffmpeg?.targets?.['win32-x64']?.archiveSha256, 'fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9')
+})
+
+test('macOS runtime sources pin static ffmpeg/ffprobe arm64 binaries', async () => {
+  const manifest = JSON.parse(await readFile(resolve(root, 'vendor/runtime-sources.json'), 'utf8')) as {
+    ffmpeg?: { targets?: { 'darwin-arm64'?: { ffmpegUrl?: unknown; ffmpegSha256?: unknown; ffprobeUrl?: unknown; ffprobeSha256?: unknown } } }
+  }
+  assert.equal(
+    manifest.ffmpeg?.targets?.['darwin-arm64']?.ffmpegUrl,
+    'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-arm64',
+  )
+  assert.equal(
+    manifest.ffmpeg?.targets?.['darwin-arm64']?.ffmpegSha256,
+    'a90e3db6a3fd35f6074b013f948b1aa45b31c6375489d39e572bea3f18336584',
+  )
+  assert.equal(
+    manifest.ffmpeg?.targets?.['darwin-arm64']?.ffprobeSha256,
+    'bb2db6f5d8cef919da12fbf592119a987202a8c060a886f3cab091f9cab90b64',
+  )
 })

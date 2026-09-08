@@ -268,7 +268,7 @@ function createHarnessEnvironment(
     dirname(runtime.nodePath),
     dirname(runtime.pnpmPath),
     dirname(runtime.ffmpegPath),
-    systemDirectory(),
+    ...systemPathEntries(),
   ].filter((entry, index, values) => entry.length > 0 && values.indexOf(entry) === index)
   const environment: NodeJS.ProcessEnv = {
     ...process.env,
@@ -285,9 +285,10 @@ function createHarnessEnvironment(
   return environment
 }
 
-function systemDirectory(): string {
+function systemPathEntries(): readonly string[] {
+  if (process.platform !== 'win32') return ['/usr/bin', '/bin', '/usr/local/bin']
   const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT
-  return systemRoot === undefined ? '' : join(systemRoot, 'System32')
+  return systemRoot === undefined ? [] : [join(systemRoot, 'System32')]
 }
 
 async function drainDiagnostics(

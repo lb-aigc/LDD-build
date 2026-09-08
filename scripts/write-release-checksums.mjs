@@ -3,12 +3,14 @@ import { createReadStream } from 'node:fs'
 import { lstat, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 
+import { installerFilename, runtimeArchiveFilename, sourceArchiveFilename } from './runtime-platform.mjs'
+
 const repositoryRoot = resolve(import.meta.dirname, '..')
 const releaseRoot = join(repositoryRoot, 'release')
 const artifacts = [
-  join(releaseRoot, 'LDD-0.2.0-source.zip'),
-  join(releaseRoot, 'LDD-Setup-0.2.0-x64.exe'),
-  join(releaseRoot, 'deepseek-harness-0.1.1-rc.2-windows-x64.lddruntime'),
+  join(releaseRoot, sourceArchiveFilename('0.2.0')),
+  join(releaseRoot, installerFilename('0.2.0')),
+  join(releaseRoot, runtimeArchiveFilename('0.1.1-rc.2')),
 ].sort((left, right) => basename(left).localeCompare(basename(right), 'en'))
 
 await mkdir(releaseRoot, { mode: 0o700, recursive: true })

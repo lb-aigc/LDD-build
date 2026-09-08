@@ -127,7 +127,7 @@ export class DesktopRuntimeController implements DesktopRuntimePort {
       stagingRoot: this.#options.paths.stagingRoot,
       versionsRoot: this.#options.paths.versionsRoot,
       host: {
-        nodePath: join(this.#options.paths.runtimeHostRoot, 'node', 'node.exe'),
+        nodePath: nodeExecutablePath(this.#options.paths.runtimeHostRoot),
         pnpmPath: join(this.#options.paths.runtimeHostRoot, 'pnpm', 'bin', 'pnpm.cjs'),
         pluginArchivePaths,
       },
@@ -422,12 +422,20 @@ function toHarnessRuntime(path: string, version: string, hostRoot: string): Harn
   return {
     version,
     rootPath: path,
-    nodePath: join(hostRoot, 'node', 'node.exe'),
+    nodePath: nodeExecutablePath(hostRoot),
     dshEntryPath: join(path, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js'),
     pnpmPath: join(hostRoot, 'pnpm', 'bin', 'pnpm.cjs'),
-    ffmpegPath: join(hostRoot, 'ffmpeg', 'bin', 'ffmpeg.exe'),
-    ffprobePath: join(hostRoot, 'ffmpeg', 'bin', 'ffprobe.exe'),
+    ffmpegPath: ffmpegToolPath(hostRoot, 'ffmpeg'),
+    ffprobePath: ffmpegToolPath(hostRoot, 'ffprobe'),
   }
+}
+
+function nodeExecutablePath(hostRoot: string): string {
+  return join(hostRoot, 'node', process.platform === 'win32' ? 'node.exe' : 'node')
+}
+
+function ffmpegToolPath(hostRoot: string, tool: 'ffmpeg' | 'ffprobe'): string {
+  return join(hostRoot, 'ffmpeg', 'bin', process.platform === 'win32' ? `${tool}.exe` : tool)
 }
 
 async function inspectRuntimeCandidate(path: string, version: string): Promise<RuntimeCandidate> {
@@ -641,7 +649,10 @@ function requireRecord(value: unknown, field: string): Record<string, unknown> {
 
 function candidateProbeEnvironment(): NodeJS.ProcessEnv {
   const environment: NodeJS.ProcessEnv = {}
-  for (const key of ['SystemRoot', 'SYSTEMROOT', 'TEMP', 'TMP', 'LOCALAPPDATA', 'APPDATA', 'USERPROFILE']) {
+  const preserved = process.platform === 'win32'
+    ? ['SystemRoot', 'SYSTEMROOT', 'TEMP', 'TMP', 'LOCALAPPDATA', 'APPDATA', 'USERPROFILE']
+    : ['HOME', 'TEMP', 'TMP', 'PATH', 'LANG', 'LC_ALL']
+  for (const key of preserved) {
     if (process.env[key] !== undefined) environment[key] = process.env[key]
   }
   environment.DSH_TELEMETRY_DISABLED = '1'

@@ -29,7 +29,7 @@ test('two complete runtime assemblies contain stable relative locks and archived
         pluginRoots: [videoPluginRoot, generatePluginRoot],
         upstreamPatchRoot: patchRoot,
         createdAt: '2026-08-22T00:00:00.000Z',
-        requireWindowsHost: false,
+        requireHostPlatform: false,
         verificationCommands: [],
       }, fakeBuildRunner)
       const pluginNames = ['@ldd/dsh-generate', '@ldd/dsh-video-frame-analyzer']

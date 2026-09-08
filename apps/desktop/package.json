@@ -11,7 +11,8 @@
     "build:preload": "esbuild src/preload/index.ts --bundle --format=cjs --platform=node --external:electron --outfile=dist/main/preload/index.cjs",
     "build:renderer": "vite build",
     "build": "pnpm build:main && pnpm build:preload && pnpm build:renderer",
-    "dist:win": "electron-builder --win nsis --x64"
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:mac": "electron-builder --mac dmg --arm64"
   },
   "dependencies": {
     "@ldd/runtime-kit": "workspace:*",
@@ -41,7 +42,7 @@
   "build": {
     "appId": "com.ldd.desktop",
     "productName": "LDD",
-    "artifactName": "LDD-Setup-${version}-x64.${ext}",
+    "artifactName": "LDD-Setup-${version}-${arch}.${ext}",
     "asar": true,
     "afterPack": "./build/afterPack.cjs",
     "directories": {
@@ -82,6 +83,15 @@
       "include": "build/installer.nsh",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64"]
+        }
+      ],
+      "category": "public.app-category.productivity"
     }
   }
 }

@@ -6,6 +6,7 @@ import { parseArgs } from 'node:util'
 
 import { buildRuntime } from '../packages/runtime-package/src/build-runtime.ts'
 import { packRuntime } from '../packages/runtime-package/src/pack.ts'
+import { runtimeArchiveFilename } from './runtime-platform.mjs'
 
 const { values } = parseArgs({
   options: {
@@ -32,7 +33,7 @@ const defaults = {
   ],
   patches: join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2'),
   outputRoot: join(repositoryRoot, 'dist', 'runtime', '0.1.1-rc.2'),
-  outputFile: join(repositoryRoot, 'dist', 'runtime', 'deepseek-harness-0.1.1-rc.2-windows-x64.lddruntime'),
+  outputFile: join(repositoryRoot, 'dist', 'runtime', runtimeArchiveFilename('0.1.1-rc.2')),
 }
 const selected = {
   source: values.source ?? defaults.source,
