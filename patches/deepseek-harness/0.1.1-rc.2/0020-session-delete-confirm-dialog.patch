@@ -1,0 +1,73 @@
+--- a/packages/client/ui-workspace/src/client/WorkspaceBrowser.tsx
++++ b/packages/client/ui-workspace/src/client/WorkspaceBrowser.tsx
+@@ -978,13 +978,34 @@
+     })
+   }
+ 
+-  // Delete IS destructive (the durable log is erased), so it needs a
+-  // confirmation before committing; the row disappears on the next list echo.
++  // Delete IS destructive (the durable log is erased), so it opens a
++  // browser-owned confirmation dialog — never the synchronous `window.confirm`
++  // native dialog, which steals focus from the composer and leaves the input
++  // unable to be refocused until reload. Confirm-then-commit; the row
++  // disappears on the next list echo.
++  const [sessionDeleteTarget, setSessionDeleteTarget] = useState<SessionNode['id'] | null>(null)
++  const [sessionDeleting, setSessionDeleting] = useState(false)
++  const [sessionDeleteError, setSessionDeleteError] = useState<string | null>(null)
++  const closeSessionDelete = () => {
++    if (sessionDeleting) return
++    setSessionDeleteTarget(null)
++    setSessionDeleteError(null)
++  }
++  const confirmSessionDelete = () => {
++    if (sessionDeleting || sessionDeleteTarget === null) return
++    setSessionDeleting(true)
++    setSessionDeleteError(null)
++    deleteSession(sessionDeleteTarget).then(() => {
++      setSessionDeleting(false)
++      setSessionDeleteTarget(null)
++    }).catch((reason: unknown) => {
++      setSessionDeleting(false)
++      setSessionDeleteError(reason instanceof Error ? reason.message : String(reason))
++    })
++  }
+   const onSessionDelete = (sessionId: SessionNode['id']) => {
+-    if (!window.confirm(t('delete.session.confirm'))) return
+-    deleteSession(sessionId).catch((reason: unknown) => {
+-      console.warn('session delete rejected:', reason)
+-    })
++    setSessionDeleteTarget(sessionId)
++    setSessionDeleteError(null)
+   }
+ 
+   // Delete dialog is separate from the row so a successful removal can
+@@ -1309,6 +1330,29 @@
+         {deleting && <div className={css.deleteStatus} role="status">{t('delete.pending')}</div>}
+         {deleteError !== null && <div className={css.renameError} role="alert">{deleteError}</div>}
+       </Modal>
++      <Modal
++        open={sessionDeleteTarget !== null}
++        onClose={closeSessionDelete}
++        closeLabel={t('close')}
++        title={t('menu.deleteSession')}
++        description={t('delete.session.confirm')}
++        footer={(
++          <>
++            <Button variant="outline" disabled={sessionDeleting} onClick={closeSessionDelete}>{t('cancel')}</Button>
++            <Button
++              variant="outline"
++              className={css.deleteAction}
++              disabled={sessionDeleting}
++              onClick={confirmSessionDelete}
++            >
++              {t('menu.deleteSession')}
++            </Button>
++          </>
++        )}
++      >
++        {sessionDeleting && <div className={css.deleteStatus} role="status">{t('delete.pending')}</div>}
++        {sessionDeleteError !== null && <div className={css.renameError} role="alert">{sessionDeleteError}</div>}
++      </Modal>
+     </div>
+   )
+ }

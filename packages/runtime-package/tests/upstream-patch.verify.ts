@@ -574,6 +574,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0017-generate-model-slot.patch',
       '0018-count-imported-files.patch',
       '0019-render-tool-result-audio.patch',
+      '0020-session-delete-confirm-dialog.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -633,6 +634,12 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(deleteLocales, /'menu\.deleteSession': '删除会话'/u)
     const deleteClient = await readFile(copiedDeleteClient, 'utf8')
     assert.match(deleteClient, /'session\.delete': sessionDeleteValueSchema/u)
+    const deleteWorkspaceBrowser = await readFile(copiedDeleteWorkspaceBrowser, 'utf8')
+    // 0020: session delete confirms via a browser-owned Modal, never the
+    // synchronous window.confirm() native dialog (which steals composer focus).
+    assert.doesNotMatch(deleteWorkspaceBrowser, /window\.confirm\(/u)
+    assert.match(deleteWorkspaceBrowser, /sessionDeleteTarget/u)
+    assert.match(deleteWorkspaceBrowser, /confirmSessionDelete/u)
 
     assert.match(imageLightboxCss, /\.actions \{/u)
     const codeBlock = await readFile(copiedCodeBlock, 'utf8')
