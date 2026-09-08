@@ -13,7 +13,14 @@ const { join, resolve } = require('node:path')
 
 exports.default = async function afterPack(context) {
   const source = resolve(context.packager.projectDir, '../../dist/runtime/0.1.1-rc.2/node_modules')
-  const destination = join(context.appOutDir, 'resources', 'runtime-fallback', 'node_modules')
+  // electron-builder strips the extraResources node_modules during copy; this
+  // hook restores it into the packaged app. The resources dir is platform-
+  // specific: macOS puts it inside the .app bundle at Contents/Resources,
+  // Windows/Linux keep a sibling `resources` dir next to the unpacked app.
+  const resourcesDir = context.electronPlatformName === 'darwin'
+    ? join(context.appOutDir, 'Contents', 'Resources')
+    : join(context.appOutDir, 'resources')
+  const destination = join(resourcesDir, 'runtime-fallback', 'node_modules')
 
   if (!existsSync(source)) {
     throw new Error(`LDD afterPack: runtime fallback node_modules is missing: ${source}`)
