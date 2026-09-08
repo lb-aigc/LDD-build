@@ -29,6 +29,44 @@ test('registry selects an exact higher prerelease and rejects floating metadata'
   assert.equal(await client.resolve('prerelease', '0.1.1-rc.2'), null)
 })
 
+test('registry skips alpha/beta prereleases and lands on the newest release candidate', async () => {
+  // dsh@0.1.5-alpha.1 references dependencies not yet published at a matching
+  // stable range; the resolver must never auto-update onto that tier.
+  const client = new RegistryClient(async () =>
+    new Response(
+      JSON.stringify({
+        name: '@deepseek-ai/dsh',
+        'dist-tags': { latest: '0.1.2-rc.1', next: '0.1.2-rc.1', alpha: '0.1.5-alpha.1' },
+        versions: {
+          '0.1.1-rc.2': version('0.1.1-rc.2'),
+          '0.1.2-rc.1': version('0.1.2-rc.1'),
+          '0.1.3-alpha.2': version('0.1.3-alpha.2'),
+          '0.1.5-alpha.1': version('0.1.5-alpha.1'),
+          '0.1.6-beta.1': version('0.1.6-beta.1'),
+        },
+      }),
+    ),
+  )
+  const resolved = await client.resolve('prerelease', '0.1.1-rc.2')
+  assert.equal(resolved?.version, '0.1.2-rc.1')
+})
+
+test('registry skips alpha/beta even when they are the only higher versions', async () => {
+  const client = new RegistryClient(async () =>
+    new Response(
+      JSON.stringify({
+        name: '@deepseek-ai/dsh',
+        'dist-tags': { alpha: '0.1.5-alpha.1' },
+        versions: {
+          '0.1.1-rc.2': version('0.1.1-rc.2'),
+          '0.1.5-alpha.1': version('0.1.5-alpha.1'),
+        },
+      }),
+    ),
+  )
+  assert.equal(await client.resolve('prerelease', '0.1.1-rc.2'), null)
+})
+
 test('automatic registry checks are limited to one attempt in 24 hours', async () => {
   await using fixture = await createFixtureDirectory('ldd-updater-verify-')
   const statePath = fixture.path('state.json')

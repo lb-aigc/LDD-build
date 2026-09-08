@@ -52,6 +52,17 @@ export function isPrereleaseVersion(value: string): boolean {
   return parseSemanticVersion(value).prerelease.length > 0
 }
 
+/** True when a version's leading prerelease identifier is `alpha` or `beta`
+ * — the earliest, least-stable prerelease tiers. Automatic updates must skip
+ * these: an alpha line can reference dependencies that are not yet published
+ * at a satisfiable range (observed with dsh@0.1.5-alpha.1, whose peer deps
+ * resolve to `@deepseek-ai/dsh-fs@^0.1.5` while only `0.1.5-alpha.1` exists on
+ * the registry — so `pnpm install` fails with ERR_PNPM_NO_MATCHING_VERSION). */
+export function isAlphaOrBetaPrerelease(value: string): boolean {
+  const leading = parseSemanticVersion(value).prerelease[0]
+  return leading === 'alpha' || leading === 'beta'
+}
+
 export function assertSemanticVersion(value: string): void {
   parseSemanticVersion(value)
 }

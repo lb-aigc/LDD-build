@@ -110,6 +110,7 @@ export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode 
       onSelect={onSelect}
       onClose={() => { setOpen(false) }}
       side="top"
+      portal
       anchor={
         <button
           type="button"

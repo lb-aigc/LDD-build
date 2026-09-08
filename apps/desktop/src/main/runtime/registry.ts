@@ -2,6 +2,7 @@ import type { RuntimeChannel } from './state.ts'
 import {
   assertSemanticVersion,
   compareSemanticVersions,
+  isAlphaOrBetaPrerelease,
   isPrereleaseVersion,
 } from './semver.ts'
 
@@ -65,6 +66,12 @@ export class RegistryClient implements RuntimeRegistry {
       // (and its matching plugin) instead of an optimistic in-place update.
       if (compareSemanticVersions(version, firstUnsupportedHarnessVersion) >= 0) continue
       if (channel === 'stable' && isPrereleaseVersion(version)) continue
+      // Alpha/beta are the earliest prerelease tiers: they can reference
+      // dependencies that are not yet published at a matching range (an alpha
+      // line bit us with `dsh-fs>=0.1.5` that only existed as `-alpha.1`), so
+      // an automatic update onto them fails at `pnpm install`. Skip them on
+      // every channel — release candidates and stable lines remain eligible.
+      if (isAlphaOrBetaPrerelease(version)) continue
       candidates.push(parseRelease(version, rawEntry, metadata['dist-tags']))
     }
     candidates.sort((left, right) => compareSemanticVersions(right.version, left.version))
