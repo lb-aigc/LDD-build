@@ -34,6 +34,9 @@ jobs:
       - name: Verify repository before packaging
         run: pnpm verify:release
 
+      - name: Upscale app icon for macOS (electron-builder needs >= 512x512)
+        run: sips -z 1024 1024 apps/desktop/build/icon.png --out apps/desktop/build/icon-mac.png
+
       - name: Build runtime and macOS installer
         run: pnpm dist:mac
 
