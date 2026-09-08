@@ -166,11 +166,13 @@ async function copyTreeIfPresent(source: string, destination: string): Promise<v
 function isWithin(path: string, root: string): boolean {
   const normalizedPath = normalizeForCompare(path)
   const normalizedRoot = normalizeForCompare(root)
-  return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}\\`)
+  const separator = process.platform === 'win32' ? '\\' : '/'
+  return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}${separator}`)
 }
 
 function normalizeForCompare(path: string): string {
-  return resolve(path).replace(/[\\/]+$/, '').toLowerCase()
+  const resolved = resolve(path).replace(/[\\/]+$/, '')
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
