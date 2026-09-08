@@ -5,7 +5,7 @@ export type GenerateLocaleKey =
   | 'keyListHint' | 'keyPlaceholder' | 'configured' | 'unconfigured'
   | 'unsaved' | 'save' | 'saving' | 'discard' | 'readOnly' | 'saveFailed'
   | 'fileImport.commandDescription' | 'fileImport.optionLabel' | 'fileImport.optionDetail' | 'fileImport.remove'
-  | 'modelPicker.trigger'
+  | 'modelPicker.trigger' | 'modelPicker.imageGroup' | 'modelPicker.videoGroup' | 'modelPicker.musicGroup'
 
 export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
@@ -25,7 +25,10 @@ export const zh: Record<GenerateLocaleKey, string> = {
   'fileImport.optionLabel': '选择文件',
   'fileImport.optionDetail': '从本地选择文件导入到当前工作区',
   'fileImport.remove': '移除文件卡片',
-  'modelPicker.trigger': '切换生图模型',
+  'modelPicker.trigger': '切换生成模型',
+  'modelPicker.imageGroup': '图片模型',
+  'modelPicker.videoGroup': '视频模型',
+  'modelPicker.musicGroup': '音乐模型',
 }
 
 export const en: Record<GenerateLocaleKey, string> = {
@@ -47,4 +50,7 @@ export const en: Record<GenerateLocaleKey, string> = {
   'fileImport.optionDetail': 'Import a local file into the current workspace',
   'fileImport.remove': 'Remove file card',
   'modelPicker.trigger': 'Switch generation model',
+  'modelPicker.imageGroup': 'Image models',
+  'modelPicker.videoGroup': 'Video models',
+  'modelPicker.musicGroup': 'Music models',
 }

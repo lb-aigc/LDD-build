@@ -193,12 +193,16 @@ export function apply(ctx: ClientContext): void {
   }, FileDock))
 
   // Composer generation-model button: a single seat in the composer tool row
-  // (beside the access control). The picker reads the configured image models
-  // and issues either a per-session temporary switch (a `/generate-model`
-  // command) or the settings-default write. Works without a sessions service
-  // (headless browser shells) — the command just no-ops.
+  // (beside the access control). The picker reads the configured image/video/
+  // music models and issues a per-session temporary switch (a `/generate-model
+  // <kind> <key>` command). Works without a sessions service (headless browser
+  // shells) — the command just no-ops.
   const pickerController = new ModelPickerController(
-    ctx.settingsScope.bind({ namespace: IMAGE_NS }),
+    {
+      image: ctx.settingsScope.bind({ namespace: IMAGE_NS }),
+      video: ctx.settingsScope.bind({ namespace: VIDEO_NS }),
+      music: ctx.settingsScope.bind({ namespace: MUSIC_NS }),
+    },
     sessionsService as CommandableSessions | undefined,
   )
   ctx.slots.inject('conversation.input.generate-model', function* () {

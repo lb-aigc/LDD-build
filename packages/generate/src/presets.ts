@@ -179,6 +179,9 @@ export const VIDEO_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultModel: 'bytedance/seedance-2-5',
     strengths: '聚合中转：一个 key 调 Seedance/Kling/Wan/Hailuo 等几十个视频模型',
     imageToImage: false,
+    models: [
+      { id: 'bytedance/seedance-2-5', label: 'Seedance 2.5' },
+    ],
   },
 ]
 

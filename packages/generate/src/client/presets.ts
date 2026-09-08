@@ -211,7 +211,7 @@ export interface PickerModel {
 export function resolvePickerModels(value: {
   default?: string
   models?: Array<{ provider?: string; model?: string }>
-} | undefined): { models: PickerModel[]; defaultKey: string } {
+} | undefined, presets: readonly ClientPreset[] = IMAGE_PRESETS): { models: PickerModel[]; defaultKey: string } {
   const v = (value ?? {}) as Record<string, unknown>
   const rawModels = Array.isArray(v.models) && (v.models as unknown[]).length > 0
     ? v.models as Array<Record<string, unknown>>
@@ -224,7 +224,7 @@ export function resolvePickerModels(value: {
   const seenKeys = new Set<string>()
   rawModels.forEach((entry, index) => {
     const provider = keyed[index]?.provider ?? 'mock'
-    const preset = IMAGE_PRESETS.find((p) => p.id === provider)
+    const preset = presets.find((p) => p.id === provider)
     if (preset !== undefined && preset.suggestedModels.length > 0 && provider !== CUSTOM_PROVIDER_ID) {
       for (const suggestion of preset.suggestedModels) {
         const key = `${provider}:${suggestion.id}`
@@ -233,7 +233,7 @@ export function resolvePickerModels(value: {
         models.push({ key, label: suggestion.label, isDefault: false })
       }
     } else {
-      const key = routeKeyOf(keyed, index, IMAGE_PRESETS)
+      const key = routeKeyOf(keyed, index, presets)
       if (seenKeys.has(key)) return
       seenKeys.add(key)
       const modelId = keyed[index]?.model ?? ''
@@ -245,7 +245,7 @@ export function resolvePickerModels(value: {
   const defaultKey = normalizeDefaultKey(
     typeof v.default === 'string' ? v.default : '',
     keyed,
-    IMAGE_PRESETS,
+    presets,
   ) || models[0]?.key || 'mock'
   return {
     models: models.map((m) => ({ ...m, isDefault: m.key === defaultKey })),

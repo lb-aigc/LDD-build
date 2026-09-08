@@ -415,7 +415,16 @@ export function apply(ctx: Context, config: Config): void {
   // Session object (the same reference the command handler and tool execution
   // both receive for one session), so a button pick routes this session only
   // and vanishes with it — the settings `default` is never touched.
-  const sessionOverrides = new WeakMap<object, string>()
+  //
+  // SEPARATE per modality (image/video/music): the picker lists all three and
+  // the agent routes each task type to ITS OWN model. A single shared map was
+  // the bug that made "pick an image model" then break music/video calls (the
+  // image key leaked into the other tools' resolveProvider and failed to pick).
+  const sessionOverrides = {
+    image: new WeakMap<object, string>(),
+    video: new WeakMap<object, string>(),
+    music: new WeakMap<object, string>(),
+  }
 
   // Secret resolver: env-only by default, upgraded to the harness credentials
   // service (env + store + .env) when it is present, so the settings card's
@@ -439,18 +448,28 @@ export function apply(ctx: Context, config: Config): void {
   ctx.inject(['commands'], (commandCtx) => {
     commandCtx.commands?.register({
       name: 'generate-model',
-      description: '为当前会话临时选择生图模型，或恢复默认',
-      input: { hint: '<provider-key | default>' },
+      description: '为当前会话临时选择生成模型（图片/视频/音乐），或恢复默认',
+      input: { hint: '<image|video|music> <provider-key | default>' },
       recordInput: false,
       handler: ({ agent, rawInput }) => {
-        const key = rawInput.trim()
+        const parts = rawInput.trim().split(/\s+/).filter(Boolean)
         const session = agent.session as object
-        if (key === '' || key === 'default' || key === 'clear') {
-          sessionOverrides.delete(session)
-          return { kind: 'success', text: '已恢复默认生图模型。' }
+        const kinds = ['image', 'video', 'music'] as const
+        let kind: 'image' | 'video' | 'music' = 'image'
+        let key = ''
+        if (parts.length > 0 && (kinds as readonly string[]).includes(parts[0]!)) {
+          kind = parts[0] as 'image' | 'video' | 'music'
+          key = parts.slice(1).join(' ')
+        } else {
+          key = parts.join(' ')
         }
-        sessionOverrides.set(session, key)
-        return { kind: 'success', text: `已临时切换到生图模型「${key}」（仅当前会话，不改默认）。` }
+        const kindLabel = kind === 'image' ? '生图' : kind === 'video' ? '生视频' : '生音乐'
+        if (key === '' || key === 'default' || key === 'clear') {
+          sessionOverrides[kind].delete(session)
+          return { kind: 'success', text: `已恢复默认${kindLabel}模型。` }
+        }
+        sessionOverrides[kind].set(session, key)
+        return { kind: 'success', text: `已临时切换到${kindLabel}模型「${key}」（仅当前会话，不改默认）。` }
       },
     })
   })
@@ -459,9 +478,9 @@ export function apply(ctx: Context, config: Config): void {
     disposeImage?.()
     disposeVideo?.()
     disposeMusic?.()
-    disposeImage = ctx.tools.register(defineImageTool(state.image, config, secret, attachments, sessionOverrides))
-    disposeVideo = ctx.tools.register(defineVideoTool(state.video, config, secret, sessionOverrides))
-    disposeMusic = ctx.tools.register(defineMusicTool(state.music, config, secret, attachments, sessionOverrides))
+    disposeImage = ctx.tools.register(defineImageTool(state.image, config, secret, attachments, sessionOverrides.image))
+    disposeVideo = ctx.tools.register(defineVideoTool(state.video, config, secret, sessionOverrides.video))
+    disposeMusic = ctx.tools.register(defineMusicTool(state.music, config, secret, attachments, sessionOverrides.music))
   }
   registerTools()
 

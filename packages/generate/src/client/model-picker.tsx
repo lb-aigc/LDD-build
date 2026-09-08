@@ -1,11 +1,10 @@
 /**
  * Composer generation-model picker: a chip in the composer tool row (the
  * `conversation.input.generate-model` seat) that opens a harness-native `Menu`
- * listing EVERY configured image model. Picking one runs a per-session
- * temporary switch (no "set default" — the model choice IS the pick).
- * Styled to match the sibling PermissionSelect / ModelSelect triggers (same
- * 28px chip, `--dsw-*` tokens, chevron rotation), so it reads as part of the
- * composer rather than a bolted-on control.
+ * grouped into 图片模型 / 视频模型 / 音乐模型. Picking one runs a per-session
+ * temporary switch for THAT modality (no "set default" — the model choice IS
+ * the pick). Styled to match the sibling PermissionSelect / ModelSelect
+ * triggers (same 28px chip, `--dsw-*` tokens, chevron rotation).
  */
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -13,7 +12,7 @@ import clsx from 'clsx'
 import { IconChevronDownOutline14, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ModelPickerFace } from './model-picker-controller.ts'
+import type { ModelPickerFace, GenerationKind } from './model-picker-controller.ts'
 import type { GenerateLocaleKey } from './locales.ts'
 import css from './model-picker.module.css'
 
@@ -22,8 +21,8 @@ export type GenerateModelPickerProps =
   & PropsLocale<'generate'>
   & InjectFace<ModelPickerFace>
 
-/** A small image/generate glyph, currentColor so trigger and rows tint it. */
-function generateGlyph(): ReactNode {
+/** A small image glyph, currentColor so trigger and rows tint it. */
+function imageGlyph(): ReactNode {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <rect x="1.5" y="2.5" width="13" height="11" rx="2" stroke="currentColor" strokeWidth="1.3" />
@@ -33,40 +32,81 @@ function generateGlyph(): ReactNode {
   )
 }
 
+/** A small video glyph. */
+function videoGlyph(): ReactNode {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="1.5" y="3" width="9" height="10" rx="2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M11.5 6.5L14 4.8V11.2L11.5 9.5V6.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+/** A small music glyph. */
+function musicGlyph(): ReactNode {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M6 12.5V4L13 2.5V11" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <circle cx="4.5" cy="12.5" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="11.5" cy="11" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  )
+}
+
+function kindGlyph(kind: GenerationKind): ReactNode {
+  if (kind === 'video') return videoGlyph()
+  if (kind === 'music') return musicGlyph()
+  return imageGlyph()
+}
+
+const SEP = '::'
+const itemId = (kind: GenerationKind, key: string): string => `${kind}${SEP}${key}`
+
 export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode | null {
   const state = props.useModelPicker((snapshot) => snapshot)
   const [open, setOpen] = useState(false)
-  // The session's active pick: follows the default until a temporary switch.
-  const [currentKey, setCurrentKey] = useState<string | undefined>(undefined)
+  // Per-modality temporary override: `currentKeys[kind]` follows that group's
+  // default until a pick.
+  const [currentKeys, setCurrentKeys] = useState<Partial<Record<GenerationKind, string>>>({})
 
-  // A new session resets the temporary override back to that session's default.
+  // A new session resets the temporary overrides back to that session's defaults.
   useEffect(() => {
-    setCurrentKey(undefined)
+    setCurrentKeys({})
   }, [props.sessionId])
 
-  if (!state.available || state.models.length === 0) return null
+  if (!state.available || state.groups.every((group) => group.models.length === 0)) return null
 
-  const activeKey = currentKey ?? state.defaultKey
-  const active = state.models.find((m) => m.key === activeKey)
-    ?? state.models.find((m) => m.isDefault)
-    ?? state.models[0]
+  const items: MenuEntry[] = []
+  for (const group of state.groups) {
+    if (group.models.length === 0) continue
+    items.push({ type: 'label', id: `label-${group.kind}`, text: groupLabel(props, group.kind) })
+    for (const model of group.models) {
+      items.push({
+        id: itemId(group.kind, model.key),
+        label: model.label,
+        icon: kindGlyph(group.kind),
+      })
+    }
+  }
 
-  const items: MenuEntry[] = state.models.map((model) => ({
-    id: model.key,
-    label: model.label,
-    icon: generateGlyph(),
-  }))
+  const selectedIds = state.groups
+    .filter((group) => group.models.length > 0)
+    .map((group) => itemId(group.kind, currentKeys[group.kind] ?? group.defaultKey))
 
   const onSelect = (id: string): void => {
-    setCurrentKey(id)
-    props.select(id)
+    const sep = id.indexOf(SEP)
+    if (sep < 0) return
+    const kind = id.slice(0, sep) as GenerationKind
+    const key = id.slice(sep + SEP.length)
+    setCurrentKeys((prev) => ({ ...prev, [kind]: key }))
+    props.select(kind, key)
   }
 
   return (
     <Menu
       open={open}
       items={items}
-      selectedId={activeKey}
+      selectedIds={selectedIds}
       onSelect={onSelect}
       onClose={() => { setOpen(false) }}
       side="top"
@@ -80,8 +120,8 @@ export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode 
           disabled={props.locked}
           onClick={() => { setOpen(!open) }}
         >
-          <span className={css.triggerIcon} aria-hidden>{generateGlyph()}</span>
-          <span className={css.triggerLabel}>{active?.label ?? ''}</span>
+          <span className={css.triggerIcon} aria-hidden>{imageGlyph()}</span>
+          <span className={css.triggerLabel}>{props.t('modelPicker.trigger')}</span>
           <span className={clsx(css.chevron, open && css.chevronOpen)} aria-hidden>
             <IconChevronDownOutline14 />
           </span>
@@ -89,4 +129,10 @@ export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode 
       }
     />
   )
+}
+
+function groupLabel(props: GenerateModelPickerProps, kind: GenerationKind): string {
+  if (kind === 'video') return props.t('modelPicker.videoGroup')
+  if (kind === 'music') return props.t('modelPicker.musicGroup')
+  return props.t('modelPicker.imageGroup')
 }
