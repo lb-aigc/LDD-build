@@ -85,7 +85,7 @@
       "createStartMenuShortcut": true
     },
     "mac": {
-      "icon": "build/icon-mac.png",
+      "icon": "../../release/icon-mac.png",
       "target": [
         {
           "target": "dmg",
