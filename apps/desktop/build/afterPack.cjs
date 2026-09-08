@@ -15,10 +15,11 @@ exports.default = async function afterPack(context) {
   const source = resolve(context.packager.projectDir, '../../dist/runtime/0.1.1-rc.2/node_modules')
   // electron-builder strips the extraResources node_modules during copy; this
   // hook restores it into the packaged app. The resources dir is platform-
-  // specific: macOS puts it inside the .app bundle at Contents/Resources,
+  // specific: macOS puts it inside the .app bundle (appOutDir is the parent of
+  // <productName>.app on darwin, so the bundle name is one more segment), while
   // Windows/Linux keep a sibling `resources` dir next to the unpacked app.
   const resourcesDir = context.electronPlatformName === 'darwin'
-    ? join(context.appOutDir, 'Contents', 'Resources')
+    ? join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`, 'Contents', 'Resources')
     : join(context.appOutDir, 'resources')
   const destination = join(resourcesDir, 'runtime-fallback', 'node_modules')
 

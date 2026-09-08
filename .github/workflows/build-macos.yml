@@ -120,6 +120,22 @@ jobs:
           echo "Harness ready: http://127.0.0.1:$port/__ldd/identity -> product=LDD-Harness"
           kill "$dshPid" 2>/dev/null || true
 
+      - name: Verify the packaged .app contains the restored runtime node_modules
+        run: |
+          # The afterPack hook must restore runtime-fallback/node_modules into the
+          # .app bundle (electron-builder strips it during copy). Without this the
+          # harness kernel cannot boot — assert the dsh entry exists post-packaging.
+          dshEntry='release/mac-arm64/LDD.app/Contents/Resources/runtime-fallback/node_modules/@deepseek-ai/dsh/lib/bin.js'
+          if [ ! -f "$dshEntry" ]; then
+            echo "PACKAGED APP MISSING dsh entry: $dshEntry"
+            echo '=== runtime-fallback contents ==='
+            ls -la release/mac-arm64/LDD.app/Contents/Resources/runtime-fallback/ 2>&1
+            echo '=== stray node_modules outside .app (afterPack path bug)? ==='
+            ls -d release/mac-arm64/Contents/Resources/runtime-fallback/node_modules 2>&1 || true
+            exit 1
+          fi
+          echo "PACKAGED dsh entry OK: $dshEntry"
+
       - name: Verify required release artifacts
         run: |
           required=(
