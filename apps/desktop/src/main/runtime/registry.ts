@@ -3,6 +3,7 @@ import {
   assertSemanticVersion,
   compareSemanticVersions,
   isAlphaOrBetaPrerelease,
+  isLddPluginCompatible,
   isPrereleaseVersion,
 } from './semver.ts'
 
@@ -10,7 +11,6 @@ const registryUrl = 'https://registry.npmjs.org/@deepseek-ai%2Fdsh'
 const packageName = '@deepseek-ai/dsh'
 const integrityPattern = /^sha512-[A-Za-z0-9+/]+={0,2}$/
 const maxRegistryResponseBytes = 16 * 1024 * 1024
-const firstUnsupportedHarnessVersion = '0.2.0'
 
 export interface ResolvedRuntimeRelease {
   readonly version: string
@@ -61,10 +61,11 @@ export class RegistryClient implements RuntimeRegistry {
         continue
       }
       if (compareSemanticVersions(version, currentVersion) <= 0) continue
-      // LDD 0.2 ships an extension compiled against the 0.1.x Harness service
-      // contracts. A new Harness major/minor line requires a new LDD release
-      // (and its matching plugin) instead of an optimistic in-place update.
-      if (compareSemanticVersions(version, firstUnsupportedHarnessVersion) >= 0) continue
+      // LDD 0.2.0 ships plugins compiled against dsh@0.1.1-rc.2. A version
+      // the plugins' peer ranges cannot admit (a different minor's rc, or a
+      // 0.2.0+ line) would fail `pnpm install` with ERR_PNPM_NO_MATCHING_VERSION,
+      // so only plugin-compatible versions are eligible for an in-place update.
+      if (!isLddPluginCompatible(version)) continue
       if (channel === 'stable' && isPrereleaseVersion(version)) continue
       // Alpha/beta are the earliest prerelease tiers: they can reference
       // dependencies that are not yet published at a matching range (an alpha

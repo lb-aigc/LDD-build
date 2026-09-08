@@ -29,9 +29,11 @@ test('registry selects an exact higher prerelease and rejects floating metadata'
   assert.equal(await client.resolve('prerelease', '0.1.1-rc.2'), null)
 })
 
-test('registry skips alpha/beta prereleases and lands on the newest release candidate', async () => {
-  // dsh@0.1.5-alpha.1 references dependencies not yet published at a matching
-  // stable range; the resolver must never auto-update onto that tier.
+test('registry skips a different minor rc (plugin-incompatible) and alpha/beta', async () => {
+  // dsh@0.1.2-rc.1 cannot be loaded: the LDD plugins' peer ranges
+  // (>=0.1.1-rc.2 <0.2.0) only admit prereleases with the SAME
+  // major.minor.patch tuple, so 0.1.2-rc.1 would make `pnpm install` fail with
+  // ERR_PNPM_NO_MATCHING_VERSION. Alpha/beta are skipped too, leaving null.
   const client = new RegistryClient(async () =>
     new Response(
       JSON.stringify({
@@ -47,8 +49,25 @@ test('registry skips alpha/beta prereleases and lands on the newest release cand
       }),
     ),
   )
+  assert.equal(await client.resolve('prerelease', '0.1.1-rc.2'), null)
+})
+
+test('registry selects a higher rc on the SAME minor.patch (plugin-compatible)', async () => {
+  const client = new RegistryClient(async () =>
+    new Response(
+      JSON.stringify({
+        name: '@deepseek-ai/dsh',
+        'dist-tags': { next: '0.1.1-rc.3' },
+        versions: {
+          '0.1.1-rc.2': version('0.1.1-rc.2'),
+          '0.1.1-rc.3': version('0.1.1-rc.3'),
+          '0.1.2-rc.1': version('0.1.2-rc.1'),
+        },
+      }),
+    ),
+  )
   const resolved = await client.resolve('prerelease', '0.1.1-rc.2')
-  assert.equal(resolved?.version, '0.1.2-rc.1')
+  assert.equal(resolved?.version, '0.1.1-rc.3')
 })
 
 test('registry skips alpha/beta even when they are the only higher versions', async () => {
