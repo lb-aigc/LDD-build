@@ -22,6 +22,9 @@ describe('renderer IPC contract', () => {
       'saveImage',
       'saveAudio',
       'importFile',
+      'previewDocument',
+      'previewUrl',
+      'closePreview',
       'subscribeProgress',
     ])
   })

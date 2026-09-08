@@ -288,7 +288,16 @@ function createHarnessEnvironment(
 function systemPathEntries(): readonly string[] {
   if (process.platform !== 'win32') return ['/usr/bin', '/bin', '/usr/local/bin']
   const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT
-  return systemRoot === undefined ? [] : [join(systemRoot, 'System32')]
+  if (systemRoot === undefined) return []
+  // `powershell.exe` (invoked by the harness's native file opener via
+  // `Invoke-Item`) lives one level below System32, not IN System32, so the
+  // v1.0 directory must be on the controlled PATH or opening a document
+  // fails with `spawn powershell.exe ENOENT`.
+  return [
+    join(systemRoot, 'System32'),
+    systemRoot,
+    join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0'),
+  ]
 }
 
 async function drainDiagnostics(

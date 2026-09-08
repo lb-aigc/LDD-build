@@ -2,6 +2,7 @@ import {
   ipcChannels,
   parseIpcRequest,
   type ImportFileResult,
+  type PreviewResult,
   type RuntimeProgressEvent,
   type RuntimeStatusView,
 } from './contracts.ts'
@@ -27,6 +28,9 @@ export interface DesktopIpcServices {
   saveImage(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
   saveAudio(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
   importFile(data: ArrayBuffer, fileName: string, workspacePath: string): Promise<ImportFileResult>
+  previewDocument(path: string): Promise<PreviewResult>
+  previewUrl(url: string): Promise<PreviewResult>
+  closePreview(): Promise<void>
 }
 
 export function registerDesktopIpc(
@@ -67,6 +71,13 @@ export function registerDesktopIpc(
     const value = input.value as { data: ArrayBuffer; fileName: string; workspacePath: string }
     return services.importFile(value.data, value.fileName, value.workspacePath)
   })
+  register(ipcMain, 'previewDocument', async (input) =>
+    services.previewDocument((input.value as { path: string }).path),
+  )
+  register(ipcMain, 'previewUrl', async (input) =>
+    services.previewUrl((input.value as { url: string }).url),
+  )
+  register(ipcMain, 'closePreview', async () => services.closePreview())
 
   return () => {
     for (const channel of Object.values(ipcChannels)) {
@@ -99,7 +110,10 @@ function register(
     | 'openLogDirectory'
     | 'saveImage'
     | 'saveAudio'
-    | 'importFile',
+    | 'importFile'
+    | 'previewDocument'
+    | 'previewUrl'
+    | 'closePreview',
   invoke: (input: ReturnType<typeof parseIpcRequest>) => Promise<unknown>,
 ): void {
   ipcMain.handle(ipcChannels[method], async (_event, value) => {

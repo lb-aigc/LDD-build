@@ -575,6 +575,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0018-count-imported-files.patch',
       '0019-render-tool-result-audio.patch',
       '0020-session-delete-confirm-dialog.patch',
+      '0021-open-file-preview.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -666,6 +667,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const inputFilesApply = await readFile(copiedInputFilesSlotApply, 'utf8')
     assert.match(inputFilesApply, /'conversation\.input\.files': \{ kind: 'list', scope: 'session' \},/u)
     assert.match(inputFilesApply, /'conversation\.input\.generate-model': \{ kind: 'single', scope: 'session' \},/u)
+    // 0021: openFile prefers the LDD preview panel and falls back to openPath.
+    assert.match(inputFilesApply, /previewDocument\?: \(target: string\) => Promise<\{ shown: boolean \}>/u)
+    assert.match(inputFilesApply, /result\.shown/u)
     const inputFilesBar = await readFile(copiedInputFilesSlotInputBar, 'utf8')
     assert.match(inputFilesBar, /renderSlot\('conversation\.input\.files', \{\}\)/u)
     assert.match(inputFilesBar, /renderSlot\('conversation\.input\.generate-model', \{ locked \}\)/u)

@@ -9,8 +9,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build:main": "tsc -p tsconfig.main.json",
     "build:preload": "esbuild src/preload/index.ts --bundle --format=cjs --platform=node --external:electron --outfile=dist/main/preload/index.cjs",
+    "build:preload:preview": "esbuild src/preload/preview.ts --bundle --format=cjs --platform=node --external:electron --outfile=dist/main/preload/preview.cjs",
     "build:renderer": "vite build",
-    "build": "pnpm build:main && pnpm build:preload && pnpm build:renderer",
+    "build": "pnpm build:main && pnpm build:preload && pnpm build:preload:preview && pnpm build:renderer",
     "dist:win": "electron-builder --win nsis --x64",
     "dist:mac": "electron-builder --mac dmg --arm64"
   },

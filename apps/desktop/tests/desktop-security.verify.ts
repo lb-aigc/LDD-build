@@ -25,6 +25,9 @@ test('renderer API is narrow and rejects command/path injection', () => {
     'saveImage',
     'saveAudio',
     'importFile',
+    'previewDocument',
+    'previewUrl',
+    'closePreview',
     'subscribeProgress',
   ])
   assert.throws(
@@ -38,6 +41,12 @@ test('renderer API is narrow and rejects command/path injection', () => {
   )
   assert.throws(() => parseIpcRequest('importOfflineRuntime', { path: 'C:\\x' }), /no input/)
   assert.throws(() => parseIpcRequest('openLogDirectory', { path: 'C:\\x' }), /no input/)
+})
+
+test('previewUrl only accepts http(s) and rejects other schemes', () => {
+  assert.throws(() => parseIpcRequest('previewUrl', { url: 'javascript:alert(1)' }), /http\(s\)/)
+  assert.throws(() => parseIpcRequest('previewUrl', { url: 'file:///etc/passwd' }), /http\(s\)/)
+  assert.throws(() => parseIpcRequest('previewUrl', { url: 'not a url' }), /not a valid URL/)
 })
 
 test('window flags and navigation policy remain fail-closed', () => {

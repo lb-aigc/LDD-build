@@ -19,6 +19,7 @@ import { importWorkspaceFile } from './import-file.ts'
 import { createCompleteExit, createWindowCloseHandler, type ExitState } from './lifecycle.ts'
 import { createEditMenu, createFileMenu, createHelpMenu } from './menu.ts'
 import type { LddPaths } from './paths.ts'
+import { createPreviewPanel } from './preview-panel.ts'
 import { configureTray } from './tray.ts'
 import { installNavigationGuards, makeWindowOptions } from './window.ts'
 
@@ -64,6 +65,7 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
   let requestExit = () => undefined
 
   const mainWindow = new BrowserWindow(makeWindowOptions(options.paths.preloadScript))
+  const previewPanel = createPreviewPanel(mainWindow, options.paths.previewPreloadScript)
   mainWindow.on('close', createWindowCloseHandler(exitState, () => {
     if (hasTray) mainWindow.hide()
     else requestExit()
@@ -71,7 +73,7 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
   installNavigationGuards(
     mainWindow.webContents,
     () => verifiedHarnessOrigin,
-    async (url) => shell.openExternal(url),
+    async (url) => { void previewPanel.showUrl(url) },
     rendererFileUrl(options.paths),
   )
 
@@ -239,6 +241,12 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     saveImage,
     saveAudio,
     importFile,
+    previewDocument: (path) => previewPanel.showDocument(path),
+    previewUrl: (url) => previewPanel.showUrl(url),
+    closePreview: () => {
+      previewPanel.close()
+      return Promise.resolve()
+    },
   })
 
   let destroyTray: () => void = () => undefined

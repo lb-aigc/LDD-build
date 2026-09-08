@@ -19,6 +19,8 @@ export interface LddPaths {
   readonly rendererHtml: string
   readonly splashHtml: string
   readonly preloadScript: string
+  /** Minimal preload for the preview panel's own WebContentsView. */
+  readonly previewPreloadScript: string
   /** Fixed bootstrap-config path (independent of the data directory). */
   readonly locationPath: string
 }
@@ -64,6 +66,7 @@ export function resolveLddPaths(
     rendererHtml: join(normalizedResources, 'app.asar', 'dist', 'renderer', 'index.html'),
     splashHtml: join(normalizedResources, 'app.asar', 'dist', 'renderer', 'splash.html'),
     preloadScript: join(normalizedResources, 'app.asar', 'dist', 'main', 'preload', 'index.cjs'),
+    previewPreloadScript: join(normalizedResources, 'app.asar', 'dist', 'main', 'preload', 'preview.cjs'),
     locationPath: join(resolve(roamingAppData), 'LDD', 'location.json'),
   }
 }

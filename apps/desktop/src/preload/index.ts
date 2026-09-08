@@ -28,6 +28,9 @@ const api: LddRendererApi = {
     ipcRenderer.invoke(ipcChannels.saveAudio, { data, defaultName }),
   importFile: async (data, fileName, workspacePath) =>
     ipcRenderer.invoke(ipcChannels.importFile, { data, fileName, workspacePath }),
+  previewDocument: async (path) => ipcRenderer.invoke(ipcChannels.previewDocument, { path }),
+  previewUrl: async (url) => ipcRenderer.invoke(ipcChannels.previewUrl, { url }),
+  closePreview: async () => ipcRenderer.invoke(ipcChannels.closePreview),
   subscribeProgress: (listener) => {
     const receive = (_event: Electron.IpcRendererEvent, value: unknown) => {
       listener(parseRuntimeProgress(value))

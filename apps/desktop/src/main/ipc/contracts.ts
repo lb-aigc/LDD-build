@@ -16,6 +16,9 @@ export const rendererApiKeys = [
   'saveImage',
   'saveAudio',
   'importFile',
+  'previewDocument',
+  'previewUrl',
+  'closePreview',
   'subscribeProgress',
 ] as const
 
@@ -38,6 +41,9 @@ export const ipcChannels: Readonly<Record<RendererApiKey, string>> = Object.free
   saveImage: 'ldd:image:save',
   saveAudio: 'ldd:audio:save',
   importFile: 'ldd:file:import',
+  previewDocument: 'ldd:preview:document',
+  previewUrl: 'ldd:preview:url',
+  closePreview: 'ldd:preview:close',
   subscribeProgress: 'ldd:progress',
 })
 
@@ -73,6 +79,11 @@ export interface ImportFileResult {
   readonly error?: string
 }
 
+/** Result of a preview-panel request: whether it rendered in-panel. */
+export interface PreviewResult {
+  readonly shown: boolean
+}
+
 export interface LddRendererApi {
   getStatus(): Promise<RuntimeStatusView>
   checkForUpdates(): Promise<unknown>
@@ -89,6 +100,9 @@ export interface LddRendererApi {
   saveImage(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
   saveAudio(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
   importFile(data: ArrayBuffer, fileName: string, workspacePath: string): Promise<ImportFileResult>
+  previewDocument(path: string): Promise<PreviewResult>
+  previewUrl(url: string): Promise<PreviewResult>
+  closePreview(): Promise<void>
   subscribeProgress(listener: (event: RuntimeProgressEvent) => void): () => void
 }
 
@@ -108,6 +122,9 @@ export type IpcRequest =
   | { readonly method: 'saveImage'; readonly value: { readonly data: ArrayBuffer; readonly defaultName: string } }
   | { readonly method: 'saveAudio'; readonly value: { readonly data: ArrayBuffer; readonly defaultName: string } }
   | { readonly method: 'importFile'; readonly value: { readonly data: ArrayBuffer; readonly fileName: string; readonly workspacePath: string } }
+  | { readonly method: 'previewDocument'; readonly value: { readonly path: string } }
+  | { readonly method: 'previewUrl'; readonly value: { readonly url: string } }
+  | { readonly method: 'closePreview'; readonly value: undefined }
 
 export function parseIpcRequest(method: InvokeApiKey, value: unknown): IpcRequest {
   switch (method) {
@@ -120,6 +137,7 @@ export function parseIpcRequest(method: InvokeApiKey, value: unknown): IpcReques
     case 'openLogDirectory':
     case 'getDataDirectory':
     case 'setDataDirectory':
+    case 'closePreview':
       requireNoInput(method, value)
       return { method, value: undefined }
     case 'downloadUpdate':
@@ -133,6 +151,10 @@ export function parseIpcRequest(method: InvokeApiKey, value: unknown): IpcReques
       return { method, value: parseSaveBinaryInput(value, 'save-audio') }
     case 'importFile':
       return { method, value: parseImportFileInput(value) }
+    case 'previewDocument':
+      return { method, value: parsePreviewDocumentInput(value) }
+    case 'previewUrl':
+      return { method, value: parsePreviewUrlInput(value) }
   }
 }
 
@@ -217,6 +239,31 @@ function parseImportFileInput(value: unknown): {
     throw new TypeError('import-file workspacePath is invalid')
   }
   return { data: record.data, fileName: record.fileName, workspacePath: record.workspacePath }
+}
+
+function parsePreviewDocumentInput(value: unknown): { readonly path: string } {
+  const record = requireExactRecord(value, 'preview-document request', ['path'])
+  if (typeof record.path !== 'string' || record.path.length === 0 || record.path.length > 4096) {
+    throw new TypeError('preview-document path is invalid')
+  }
+  return { path: record.path }
+}
+
+function parsePreviewUrlInput(value: unknown): { readonly url: string } {
+  const record = requireExactRecord(value, 'preview-url request', ['url'])
+  if (typeof record.url !== 'string' || record.url.length === 0 || record.url.length > 4096) {
+    throw new TypeError('preview-url url is invalid')
+  }
+  let parsed: URL
+  try {
+    parsed = new URL(record.url)
+  } catch {
+    throw new TypeError('preview-url url is not a valid URL')
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new TypeError('preview-url url must be http(s)')
+  }
+  return { url: record.url }
 }
 
 function requireExactRecord(
