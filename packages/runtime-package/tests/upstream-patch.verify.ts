@@ -266,6 +266,10 @@ const officialDeleteSessionsManager = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'src', 'client', 'sessions', 'manager.ts',
 )
+const officialStream = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'llm', 'llm-pi-ai', 'src', 'stream.ts',
+)
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2')
 
 test('tracked Harness patches add LDD compatibility changes and apply exactly once', async () => {
@@ -431,6 +435,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedDeleteSessionsManager = join(
       copiedRoot, 'packages', 'client', 'runtime', 'src', 'client', 'sessions', 'manager.ts',
     )
+    const copiedStream = join(
+      copiedRoot, 'packages', 'llm', 'llm-pi-ai', 'src', 'stream.ts',
+    )
     await mkdir(dirname(copiedCatalog), { recursive: true })
     await mkdir(dirname(copiedReleaseProcess), { recursive: true })
     await mkdir(dirname(copiedBrand), { recursive: true })
@@ -483,6 +490,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await mkdir(dirname(copiedDeleteRows), { recursive: true })
     await mkdir(dirname(copiedDeleteWorkspaceLocales), { recursive: true })
     await mkdir(dirname(copiedDeleteSessionsManager), { recursive: true })
+    await mkdir(dirname(copiedStream), { recursive: true })
     await writeFile(copiedCatalog, await readFile(officialCatalog))
     await writeFile(copiedReleaseProcess, await readFile(officialReleaseProcess))
     await writeFile(copiedBrand, await readFile(officialBrand))
@@ -535,6 +543,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedDeleteRows, await readFile(officialDeleteRows))
     await writeFile(copiedDeleteWorkspaceLocales, await readFile(officialDeleteWorkspaceLocales))
     await writeFile(copiedDeleteSessionsManager, await readFile(officialDeleteSessionsManager))
+    await writeFile(copiedStream, await readFile(officialStream))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
     const result = await readFile(copiedCatalog, 'utf8')
@@ -576,6 +585,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0019-render-tool-result-audio.patch',
       '0020-session-delete-confirm-dialog.patch',
       '0021-open-file-preview.patch',
+      '0022-kie-llm-finish-reason.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -641,6 +651,12 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.doesNotMatch(deleteWorkspaceBrowser, /window\.confirm\(/u)
     assert.match(deleteWorkspaceBrowser, /sessionDeleteTarget/u)
     assert.match(deleteWorkspaceBrowser, /confirmSessionDelete/u)
+    // 0022: a KIE-style gateway that omits finish_reason but completed its
+    // content is a normal stop (or tool-calls), not a TRANSPORT error.
+    const stream = await readFile(copiedStream, 'utf8')
+    assert.match(stream, /stream ended without finish_reason/i)
+    assert.match(stream, /block\.type === 'toolCall'/u)
+    assert.match(stream, /return hasToolCall \? \{ kind: 'tool-calls' \} : \{ kind: 'stop' \}/u)
 
     assert.match(imageLightboxCss, /\.actions \{/u)
     const codeBlock = await readFile(copiedCodeBlock, 'utf8')
