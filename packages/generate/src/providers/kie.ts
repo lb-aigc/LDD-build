@@ -72,6 +72,8 @@ export function kieSameModelI2iField(model: string): string | undefined {
  */
 const DISTINCT_I2I_COUNTERPART: Readonly<Record<string, string>> = {
   'gpt-image-2-text-to-image': 'gpt-image-2-image-to-image',
+  'gpt-image-2-5-flare-text-to-image': 'gpt-image-2-5-flare-image-to-image',
+  'gpt-image-2-5-sunburst-text-to-image': 'gpt-image-2-5-sunburst-image-to-image',
   'seedream/5-pro-text-to-image': 'seedream/5-pro-image-to-image',
   'seedream/5-lite-text-to-image': 'seedream/5-lite-image-to-image',
   'flux-2/pro-text-to-image': 'flux-2/pro-image-to-image',
@@ -129,6 +131,29 @@ function seedream5AspectRatio(aspectRatio: string): string {
   return SEEDREAM5_ASPECT_CLAMP[aspectRatio] ?? aspectRatio
 }
 
+/** GPT Image 2.5 text-to-image capability ids. */
+const GPT_IMAGE_25_T2I = new Set([
+  'gpt-image-2-5-flare-text-to-image',
+  'gpt-image-2-5-sunburst-text-to-image',
+])
+
+/** GPT Image 2.5's `aspect_ratio` enum is narrower than the tool's: it accepts
+ *  `auto | 1:1 | 3:2 | 2:3 | 16:9 | 9:16 | 4:3 | 3:4 | 21:9 | 27:16 | 16:27 |
+ *  9:8 | 8:9`, so the tool's 2:1 / 1:2 / 4:5 / 5:4 / 9:21 must clamp to the
+ *  nearest supported ratio or the request 422s. */
+const GPT_IMAGE_25_ASPECT_CLAMP: Readonly<Record<string, string>> = {
+  '2:1': '21:9',
+  '1:2': '9:16',
+  '4:5': '3:4',
+  '5:4': '4:3',
+  '9:21': '9:16',
+}
+
+/** Clamp an aspect ratio to GPT Image 2.5's supported set. */
+function gptImage25AspectRatio(aspectRatio: string): string {
+  return GPT_IMAGE_25_ASPECT_CLAMP[aspectRatio] ?? aspectRatio
+}
+
 /** Highest resolution tier KIE supports for a given aspect ratio. */
 export function kieMaxResolution(aspectRatio: string): ImageResolution {
   return MAX_RESOLUTION_FOR[aspectRatio] ?? '4K'
@@ -182,10 +207,15 @@ export class KieProvider implements GenerationProvider {
     const isImageToImage = references.length > 0
     // Seedream 5.0 Pro/Lite use `quality` (not `resolution`), cap at 2K, and
     // only accept a fixed aspect-ratio set — clamp both before submitting.
+    // GPT Image 2.5 accepts a narrower aspect-ratio enum than the tool exposes,
+    // so clamp its ratios too (2:1/1:2/4:5/5:4/9:21 → nearest supported).
     const isSeedream5 = SEEDREAM5_T2I.has(model)
+    const isGptImage25 = GPT_IMAGE_25_T2I.has(model)
     const aspectRatio = isSeedream5
       ? seedream5AspectRatio(this.resolveAspectRatio(request))
-      : this.resolveAspectRatio(request)
+      : isGptImage25
+        ? gptImage25AspectRatio(this.resolveAspectRatio(request))
+        : this.resolveAspectRatio(request)
     const requested = this.resolveResolution(request.resolution ?? '4K', aspectRatio)
     const resolution = isSeedream5 && requested === '4K' ? '2K' : requested
     let taskId: string

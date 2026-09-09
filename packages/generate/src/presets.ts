@@ -133,6 +133,8 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     // agent routes to a specific one by name.
     models: [
       { id: 'gpt-image-2-text-to-image', label: 'GPT Image 2', i2iModel: 'gpt-image-2-image-to-image' },
+      { id: 'gpt-image-2-5-flare-text-to-image', label: 'GPT Image 2.5 Flare', i2iModel: 'gpt-image-2-5-flare-image-to-image' },
+      { id: 'gpt-image-2-5-sunburst-text-to-image', label: 'GPT Image 2.5 Sunburst', i2iModel: 'gpt-image-2-5-sunburst-image-to-image' },
       { id: 'nano-banana-pro', label: 'Nano Banana Pro' },
       { id: 'nano-banana-2', label: 'Nano Banana 2' },
       { id: 'nano-banana-2-lite', label: 'Nano Banana 2 Lite' },

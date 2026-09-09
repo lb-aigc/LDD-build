@@ -165,6 +165,8 @@ test('kie distinct-i2i models auto-route to their i2i counterpart', () => {
   // GPT Image 2 / Seedream 5 / Flux 2 split t2i and i2i into separate ids;
   // a t2i model picks up its i2i counterpart without manual config.
   assert.equal(kieDistinctI2iCounterpart('gpt-image-2-text-to-image'), 'gpt-image-2-image-to-image')
+  assert.equal(kieDistinctI2iCounterpart('gpt-image-2-5-flare-text-to-image'), 'gpt-image-2-5-flare-image-to-image')
+  assert.equal(kieDistinctI2iCounterpart('gpt-image-2-5-sunburst-text-to-image'), 'gpt-image-2-5-sunburst-image-to-image')
   assert.equal(kieDistinctI2iCounterpart('seedream/5-pro-text-to-image'), 'seedream/5-pro-image-to-image')
   assert.equal(kieDistinctI2iCounterpart('seedream/5-lite-text-to-image'), 'seedream/5-lite-image-to-image')
   assert.equal(kieDistinctI2iCounterpart('flux-2/pro-text-to-image'), 'flux-2/pro-image-to-image')

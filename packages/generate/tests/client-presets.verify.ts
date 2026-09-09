@@ -31,6 +31,8 @@ test('provider presets carry their credential reference', () => {
 test('distinct-i2i KIE models auto-route their i2i counterpart', () => {
   const kie = preset('kie')
   assert.equal(i2iModelOf(kie, 'gpt-image-2-text-to-image'), 'gpt-image-2-image-to-image')
+  assert.equal(i2iModelOf(kie, 'gpt-image-2-5-flare-text-to-image'), 'gpt-image-2-5-flare-image-to-image')
+  assert.equal(i2iModelOf(kie, 'gpt-image-2-5-sunburst-text-to-image'), 'gpt-image-2-5-sunburst-image-to-image')
   assert.equal(i2iModelOf(kie, 'seedream/5-pro-text-to-image'), 'seedream/5-pro-image-to-image')
   assert.equal(i2iModelOf(kie, 'seedream/5-lite-text-to-image'), 'seedream/5-lite-image-to-image')
   assert.equal(i2iModelOf(kie, 'flux-2/pro-text-to-image'), 'flux-2/pro-image-to-image')
