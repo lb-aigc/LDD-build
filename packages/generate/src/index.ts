@@ -397,6 +397,73 @@ function defineMusicTool(
   })
 }
 
+/**
+ * The switch tool: lets the agent honour a user's IN-CONVERSATION model request.
+ * The per-session override is otherwise only settable through the composer
+ * button (a `/generate-model` UI command the agent cannot invoke). Without this
+ * tool, when a user says "改用 GPT Image 2" the agent tries the new model but
+ * `resolveProvider` blocks it against the STALE override (the model picked
+ * earlier), leaving the agent stuck asking the user to click the button. This
+ * tool updates the override first, so the next generate call just works.
+ *
+ * It must ONLY be called when the user has asked to switch (the description is
+ * the guard; the agent should never pick a model the user didn't name).
+ */
+function defineSwitchModelTool(
+  state: { image: ResolvedModels; video: ResolvedModels; music: ResolvedModels },
+  sessionOverrides: { image: Map<string, string>; video: Map<string, string>; music: Map<string, string> },
+) {
+  const catalog = (kind: 'image' | 'video' | 'music'): string => {
+    const pair = kind === 'image'
+      ? [state.image, IMAGE_PROVIDER_PRESETS] as const
+      : kind === 'video'
+        ? [state.video, VIDEO_PROVIDER_PRESETS] as const
+        : [state.music, MUSIC_PROVIDER_PRESETS] as const
+    return modelCatalog(pair[0], pair[1])
+  }
+  return defineTool({
+    name: 'set_generation_model',
+    description:
+      '把当前会话的生成模型切换到用户指定的那一个。仅当用户明确要求更换或指定生成模型时调用（例如「改用 GPT Image 2」「换成 Seedream」「用 Nano Banana」）。切换后，后续的 generate_image / generate_video / generate_music 会使用新模型。用户没有要求换模型时不要调用。\n\n'
+      + '可用模型（provider 必须取对应类别列表里「- 」开头的键）：\n'
+      + '【image 生图】\n' + catalog('image') + '\n'
+      + '【video 生视频】\n' + catalog('video') + '\n'
+      + '【music 生音乐】\n' + catalog('music'),
+    parameters: {
+      kind: { type: 'string', enum: ['image', 'video', 'music'], required: true, description: '要切换的生成类别：image=生图，video=生视频，music=生音乐。' },
+      provider: { type: 'string', required: true, description: '目标模型的路由键（上面类别列表里「- 」开头的那串键，例如 kie:gpt-image-2-text-to-image）。' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          switched: { type: 'boolean', required: true },
+          kind: { type: 'string', required: true },
+          provider: { type: 'string', required: true },
+        },
+      },
+      render: (_args, value) => [{
+        type: 'text',
+        text: `已切换${value.kind === 'image' ? '生图' : value.kind === 'video' ? '生视频' : '生音乐'}模型到「${value.provider}」。`,
+      }],
+    },
+    isConcurrencySafe: () => true,
+    async execute(args, exec) {
+      const sessionId = (exec as unknown as { agent?: { id?: string } }).agent?.id
+      if (sessionId === undefined || sessionId === '') {
+        throw new Error('set_generation_model 需要当前会话（无法确定会话身份）')
+      }
+      const kind = args.kind as 'image' | 'video' | 'music'
+      const resolved = kind === 'image' ? state.image : kind === 'video' ? state.video : state.music
+      // pickProvider validates the key and returns its canonical form.
+      const entry = pickProvider(resolved, args.provider as string | undefined)
+      sessionOverrides[kind].set(sessionId, entry.key)
+      return { switched: true, kind, provider: entry.key }
+    },
+  })
+}
+
 export function apply(ctx: Context, config: Config): void {
   // Live routing state. Defaults to a single mock entry and is re-resolved on
   // every settings change. `registerTools` disposes and re-registers the two
@@ -409,6 +476,7 @@ export function apply(ctx: Context, config: Config): void {
   let disposeImage: (() => void) | undefined
   let disposeVideo: (() => void) | undefined
   let disposeMusic: (() => void) | undefined
+  let disposeSwitch: (() => void) | undefined
 
   // Per-session generation-model override, set by the composer's
   // `generate-model` button command and read by the tools. Keyed by the stable
@@ -481,9 +549,11 @@ export function apply(ctx: Context, config: Config): void {
     disposeImage?.()
     disposeVideo?.()
     disposeMusic?.()
+    disposeSwitch?.()
     disposeImage = ctx.tools.register(defineImageTool(state.image, config, secret, attachments, sessionOverrides.image))
     disposeVideo = ctx.tools.register(defineVideoTool(state.video, config, secret, sessionOverrides.video))
     disposeMusic = ctx.tools.register(defineMusicTool(state.music, config, secret, attachments, sessionOverrides.music))
+    disposeSwitch = ctx.tools.register(defineSwitchModelTool(state, sessionOverrides))
   }
   registerTools()
 
