@@ -6,7 +6,7 @@
  * the pick). Styled to match the sibling PermissionSelect / ModelSelect
  * triggers (same 28px chip, `--dsw-*` tokens, chevron rotation).
  */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
 import { IconChevronDownOutline14, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -65,14 +65,14 @@ const itemId = (kind: GenerationKind, key: string): string => `${kind}${SEP}${ke
 export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode | null {
   const state = props.useModelPicker((snapshot) => snapshot)
   const [open, setOpen] = useState(false)
-  // Per-modality temporary override: `currentKeys[kind]` follows that group's
-  // default until a pick.
-  const [currentKeys, setCurrentKeys] = useState<Partial<Record<GenerationKind, string>>>({})
-
-  // A new session resets the temporary overrides back to that session's defaults.
-  useEffect(() => {
-    setCurrentKeys({})
-  }, [props.sessionId])
+  // Per-session temporary override, keyed by SessionId so a pick survives
+  // switching to another session and back. A single flat `currentKeys` reset on
+  // every session switch was the bug that made the previous session's pick look
+  // "changed" — the button fell back to the global default on return.
+  const [overrides, setOverrides] = useState<ReadonlyMap<string, Partial<Record<GenerationKind, string>>>>(
+    () => new Map(),
+  )
+  const currentKeys = overrides.get(props.sessionId) ?? {}
 
   if (!state.available || state.groups.every((group) => group.models.length === 0)) return null
 
@@ -98,7 +98,11 @@ export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode 
     if (sep < 0) return
     const kind = id.slice(0, sep) as GenerationKind
     const key = id.slice(sep + SEP.length)
-    setCurrentKeys((prev) => ({ ...prev, [kind]: key }))
+    setOverrides((prev) => {
+      const next = new Map(prev)
+      next.set(props.sessionId, { ...(next.get(props.sessionId) ?? {}), [kind]: key })
+      return next
+    })
     props.select(kind, key)
   }
 

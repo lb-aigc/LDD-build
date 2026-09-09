@@ -129,7 +129,7 @@ declare module '@deepseek-ai/cordis' {
         description: string
         input?: { hint: string }
         recordInput?: boolean
-        handler: (invocation: { agent: { session: object }; rawInput: string }) =>
+        handler: (invocation: { agent: { id: string }; rawInput: string }) =>
           { kind: 'success' | 'error'; text?: string }
       }): () => void
     }

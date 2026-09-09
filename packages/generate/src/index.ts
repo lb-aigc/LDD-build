@@ -171,7 +171,7 @@ function defineImageTool(
   config: Config,
   secret: { resolve: SecretResolver },
   attachments: { current?: AttachmentStoreLike },
-  sessionOverrides: { get(key: object): string | undefined },
+  sessionOverrides: { get(key: string): string | undefined },
 ) {
   const providerKeys = resolved.entries.map((entry) => entry.key)
   return defineTool({
@@ -221,8 +221,8 @@ function defineImageTool(
     async execute(args, exec) {
       // A user's per-session button pick is enforced: the agent may not
       // silently switch models; it must ask the user first (resolveProvider).
-      const session = (exec as unknown as { agent?: { session?: object } }).agent?.session
-      const entry = resolveProvider(resolved, args.provider, session, sessionOverrides)
+      const sessionId = (exec as unknown as { agent?: { id?: string } }).agent?.id
+      const entry = resolveProvider(resolved, args.provider, sessionId, sessionOverrides)
       const references = await resolveReferenceImages(
         args.inputImages,
         exec as unknown as { agent?: UploadedAgentLike; signal: AbortSignal },
@@ -270,7 +270,7 @@ function defineVideoTool(
   resolved: ResolvedModels,
   config: Config,
   secret: { resolve: SecretResolver },
-  sessionOverrides: { get(key: object): string | undefined },
+  sessionOverrides: { get(key: string): string | undefined },
 ) {
   const providerKeys = resolved.entries.map((entry) => entry.key)
   return defineTool({
@@ -292,8 +292,8 @@ function defineVideoTool(
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
-      const session = (exec as unknown as { agent?: { session?: object } }).agent?.session
-      const entry = resolveProvider(resolved, args.provider, session, sessionOverrides)
+      const sessionId = (exec as unknown as { agent?: { id?: string } }).agent?.id
+      const entry = resolveProvider(resolved, args.provider, sessionId, sessionOverrides)
       const provider = await buildProvider(entry, VIDEO_PROVIDER_PRESETS, secret.resolve)
       const durationSeconds = args.durationSeconds === undefined
         ? 5
@@ -315,7 +315,7 @@ function defineMusicTool(
   config: Config,
   secret: { resolve: SecretResolver },
   attachments: { current?: AttachmentStoreLike },
-  sessionOverrides: { get(key: object): string | undefined },
+  sessionOverrides: { get(key: string): string | undefined },
 ) {
   const providerKeys = resolved.entries.map((entry) => entry.key)
   return defineTool({
@@ -362,8 +362,8 @@ function defineMusicTool(
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {
-      const session = (exec as unknown as { agent?: { session?: object } }).agent?.session
-      const entry = resolveProvider(resolved, args.provider, session, sessionOverrides)
+      const sessionId = (exec as unknown as { agent?: { id?: string } }).agent?.id
+      const entry = resolveProvider(resolved, args.provider, sessionId, sessionOverrides)
       const provider = await buildProvider(entry, MUSIC_PROVIDER_PRESETS, secret.resolve)
       const request = {
         prompt: args.prompt,
@@ -411,19 +411,22 @@ export function apply(ctx: Context, config: Config): void {
   let disposeMusic: (() => void) | undefined
 
   // Per-session generation-model override, set by the composer's
-  // `generate-model` button command and read by the tools. Keyed by the live
-  // Session object (the same reference the command handler and tool execution
-  // both receive for one session), so a button pick routes this session only
-  // and vanishes with it — the settings `default` is never touched.
+  // `generate-model` button command and read by the tools. Keyed by the stable
+  // SessionId STRING (not the live Session object): the command handler and the
+  // tool execution can observe the same session through different agent
+  // wrappers (resume recreates the Session object; a subagent's `agent` differs
+  // from its parent's), so object-identity keying would drop or leak the pick
+  // across sessions. A SessionId is the canonical per-session identity and
+  // vanishes with the session (the settings `default` is never touched).
   //
   // SEPARATE per modality (image/video/music): the picker lists all three and
   // the agent routes each task type to ITS OWN model. A single shared map was
   // the bug that made "pick an image model" then break music/video calls (the
   // image key leaked into the other tools' resolveProvider and failed to pick).
   const sessionOverrides = {
-    image: new WeakMap<object, string>(),
-    video: new WeakMap<object, string>(),
-    music: new WeakMap<object, string>(),
+    image: new Map<string, string>(),
+    video: new Map<string, string>(),
+    music: new Map<string, string>(),
   }
 
   // Secret resolver: env-only by default, upgraded to the harness credentials
@@ -453,7 +456,7 @@ export function apply(ctx: Context, config: Config): void {
       recordInput: false,
       handler: ({ agent, rawInput }) => {
         const parts = rawInput.trim().split(/\s+/).filter(Boolean)
-        const session = agent.session as object
+        const sessionId = agent.id
         const kinds = ['image', 'video', 'music'] as const
         let kind: 'image' | 'video' | 'music' = 'image'
         let key = ''
@@ -465,10 +468,10 @@ export function apply(ctx: Context, config: Config): void {
         }
         const kindLabel = kind === 'image' ? '生图' : kind === 'video' ? '生视频' : '生音乐'
         if (key === '' || key === 'default' || key === 'clear') {
-          sessionOverrides[kind].delete(session)
+          sessionOverrides[kind].delete(sessionId)
           return { kind: 'success', text: `已恢复默认${kindLabel}模型。` }
         }
-        sessionOverrides[kind].set(session, key)
+        sessionOverrides[kind].set(sessionId, key)
         return { kind: 'success', text: `已临时切换到${kindLabel}模型「${key}」（仅当前会话，不改默认）。` }
       },
     })

@@ -161,26 +161,39 @@ test('resolveProvider honours the agent pick when no user override exists', () =
 
 test('resolveProvider uses the user pick when the agent passes no provider', () => {
   const resolved = resolveModels({ models: [{ provider: 'kie' }, { provider: 'gpt-image' }] }, P)
-  const session = {}
-  const overrides = new Map<object, string>([[session, 'gpt-image']])
-  const entry = resolveProvider(resolved, undefined, session, overrides)
+  const overrides = new Map<string, string>([['session-a', 'gpt-image']])
+  const entry = resolveProvider(resolved, undefined, 'session-a', overrides)
   assert.equal(entry.key, 'gpt-image:gpt-image-2')
 })
 
 test('resolveProvider allows the agent to match the user pick', () => {
   const resolved = resolveModels({ models: [{ provider: 'kie' }] }, P)
-  const session = {}
-  const overrides = new Map<object, string>([[session, 'kie:gpt-image-2-text-to-image']])
-  const entry = resolveProvider(resolved, 'kie:gpt-image-2-text-to-image', session, overrides)
+  const overrides = new Map<string, string>([['session-a', 'kie:gpt-image-2-text-to-image']])
+  const entry = resolveProvider(resolved, 'kie:gpt-image-2-text-to-image', 'session-a', overrides)
   assert.equal(entry.key, 'kie:gpt-image-2-text-to-image')
 })
 
 test('resolveProvider blocks the agent from switching away from the user pick', () => {
   const resolved = resolveModels({ models: [{ provider: 'kie' }, { provider: 'legnext' }] }, P)
-  const session = {}
-  const overrides = new Map<object, string>([[session, 'kie:gpt-image-2-text-to-image']])
+  const overrides = new Map<string, string>([['session-a', 'kie:gpt-image-2-text-to-image']])
   assert.throws(
-    () => resolveProvider(resolved, 'legnext', session, overrides),
+    () => resolveProvider(resolved, 'legnext', 'session-a', overrides),
     /不得擅自切换模型/,
   )
+})
+
+test('resolveProvider isolates overrides per SessionId (switching one session never leaks)', () => {
+  // The regression behind the user report: picking a model in session B must
+  // not change session A's. Keying by the stable SessionId string (not the live
+  // Session object) is what keeps the two picks independent. Override values
+  // are the routing keys the picker sends (`/generate-model image <key>`).
+  const resolved = resolveModels({ models: [{ provider: 'kie' }] }, P)
+  const overrides = new Map<string, string>([
+    ['session-a', 'kie:gpt-image-2-text-to-image'],
+    ['session-b', 'kie:z-image'],
+  ])
+  assert.equal(resolveProvider(resolved, undefined, 'session-a', overrides).key, 'kie:gpt-image-2-text-to-image')
+  assert.equal(resolveProvider(resolved, undefined, 'session-b', overrides).key, 'kie:z-image')
+  // A session with no override falls back to the global default.
+  assert.equal(resolveProvider(resolved, undefined, 'session-c', overrides).key, 'kie:gpt-image-2-text-to-image')
 })

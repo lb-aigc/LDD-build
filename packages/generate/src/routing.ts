@@ -201,14 +201,20 @@ export function pickProvider(resolved: ResolvedModels, requested: string | undef
  * explicit pick. When the user selected a model for this session (the composer
  * button), the agent may NOT silently switch to a different one — it must ask
  * the user first. Returns the routed entry.
+ *
+ * The override is keyed by the stable `SessionId` STRING, not the live `Session`
+ * object reference: the command handler and tool execution can receive different
+ * agent wrappers (resume recreates the Session object; a subagent's `agent`
+ * differs from the parent's), so object-identity keying would drop or leak the
+ * pick across sessions. A SessionId is the canonical per-session identity.
  */
 export function resolveProvider(
   resolved: ResolvedModels,
   argsProvider: string | undefined,
-  session: object | undefined,
-  sessionOverrides: { get(key: object): string | undefined },
+  sessionId: string | undefined,
+  sessionOverrides: { get(key: string): string | undefined },
 ): RoutedModel {
-  const userPick = session !== undefined ? sessionOverrides.get(session) : undefined
+  const userPick = sessionId !== undefined ? sessionOverrides.get(sessionId) : undefined
   const agentPick = argsProvider !== undefined && argsProvider !== '' ? argsProvider : undefined
   if (userPick !== undefined && agentPick !== undefined) {
     const userEntry = pickProvider(resolved, userPick)
