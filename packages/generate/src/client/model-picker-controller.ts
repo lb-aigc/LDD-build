@@ -57,7 +57,6 @@ export class ModelPickerController {
   private readonly store: SnapshotStore<ModelPickerState>
   private readonly scopes: Record<GenerationKind, SettingsScope<GenerationCardSettings>>
   private readonly sessions: CommandableSessions | undefined
-  private sessionId: SessionId | undefined
 
   constructor(
     scopes: {
@@ -75,11 +74,6 @@ export class ModelPickerController {
     }
   }
 
-  /** Adopt the current session (the slot inject is session-scoped). */
-  setSessionId(sessionId: SessionId | undefined): void {
-    this.sessionId = sessionId
-  }
-
   private projection(): ModelPickerState {
     const groups: ModelPickerGroup[] = []
     let available = true
@@ -92,12 +86,18 @@ export class ModelPickerController {
     return { available, groups }
   }
 
-  inject(): ModelPickerFace {
+  /** Build the face for one session. `select` is bound to THAT session (the
+   *  `sessionId` the slot inject passed in), never a shared mutable field, so a
+   *  pick always issues its `/generate-model` command against the session the
+   *  button was rendered for. A single shared `this.sessionId` was the bug that
+   *  made "切换模型后不生效" when two sessions were open: the command landed in
+   *  the LAST-injected session while the visible session kept its old override. */
+  inject(sessionId: SessionId | undefined): ModelPickerFace {
     return {
       hooks: { modelPicker: this.store },
       select: (kind, key) => {
-        if (this.sessionId === undefined || this.sessions === undefined) return
-        void this.sessions.binding(this.sessionId)?.session.command(`/generate-model ${kind} ${key}`)
+        if (sessionId === undefined || this.sessions === undefined) return
+        void this.sessions.binding(sessionId)?.session.command(`/generate-model ${kind} ${key}`)
       },
     }
   }
