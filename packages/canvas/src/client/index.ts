@@ -4,20 +4,35 @@
  * the standard `useProjection('canvas')` seat and resolving image-node
  * attachments through the session's `readAttachment` face — zero upstream
  * patches.
+ *
+ * The sessions service is read through `ctx.get('sessions')` with a minimal
+ * STRUCTURAL face (not `ctx.sessions.<method>`). This package's single tsconfig
+ * compiles host + client halves together, and the host half imports
+ * `@deepseek-ai/dsh-session` (declaring `Context.sessions: SessionStore`) while
+ * the client half imports the runtime (declaring `Context.sessions: ISessions`);
+ * a direct `ctx.sessions` property access would surface that conflict as
+ * TS2339. `ctx.get` sidesteps it (same idiom as generate's `SessionsLike`).
  */
-import type { ClientContext, SessionFace, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: the 'conversation.view' SlotMap row + ConvViewProps (declared by
 // ui-conversation) must be in the program for the register call to type.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { CanvasState } from '../model.ts'
 import { CanvasView } from './CanvasView.tsx'
 
-// The `readAttachment` argument is the branded `AttachmentIdType` (a unique-symbol
-// brand, so it cannot be locally shimmed). Extract its type from the runtime
-// SessionFace instead of importing `@deepseek-ai/dsh-attachment` — the import
-// would add a dependency edge and re-trigger the pnpm-lockfile round-trip (same
-// rationale as generate's `attach.ts` shim). At runtime it is a plain `sha256:` string.
-type AttachmentIdParam = Parameters<SessionFace['readAttachment']>[0]
+/** Structural read face of the runtime's `readAttachment` (brand-free). */
+interface CanvasSessionLike {
+  readAttachment(attachmentId: string): Promise<{
+    ok: boolean
+    error?: { code: string; message: string }
+    value?: { attachment: { mediaType: string }; data: Uint8Array }
+  }>
+}
+
+/** Structural read face of the runtime sessions service (binding lookup). */
+interface CanvasSessionsLike {
+  binding(id: SessionId): { session?: CanvasSessionLike } | undefined
+}
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionMap {
@@ -37,13 +52,15 @@ export function apply(ctx: ClientContext): void {
     inject: (sessionId: SessionId) => ({
       loadImage: async (attachmentId: string): Promise<string> => {
         // Resolve lazily per call so a view mounted before the session bound
-        // still loads once the binding is live.
-        const session = ctx.sessions.binding(sessionId)?.session
+        // still loads once the binding is live. The structural face keeps this
+        // independent of the host/client `Context.sessions` declaration split.
+        const sessions = ctx.get('sessions') as CanvasSessionsLike | undefined
+        const session = sessions?.binding(sessionId)?.session
         if (session === undefined) throw new Error('canvas: 会话不可用，无法解析图片')
-        const result = await session.readAttachment(attachmentId as unknown as AttachmentIdParam)
-        if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
-        const bytes = Uint8Array.from(result.value.data)
-        return URL.createObjectURL(new Blob([bytes.buffer], { type: result.value.attachment.mediaType }))
+        const result = await session.readAttachment(attachmentId)
+        if (!result.ok) throw new Error(`${result.error?.code ?? 'error'}: ${result.error?.message ?? ''}`)
+        const bytes = Uint8Array.from(result.value!.data)
+        return URL.createObjectURL(new Blob([bytes.buffer], { type: result.value!.attachment.mediaType }))
       },
     }),
   }, CanvasView))

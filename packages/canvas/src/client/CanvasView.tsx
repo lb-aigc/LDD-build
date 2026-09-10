@@ -49,16 +49,17 @@ function CanvasNodeCard({ data }: { data: CanvasNodeData }) {
   const sha = isShaAttachment(data.url)
 
   useEffect(() => {
-    if (data.kind !== 'image' || !sha) {
+    const url = data.url
+    if (data.kind !== 'image' || !isShaAttachment(url)) {
       setResolved(null)
       return
     }
     let cancelled = false
-    loadImage(data.url)
-      .then((url) => { if (!cancelled) setResolved(url) })
+    loadImage(url)
+      .then((resolvedUrl) => { if (!cancelled) setResolved(resolvedUrl) })
       .catch(() => { if (!cancelled) setResolved(null) })
     return () => { cancelled = true }
-  }, [data.kind, data.url, sha, loadImage])
+  }, [data.kind, data.url, loadImage])
 
   const src: string | null = sha
     ? resolved
