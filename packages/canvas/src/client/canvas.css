@@ -88,6 +88,27 @@
   display: block;
 }
 
+.ldd-canvas-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 90px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  border: 1px dashed var(--dsw-alias-border-l3);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+/* Handles are present so edges render, but invisible in the read-only MVP. */
+.ldd-canvas-handle {
+  width: 6px;
+  height: 6px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .ldd-canvas-node-label {
   font-weight: 600;
   color: var(--dsw-alias-label-primary);

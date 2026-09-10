@@ -12,7 +12,9 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   Background,
   Controls,
+  Handle,
   MiniMap,
+  Position,
   ReactFlow,
 } from '@xyflow/react'
 import type { Edge, Node, NodeTypes } from '@xyflow/react'
@@ -34,6 +36,11 @@ const LoadImageContext = createContext<(attachmentId: string) => Promise<string>
 /** A node's `url` is either a `sha256:` attachment id or a plain http(s) url. */
 function isShaAttachment(url: string | undefined): url is string {
   return url !== undefined && url.startsWith('sha256:')
+}
+
+/** A plain, browser-loadable image URL (NOT mock:// / other placeholder schemes). */
+function isHttpUrl(url: string | undefined): url is string {
+  return url !== undefined && (url.startsWith('http://') || url.startsWith('https://'))
 }
 
 interface CanvasNodeData {
@@ -62,14 +69,24 @@ function CanvasNodeCard({ data }: { data: CanvasNodeData }) {
     return () => { cancelled = true }
   }, [data.kind, data.url, loadImage])
 
+  // Resolve an image node's <img> src. `sha256:` → loaded blob; http(s) → verbatim;
+  // anything else (mock-image://, empty) → null → render a friendly placeholder
+  // instead of a broken image.
   const src: string | null = sha
     ? resolved
-    : (data.url !== undefined && data.url !== '' ? data.url : null)
+    : (isHttpUrl(data.url) ? data.url : null)
 
   return (
     <div className="ldd-canvas-node" data-kind={data.kind}>
-      {data.kind === 'image' && src !== null && (
-        <img className="ldd-canvas-node-image" src={src} alt={data.label} />
+      {/* Handles give React Flow endpoints for edges — without them edges do not
+          render. isConnectable={false} keeps the read-only posture. */}
+      <Handle type="target" position={Position.Left} className="ldd-canvas-handle" isConnectable={false} />
+      <Handle type="source" position={Position.Right} className="ldd-canvas-handle" isConnectable={false} />
+
+      {data.kind === 'image' && (
+        src !== null
+          ? <img className="ldd-canvas-node-image" src={src} alt={data.label} />
+          : <div className="ldd-canvas-node-image ldd-canvas-image-placeholder">图片</div>
       )}
       <div className="ldd-canvas-node-label">{data.label}</div>
       {data.content !== undefined && data.content !== '' && (
@@ -101,6 +118,7 @@ function toFlowEdges(state: CanvasState): Edge[] {
     id: e.id,
     source: e.source,
     target: e.target,
+    type: 'smoothstep',
     ...(e.label === undefined || e.label === '' ? {} : { label: e.label }),
   }))
 }
