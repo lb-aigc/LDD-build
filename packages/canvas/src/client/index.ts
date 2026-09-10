@@ -43,6 +43,20 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
   }
 }
 
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface SlotMap {
+    /**
+     * Typecheck shim: the npm-published ui-conversation (0.1.1-rc.2) predates
+     * the 0023 upstream patch that adds this slot, so the row is declared here
+     * for `PropsRuntime<'conversation.session.sidebar'>` to resolve during
+     * local typecheck. At runtime the patched ui-conversation declares the same
+     * row (kind single / session scope / empty owner), so the merged interface
+     * stays structurally identical.
+     */
+    'conversation.session.sidebar': { kind: 'single'; scope: 'session'; owner: {} }
+  }
+}
+
 export const inject = ['slots', 'sessions']
 
 export function apply(ctx: ClientContext): void {
