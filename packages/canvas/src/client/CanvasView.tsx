@@ -1,5 +1,5 @@
 /**
- * CanvasView: the conversation view tab rendering the per-session canvas.
+ * CanvasView: the right-side session sidebar pane rendering the per-session canvas.
  *
  * Reads the whole canvas through `useProjection('canvas')` and renders it with
  * React Flow. Image nodes resolve their `sha256:` attachment (or an http url)
@@ -18,11 +18,14 @@ import {
   ReactFlow,
 } from '@xyflow/react'
 import type { Edge, Node, NodeTypes } from '@xyflow/react'
-import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { CanvasNode, CanvasState } from '../model.ts'
 import './react-flow.css'
 import './canvas.css'
+
+/** The canvas sidebar slot's framework props (session scope: useProjection etc.). */
+type CanvasSidebarProps = PropsRuntime<'conversation.session.sidebar'>
 
 /** Injected per-session image loader: `sha256:<attachmentId>` → blob URL. */
 export interface CanvasViewInjected {
@@ -123,7 +126,7 @@ function toFlowEdges(state: CanvasState): Edge[] {
   }))
 }
 
-export function CanvasView({ useProjection, loadImage }: ConvViewProps & InjectFace<CanvasViewInjected>) {
+export function CanvasView({ useProjection, loadImage }: CanvasSidebarProps & InjectFace<CanvasViewInjected>) {
   const canvas = useProjection('canvas')
   const nodes = useMemo(() => (canvas === undefined ? [] : toFlowNodes(canvas)), [canvas])
   const edges = useMemo(() => (canvas === undefined ? [] : toFlowEdges(canvas)), [canvas])

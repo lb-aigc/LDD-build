@@ -1,0 +1,105 @@
+--- a/packages/client/ui-conversation/src/client/contract/slots.ts
++++ b/packages/client/ui-conversation/src/client/contract/slots.ts
+@@ -111,6 +111,13 @@
+      * conversation snapshot through the standard kit.
+      */
+     'conversation.view': { kind: 'list'; scope: 'session'; owner: ConvViewOwnerProps }
++    /**
++     * Right-side companion pane beside the session view ring (chat + canvas
++     * split). Session scope: reads the conversation and projections through the
++     * standard kit. One occupant claims the pane; with no occupant the view
++     * stays full-width.
++     */
++    'conversation.session.sidebar': { kind: 'single'; scope: 'session'; owner: ConversationSessionSidebarOwnerProps }
+     /** Final business node renderer, dispatched by `ChatConversationViewNode.kind`. */
+     'conversation.chat.node': {
+       kind: 'keyed'
+@@ -322,6 +329,9 @@
+    */
+   wrapActiveBody?: (view: ReactNode) => ReactNode
+ }
++
++/** Owner share of the right-side session sidebar seat (canvas companion pane). */
++export interface ConversationSessionSidebarOwnerProps {}
+ 
+ /** Header actions derive their state from the standard session/global kit. */
+ export interface ConversationHeaderActionOwnerProps {}
+@@ -664,7 +674,7 @@
+ /** Full strict-session body props: per-session store, view ring, and draft mirror. */
+ export type ConversationSessionSlotProps =
+   PropsRuntime<'conversation.session'>
+-  & PropsRenderSlots<'conversation.view'>
++  & PropsRenderSlots<'conversation.view' | 'conversation.session.sidebar'>
+   & PropsStore<ChatStore>
+   & ConversationSessionInjected
+ 
+--- a/packages/client/ui-conversation/src/client/apply.ts
++++ b/packages/client/ui-conversation/src/client/apply.ts
+@@ -241,6 +241,7 @@
+     name: 'conversation.session',
+     children: {
+       'conversation.view': { kind: 'list', scope: 'session' },
++      'conversation.session.sidebar': { kind: 'single', scope: 'session' },
+     },
+     store: chatStore,
+     inject: (sessionId: SessionId, _actions: BoundActions<typeof chatStore>): ConversationSessionInjected => {
+--- a/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx
+@@ -199,11 +199,16 @@
+ 
+   if (blank && composerPhase === 'blank') return null
+   return (
+-    <div className={css.viewArea}>
+-      {active !== undefined && renderSlot('conversation.view', {
+-        inspect,
+-        onInspectDone: () => { actions.setInspect(null) },
+-      }, { only: active.id })}
++    <div className={css.sessionBody}>
++      <div className={css.viewArea}>
++        {active !== undefined && renderSlot('conversation.view', {
++          inspect,
++          onInspectDone: () => { actions.setInspect(null) },
++        }, { only: active.id })}
++      </div>
++      <div className={css.sessionSidebar}>
++        {renderSlot('conversation.session.sidebar', {})}
++      </div>
+     </div>
+   )
+ }
+--- a/packages/client/ui-conversation/src/client/skeleton/ConversationRoot.module.css
++++ b/packages/client/ui-conversation/src/client/skeleton/ConversationRoot.module.css
+@@ -187,6 +187,33 @@
+   flex: 1;
+   flex-direction: column;
+   min-height: 0;
++}
++
++/* Split body: chat view on the left, the session sidebar (canvas) on the
++   right. The sidebar is flex:none (fixed width) and hidden when empty so a
++   build without the canvas plugin keeps the full-width view. */
++.sessionBody {
++  display: flex;
++  flex: 1;
++  min-height: 0;
++}
++
++.sessionBody .viewArea {
++  flex: 1;
++  min-width: 0;
++}
++
++.sessionSidebar {
++  flex: none;
++  width: 480px;
++  min-width: 0;
++  height: 100%;
++  border-left: 1px solid var(--dsw-alias-border-l2);
++  background: var(--dsw-alias-bg-base);
++}
++
++.sessionSidebar:empty {
++  display: none;
+ }
+ 
+ /* Composer context stack (Figma 9:937): standalone dock cards share one

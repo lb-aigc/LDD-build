@@ -1,9 +1,10 @@
 /**
- * @ldd/dsh-canvas — Browser half. Registers the canvas as a third tab in the
- * conversation view ring (beside 对话/轨迹), reading the canvas state through
- * the standard `useProjection('canvas')` seat and resolving image-node
- * attachments through the session's `readAttachment` face — zero upstream
- * patches.
+ * @ldd/dsh-canvas — Browser half. Registers the canvas as the right-side
+ * session sidebar (beside the chat view, NOT a separate tab), reading the
+ * canvas state through the standard `useProjection('canvas')` seat and
+ * resolving image-node attachments through the session's `readAttachment`
+ * face. The `conversation.session.sidebar` slot itself is added upstream by
+ * the 0023-canvas-sidebar patch.
  *
  * The sessions service is read through `ctx.get('sessions')` with a minimal
  * STRUCTURAL face (not `ctx.sessions.<method>`). This package's single tsconfig
@@ -14,8 +15,9 @@
  * TS2339. `ctx.get` sidesteps it (same idiom as generate's `SessionsLike`).
  */
 import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-// Type-only: the 'conversation.view' SlotMap row + ConvViewProps (declared by
-// ui-conversation) must be in the program for the register call to type.
+// Type-only: the 'conversation.session.sidebar' SlotMap row (declared by
+// ui-conversation via the 0023 patch) must be in the program for the register
+// call to type.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { CanvasState } from '../model.ts'
 import { CanvasView } from './CanvasView.tsx'
@@ -44,11 +46,8 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
 export const inject = ['slots', 'sessions']
 
 export function apply(ctx: ClientContext): void {
-  ctx.slots.inject('conversation.view', () => ctx.slots.register({
-    name: 'conversation.view',
-    id: 'canvas',
-    order: 20,
-    label: () => '画布',
+  ctx.slots.inject('conversation.session.sidebar', () => ctx.slots.register({
+    name: 'conversation.session.sidebar',
     inject: (sessionId: SessionId) => ({
       loadImage: async (attachmentId: string): Promise<string> => {
         // Resolve lazily per call so a view mounted before the session bound

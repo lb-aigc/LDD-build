@@ -154,6 +154,14 @@ const officialSendSessionService = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'service.ts',
 )
+const officialConversationSession = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'ConversationSession.tsx',
+)
+const officialConversationRootCss = join(
+  repositoryRoot,
+  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'ConversationRoot.module.css',
+)
 const officialDeleteCoordinator = join(
   repositoryRoot,
   'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence', 'src', 'coordinator.ts',
@@ -438,6 +446,12 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedStream = join(
       copiedRoot, 'packages', 'llm', 'llm-pi-ai', 'src', 'stream.ts',
     )
+    const copiedConversationSession = join(
+      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'ConversationSession.tsx',
+    )
+    const copiedConversationRootCss = join(
+      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'ConversationRoot.module.css',
+    )
     await mkdir(dirname(copiedCatalog), { recursive: true })
     await mkdir(dirname(copiedReleaseProcess), { recursive: true })
     await mkdir(dirname(copiedBrand), { recursive: true })
@@ -491,6 +505,8 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await mkdir(dirname(copiedDeleteWorkspaceLocales), { recursive: true })
     await mkdir(dirname(copiedDeleteSessionsManager), { recursive: true })
     await mkdir(dirname(copiedStream), { recursive: true })
+    await mkdir(dirname(copiedConversationSession), { recursive: true })
+    await mkdir(dirname(copiedConversationRootCss), { recursive: true })
     await writeFile(copiedCatalog, await readFile(officialCatalog))
     await writeFile(copiedReleaseProcess, await readFile(officialReleaseProcess))
     await writeFile(copiedBrand, await readFile(officialBrand))
@@ -544,6 +560,8 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedDeleteWorkspaceLocales, await readFile(officialDeleteWorkspaceLocales))
     await writeFile(copiedDeleteSessionsManager, await readFile(officialDeleteSessionsManager))
     await writeFile(copiedStream, await readFile(officialStream))
+    await writeFile(copiedConversationSession, await readFile(officialConversationSession))
+    await writeFile(copiedConversationRootCss, await readFile(officialConversationRootCss))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
     const result = await readFile(copiedCatalog, 'utf8')
@@ -586,6 +604,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0020-session-delete-confirm-dialog.patch',
       '0021-open-file-preview.patch',
       '0022-kie-llm-finish-reason.patch',
+      '0023-canvas-sidebar.patch',
     ])
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
@@ -657,6 +676,19 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(stream, /stream ended without finish_reason/i)
     assert.match(stream, /block\.type === 'toolCall'/u)
     assert.match(stream, /return hasToolCall \? \{ kind: 'tool-calls' \} : \{ kind: 'stop' \}/u)
+    // 0023: the session body gains a right-side sidebar slot (chat + canvas
+    // split). ConversationSession wraps the view ring in a flex body and
+    // renders the sidebar beside it; the CSS hides an empty sidebar.
+    const conversationSession = await readFile(copiedConversationSession, 'utf8')
+    assert.match(conversationSession, /css\.sessionBody/u)
+    assert.match(conversationSession, /renderSlot\('conversation\.session\.sidebar', \{\}\)/u)
+    const conversationRootCss = await readFile(copiedConversationRootCss, 'utf8')
+    assert.match(conversationRootCss, /\.sessionBody \{/u)
+    assert.match(conversationRootCss, /\.sessionSidebar \{/u)
+    assert.match(conversationRootCss, /\.sessionSidebar:empty \{/u)
+    // slots.ts + apply.ts (already copied for 0013) must carry the new slot.
+    const sidebarSlotContract = await readFile(copiedInputFilesSlotContract, 'utf8')
+    assert.match(sidebarSlotContract, /'conversation\.session\.sidebar': \{ kind: 'single'; scope: 'session'; owner: ConversationSessionSidebarOwnerProps \}/u)
 
     assert.match(imageLightboxCss, /\.actions \{/u)
     const codeBlock = await readFile(copiedCodeBlock, 'utf8')
