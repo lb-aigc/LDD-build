@@ -5,6 +5,9 @@
  * the Client half share ONE source of truth for node/edge shape.
  */
 
+/** Lossless JSON value — the ceiling for anything the canvas persists. */
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
+
 /** What a canvas node holds. Assets (image/video/music) reference an attachment
  *  or URL; text/note nodes carry inline content. */
 export type CanvasNodeKind = 'image' | 'video' | 'music' | 'text' | 'note'
@@ -24,7 +27,7 @@ export interface CanvasNode {
   /** Transient URL (not persisted — regenerated per session). */
   url?: string
   /** Per-kind metadata: width/height for image, duration/aspect for video, … */
-  meta?: Record<string, unknown>
+  meta?: Record<string, JsonValue>
   /** Inline content for text/note nodes. */
   content?: string
 }

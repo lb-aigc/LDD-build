@@ -14,10 +14,13 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { z as zod } from 'zod'
+import type { ZodType } from 'zod'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+// Type-only: resolves `ctx.sessionProjections` for the optional unit child.
+import type {} from '@deepseek-ai/dsh-session-projection'
 
 import { addEdge, addNode, emptyCanvas, removeNode, updateNode } from './model.ts'
-import type { CanvasNode, CanvasNodeKind, CanvasState } from './model.ts'
+import type { CanvasEdge, CanvasNode, CanvasNodeKind, CanvasState } from './model.ts'
 
 export const name = 'ldd-canvas'
 export const inject = ['tools']
@@ -41,6 +44,9 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
 }
 
 // ---- zod schemas (plain-JSON requirement of the projection cache). ----
+// `as ZodType<X>` bridges zod's `.optional()` (`T | undefined`) to the
+// interface's `field?: T` under `exactOptionalPropertyTypes` (same idiom as
+// the goal package's projection schema).
 const canvasNodeSchema = zod.object({
   id: zod.string(),
   kind: zod.enum(['image', 'video', 'music', 'text', 'note']),
@@ -49,21 +55,21 @@ const canvasNodeSchema = zod.object({
   y: zod.number(),
   attachmentId: zod.string().optional(),
   url: zod.string().optional(),
-  meta: zod.record(zod.string(), zod.unknown()).optional(),
+  meta: zod.record(zod.string(), zod.any()).optional(),
   content: zod.string().optional(),
-})
+}) as ZodType<CanvasNode>
 
 const canvasEdgeSchema = zod.object({
   id: zod.string(),
   source: zod.string(),
   target: zod.string(),
   label: zod.string().optional(),
-})
+}) as ZodType<CanvasEdge>
 
 const canvasStateSchema = zod.object({
   nodes: zod.array(canvasNodeSchema),
   edges: zod.array(canvasEdgeSchema),
-})
+}) as ZodType<CanvasState>
 
 const NODE_KINDS: readonly CanvasNodeKind[] = ['image', 'video', 'music', 'text', 'note']
 
@@ -74,6 +80,48 @@ const KIND_LABEL: Record<CanvasNodeKind, string> = {
   text: '文本',
   note: '笔记',
 }
+
+// ---- Output schema: exact description of the `canvas_inspect` return shape. ----
+const inspectOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    nodes: {
+      type: 'array',
+      required: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          id: { type: 'string', required: true },
+          kind: { type: 'string', required: true },
+          label: { type: 'string', required: true },
+          x: { type: 'number', required: true },
+          y: { type: 'number', required: true },
+          attachmentId: { type: 'string' },
+          url: { type: 'string' },
+          meta: { type: 'json' },
+          content: { type: 'string' },
+        },
+      },
+    },
+    edges: {
+      type: 'array',
+      required: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          id: { type: 'string', required: true },
+          source: { type: 'string', required: true },
+          target: { type: 'string', required: true },
+          label: { type: 'string' },
+        },
+      },
+    },
+    summary: { type: 'string', required: true },
+  },
+} as const
 
 /** Fold the current canvas state out of the session log (last `canvas/state` wins). */
 function foldCanvas(events: readonly SessionEvent[]): CanvasState {
@@ -118,19 +166,11 @@ function defineCanvasTools() {
       '读取当前会话画布的全部内容：有哪些节点（图片/视频/音乐/文本/笔记）、每个节点的元数据和位置、节点之间的连线关系。调用此工具了解画布上已有的素材与依赖，再做后续操作。',
     parameters: {},
     output: {
-      schema: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          nodes: { type: 'array', required: true, items: { type: 'object' } },
-          edges: { type: 'array', required: true, items: { type: 'object' } },
-          summary: { type: 'string', required: true },
-        },
-      },
+      schema: inspectOutputSchema,
       render: (_args, value) => [{ type: 'text', text: value.summary }],
     },
     isConcurrencySafe: () => true,
-    execute(_args, exec) {
+    async execute(_args, exec) {
       const session = requireSession(exec)
       const state = foldCanvas(session.events)
       return { nodes: state.nodes, edges: state.edges, summary: describeCanvas(state) }
@@ -148,7 +188,7 @@ function defineCanvasTools() {
       y: { type: 'number', description: '画布纵坐标（可选，缺省自动布局）。' },
       content: { type: 'string', description: '文本/笔记节点的内容。' },
       url: { type: 'string', description: '素材节点的 URL（图片/视频/音乐直链）。' },
-      meta: { type: 'object', description: '素材元数据，如 {width,height} 或 {durationSeconds,aspectRatio}。' },
+      meta: { type: 'object', additionalProperties: true, description: '素材元数据，如 {width,height} 或 {durationSeconds,aspectRatio}。' },
     },
     output: {
       schema: {
@@ -162,18 +202,18 @@ function defineCanvasTools() {
       render: (_args, value) => [{ type: 'text', text: `已在画布新增节点「${value.label}」（id=${value.nodeId}）。` }],
     },
     isConcurrencySafe: () => true,
-    execute(args, exec) {
+    async execute(args, exec) {
       const session = requireSession(exec)
       const state = foldCanvas(session.events)
       const auto = state.nodes.length
       const { state: next } = addNode(state, {
-        kind: args.kind as CanvasNodeKind,
-        label: args.label as string,
+        kind: args.kind,
+        label: args.label,
         x: typeof args.x === 'number' ? args.x : (auto % 4) * 220,
         y: typeof args.y === 'number' ? args.y : Math.floor(auto / 4) * 180,
-        ...(args.content === undefined ? {} : { content: args.content as string }),
-        ...(args.url === undefined ? {} : { url: args.url as string }),
-        ...(args.meta === undefined ? {} : { meta: args.meta as Record<string, unknown> }),
+        ...(args.content === undefined ? {} : { content: args.content }),
+        ...(args.url === undefined ? {} : { url: args.url }),
+        ...(args.meta === undefined ? {} : { meta: args.meta }),
       })
       session.append('canvas/state', { state: next })
       const added = next.nodes[next.nodes.length - 1]!
@@ -196,10 +236,10 @@ function defineCanvasTools() {
       render: (_args, value) => [{ type: 'text', text: value.removed ? '已从画布删除该节点。' : '未找到该节点，画布无变化。' }],
     },
     isConcurrencySafe: () => true,
-    execute(args, exec) {
+    async execute(args, exec) {
       const session = requireSession(exec)
       const before = foldCanvas(session.events)
-      const next = removeNode(before, args.nodeId as string)
+      const next = removeNode(before, args.nodeId)
       session.append('canvas/state', { state: next })
       return { removed: next.nodes.length !== before.nodes.length }
     },
@@ -214,7 +254,7 @@ function defineCanvasTools() {
       x: { type: 'number', description: '新的横坐标。' },
       y: { type: 'number', description: '新的纵坐标。' },
       content: { type: 'string', description: '新的文本/笔记内容。' },
-      meta: { type: 'object', description: '新的元数据。' },
+      meta: { type: 'object', additionalProperties: true, description: '新的元数据。' },
     },
     output: {
       schema: {
@@ -225,7 +265,7 @@ function defineCanvasTools() {
       render: (_args, value) => [{ type: 'text', text: value.updated ? '已更新该节点。' : '未找到该节点。' }],
     },
     isConcurrencySafe: () => true,
-    execute(args, exec) {
+    async execute(args, exec) {
       const session = requireSession(exec)
       const before = foldCanvas(session.events)
       const patch: Partial<Pick<CanvasNode, 'label' | 'x' | 'y' | 'content' | 'meta'>> = {}
@@ -233,8 +273,8 @@ function defineCanvasTools() {
       if (typeof args.x === 'number') patch.x = args.x
       if (typeof args.y === 'number') patch.y = args.y
       if (typeof args.content === 'string') patch.content = args.content
-      if (args.meta !== undefined && typeof args.meta === 'object') patch.meta = args.meta as Record<string, unknown>
-      const next = updateNode(before, args.nodeId as string, patch)
+      if (args.meta !== undefined && typeof args.meta === 'object') patch.meta = args.meta
+      const next = updateNode(before, args.nodeId, patch)
       session.append('canvas/state', { state: next })
       return { updated: next !== before }
     },
@@ -257,13 +297,13 @@ function defineCanvasTools() {
       render: (_args, value) => [{ type: 'text', text: `已连线（id=${value.edgeId}）。` }],
     },
     isConcurrencySafe: () => true,
-    execute(args, exec) {
+    async execute(args, exec) {
       const session = requireSession(exec)
       const state = foldCanvas(session.events)
       const { state: next, edge } = addEdge(state, {
-        source: args.source as string,
-        target: args.target as string,
-        ...(args.label === undefined ? {} : { label: args.label as string }),
+        source: args.source,
+        target: args.target,
+        ...(args.label === undefined ? {} : { label: args.label }),
       })
       session.append('canvas/state', { state: next })
       return { edgeId: edge.id }
@@ -277,7 +317,7 @@ export function apply(ctx: Context): void {
   // Session projection: the durable + client-visible canvas read face. Optional
   // (headless assemblies without a projection registry stay unaffected).
   ctx.inject(['sessionProjections'], (projectionCtx) => {
-    projectionCtx.sessionProjections.register({
+    projectionCtx.sessionProjections.register<'canvas', CanvasState>({
       key: 'canvas',
       stateSchema: canvasStateSchema,
       init: emptyCanvas,
