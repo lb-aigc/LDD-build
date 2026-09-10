@@ -17,6 +17,8 @@ test('online runtime install applies pnpm portable layout before dependency inst
     await writeFile(videoPluginArchive, packageTarball('@ldd/dsh-video-frame-analyzer', '0.2.0'))
     const generatePluginArchive = join(parent, 'ldd-generate.tgz')
     await writeFile(generatePluginArchive, packageTarball('@ldd/dsh-generate', '0.2.0'))
+    const canvasPluginArchive = join(parent, 'ldd-canvas.tgz')
+    await writeFile(canvasPluginArchive, packageTarball('@ldd/dsh-canvas', '0.2.0'))
     const nodePath = join(parent, 'host', 'node.exe')
     const pnpmPath = join(parent, 'host', 'pnpm.cjs')
     await mkdir(join(parent, 'host'), { recursive: true })
@@ -46,6 +48,10 @@ test('online runtime install applies pnpm portable layout before dependency inst
         assert.match(
           workspace,
           /'@ldd\/dsh-generate': 'file:packages\/ldd-plugin-\d+\.tgz'/u,
+        )
+        assert.match(
+          workspace,
+          /'@ldd\/dsh-canvas': 'file:packages\/ldd-plugin-\d+\.tgz'/u,
         )
         const npmrc = await readFile(join(options.cwd, '.npmrc'), 'utf8')
         assert.doesNotMatch(npmrc, /node-linker|package-import-method|shared-workspace-lockfile/u)
@@ -88,7 +94,7 @@ test('online runtime install applies pnpm portable layout before dependency inst
       },
       stagingRoot: join(parent, 'staging'),
       versionsRoot: join(parent, 'versions'),
-      host: { nodePath, pnpmPath, pluginArchivePaths: [videoPluginArchive, generatePluginArchive] },
+      host: { nodePath, pnpmPath, pluginArchivePaths: [videoPluginArchive, generatePluginArchive, canvasPluginArchive] },
       createdAt: '2026-08-23T00:00:00.000Z',
       desktopVersion: '0.2.0',
       fetchImpl: async () => new Response(new Uint8Array(dshArchive), { status: 200 }),

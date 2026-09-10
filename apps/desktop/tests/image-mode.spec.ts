@@ -32,6 +32,7 @@ describe('LDD image modes', () => {
     expect(first).toBe(second)
     expect(first).toContain('@ldd/dsh-video-frame-analyzer')
     expect(first).toContain('@ldd/dsh-generate')
+    expect(first).toContain('@ldd/dsh-canvas')
     // KIE image generation is async (34s–90s+); the tool timeout must match the
     // provider's 600s polling ceiling, not the 60s that used to abort it early.
     expect(first).toContain('timeoutMs: 600000')

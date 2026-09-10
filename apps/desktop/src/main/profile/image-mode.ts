@@ -93,6 +93,8 @@ export function renderManagedImagePatch(mode: ImageMode): string {
     '        customSkillDirs:',
     `          - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@ldd/dsh-generate/package.json')), 'skills')"`,
     '        watch: false',
+    '    - id: ldd-canvas',
+    "      name: '@ldd/dsh-canvas'",
     '',
   ].join('\n')
 }

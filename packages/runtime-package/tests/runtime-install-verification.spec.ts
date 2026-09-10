@@ -15,6 +15,7 @@ const dependencies = {
   '@deepseek-ai/dsh': 'file:packages/deepseek-ai-dsh-0.1.1-rc.2.tgz',
   '@ldd/dsh-video-frame-analyzer': 'file:packages/ldd-dsh-video-frame-analyzer-0.2.0.tgz',
   '@ldd/dsh-generate': 'file:packages/ldd-dsh-generate-0.2.0.tgz',
+  '@ldd/dsh-canvas': 'file:packages/ldd-dsh-canvas-0.2.0.tgz',
 } as const
 
 afterEach(async () => {
@@ -126,6 +127,10 @@ async function fixtureRuntime(lockfile: string): Promise<string> {
       'node_modules/@ldd/dsh-generate/package.json',
       '{"name":"@ldd/dsh-generate"}\n',
     ],
+    [
+      'node_modules/@ldd/dsh-canvas/package.json',
+      '{"name":"@ldd/dsh-canvas"}\n',
+    ],
     ['node_modules/esbuild/package.json', '{"name":"esbuild","type":"module","main":"index.js"}\n'],
     ['node_modules/esbuild/index.js', 'export async function transform() { return { code: "ok" } }\n'],
     ['node_modules/koffi/package.json', '{"name":"koffi","type":"module","main":"index.js"}\n'],
@@ -149,11 +154,13 @@ function localLockfile(): string {
     "  '@deepseek-ai/dsh@file:packages/deepseek-ai-dsh-0.1.1-rc.2.tgz': {}",
     "  '@ldd/dsh-video-frame-analyzer@file:packages/ldd-dsh-video-frame-analyzer-0.2.0.tgz': {}",
     "  '@ldd/dsh-generate@file:packages/ldd-dsh-generate-0.2.0.tgz': {}",
+    "  '@ldd/dsh-canvas@file:packages/ldd-dsh-canvas-0.2.0.tgz': {}",
     'snapshots:',
     "  '@deepseek-ai/cosmokit@file:packages/deepseek-ai-cosmokit-1.8.2.tgz': {}",
     "  '@deepseek-ai/dsh@file:packages/deepseek-ai-dsh-0.1.1-rc.2.tgz': {}",
     "  '@ldd/dsh-video-frame-analyzer@file:packages/ldd-dsh-video-frame-analyzer-0.2.0.tgz': {}",
     "  '@ldd/dsh-generate@file:packages/ldd-dsh-generate-0.2.0.tgz': {}",
+    "  '@ldd/dsh-canvas@file:packages/ldd-dsh-canvas-0.2.0.tgz': {}",
     '',
   ].join('\n')
 }

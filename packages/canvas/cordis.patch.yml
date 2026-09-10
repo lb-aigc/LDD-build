@@ -1,0 +1,5 @@
+# LDD-owned canvas additions. Installed as a profile layer; never rewrites the
+# user's DSH_HOME/cordis.patch.yml.
+- insert:
+    - id: ldd-canvas
+      name: '@ldd/dsh-canvas'

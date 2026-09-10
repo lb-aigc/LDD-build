@@ -483,7 +483,7 @@ async function assertRuntimeEntry(path: string): Promise<void> {
   }
 }
 
-const requiredLddPlugins = ['@ldd/dsh-video-frame-analyzer', '@ldd/dsh-generate'] as const
+const requiredLddPlugins = ['@ldd/dsh-video-frame-analyzer', '@ldd/dsh-generate', '@ldd/dsh-canvas'] as const
 
 function assertRequiredPlugin(manifest: RuntimeManifest): void {
   for (const required of requiredLddPlugins) {
