@@ -1,10 +1,9 @@
 /**
- * @ldd/dsh-canvas — Browser half. Registers the canvas as the right-side
- * session sidebar (beside the chat view, NOT a separate tab), reading the
- * canvas state through the standard `useProjection('canvas')` seat and
- * resolving image-node attachments through the session's `readAttachment`
- * face. The `conversation.session.sidebar` slot itself is added upstream by
- * the 0023-canvas-sidebar patch.
+ * @ldd/dsh-canvas — Browser half. Registers the canvas as a third conversation
+ * view tab (beside 对话/轨迹), reading the canvas state through the standard
+ * `useProjection('canvas')` seat and resolving image-node attachments through
+ * the session's `readAttachment` face. Zero upstream patches: `conversation.view`
+ * is the stock list slot (same seam ui-trajectory rides for the 轨迹 tab).
  *
  * The sessions service is read through `ctx.get('sessions')` with a minimal
  * STRUCTURAL face (not `ctx.sessions.<method>`). This package's single tsconfig
@@ -15,9 +14,8 @@
  * TS2339. `ctx.get` sidesteps it (same idiom as generate's `SessionsLike`).
  */
 import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-// Type-only: the 'conversation.session.sidebar' SlotMap row (declared by
-// ui-conversation via the 0023 patch) must be in the program for the register
-// call to type.
+// Type-only: the 'conversation.view' SlotMap row (declared by ui-conversation)
+// must be in the program for the register call to type.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { CanvasState } from '../model.ts'
 import { CanvasView } from './CanvasView.tsx'
@@ -43,25 +41,14 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
   }
 }
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
-  interface SlotMap {
-    /**
-     * Typecheck shim: the npm-published ui-conversation (0.1.1-rc.2) predates
-     * the 0023 upstream patch that adds this slot, so the row is declared here
-     * for `PropsRuntime<'conversation.session.sidebar'>` to resolve during
-     * local typecheck. At runtime the patched ui-conversation declares the same
-     * row (kind single / session scope / empty owner), so the merged interface
-     * stays structurally identical.
-     */
-    'conversation.session.sidebar': { kind: 'single'; scope: 'session'; owner: {} }
-  }
-}
-
 export const inject = ['slots', 'sessions']
 
 export function apply(ctx: ClientContext): void {
-  ctx.slots.inject('conversation.session.sidebar', () => ctx.slots.register({
-    name: 'conversation.session.sidebar',
+  ctx.slots.inject('conversation.view', () => ctx.slots.register({
+    name: 'conversation.view',
+    id: 'canvas',
+    order: 20,
+    label: () => '画布',
     inject: (sessionId: SessionId) => ({
       loadImage: async (attachmentId: string): Promise<string> => {
         // Resolve lazily per call so a view mounted before the session bound
