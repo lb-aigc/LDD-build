@@ -2,12 +2,13 @@
  * CanvasView: the conversation view tab rendering the per-session canvas.
  *
  * Reads the whole canvas through `useProjection('canvas')` and renders it with
- * React Flow. MVP posture is READ-ONLY presentation: nodes and edges are the
- * projection (agent-mutated through the `canvas_*` tools), the user can pan /
- * zoom / inspect, and node dragging is disabled until the write-back path
- * (Phase 9, right-side panel) lands.
+ * React Flow. Image nodes resolve their `sha256:` attachment (or an http url)
+ * into a thumbnail via the injected `loadImage`; text/note nodes show inline
+ * content. MVP posture is READ-ONLY presentation: the agent mutates through
+ * the `canvas_*` tools, the user can pan / zoom / inspect, and node dragging is
+ * disabled until the write-back path (right-side panel phase) lands.
  */
-import { useMemo } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   Background,
   Controls,
@@ -16,13 +17,58 @@ import {
 } from '@xyflow/react'
 import type { Edge, Node, NodeTypes } from '@xyflow/react'
 import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
 import type { CanvasNode, CanvasState } from '../model.ts'
 import './canvas.css?inline'
 
+/** Injected per-session image loader: `sha256:<attachmentId>` → blob URL. */
+export interface CanvasViewInjected {
+  loadImage: (attachmentId: string) => Promise<string>
+}
+
+const LoadImageContext = createContext<(attachmentId: string) => Promise<string>>(
+  async () => { throw new Error('canvas: no image loader injected') },
+)
+
+/** A node's `url` is either a `sha256:` attachment id or a plain http(s) url. */
+function isShaAttachment(url: string | undefined): url is string {
+  return url !== undefined && url.startsWith('sha256:')
+}
+
+interface CanvasNodeData {
+  label: string
+  kind: CanvasNode['kind']
+  content?: string
+  url?: string
+}
+
 /** One node card, shared across kinds (kind tint via `data-kind`). */
-function CanvasNodeCard({ data }: { data: { label: string; kind: CanvasNode['kind']; content?: string } }) {
+function CanvasNodeCard({ data }: { data: CanvasNodeData }) {
+  const loadImage = useContext(LoadImageContext)
+  const [resolved, setResolved] = useState<string | null>(null)
+  const sha = isShaAttachment(data.url)
+
+  useEffect(() => {
+    if (data.kind !== 'image' || !sha) {
+      setResolved(null)
+      return
+    }
+    let cancelled = false
+    loadImage(data.url)
+      .then((url) => { if (!cancelled) setResolved(url) })
+      .catch(() => { if (!cancelled) setResolved(null) })
+    return () => { cancelled = true }
+  }, [data.kind, data.url, sha, loadImage])
+
+  const src: string | null = sha
+    ? resolved
+    : (data.url !== undefined && data.url !== '' ? data.url : null)
+
   return (
     <div className="ldd-canvas-node" data-kind={data.kind}>
+      {data.kind === 'image' && src !== null && (
+        <img className="ldd-canvas-node-image" src={src} alt={data.label} />
+      )}
       <div className="ldd-canvas-node-label">{data.label}</div>
       {data.content !== undefined && data.content !== '' && (
         <div className="ldd-canvas-node-content">{data.content}</div>
@@ -44,7 +90,7 @@ function toFlowNodes(state: CanvasState): Node[] {
     id: n.id,
     type: n.kind,
     position: { x: n.x, y: n.y },
-    data: { label: n.label, kind: n.kind, content: n.content },
+    data: { label: n.label, kind: n.kind, content: n.content, url: n.url },
   }))
 }
 
@@ -57,7 +103,7 @@ function toFlowEdges(state: CanvasState): Edge[] {
   }))
 }
 
-export function CanvasView({ useProjection }: ConvViewProps) {
+export function CanvasView({ useProjection, loadImage }: ConvViewProps & InjectFace<CanvasViewInjected>) {
   const canvas = useProjection('canvas')
   const nodes = useMemo(() => (canvas === undefined ? [] : toFlowNodes(canvas)), [canvas])
   const edges = useMemo(() => (canvas === undefined ? [] : toFlowEdges(canvas)), [canvas])
@@ -74,20 +120,22 @@ export function CanvasView({ useProjection }: ConvViewProps) {
   }
 
   return (
-    <div className="ldd-canvas-root">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        fitView
-        proOptions={{ hideAttribution: true }}
-      >
-        <MiniMap />
-        <Controls />
-        <Background />
-      </ReactFlow>
-    </div>
+    <LoadImageContext.Provider value={loadImage}>
+      <div className="ldd-canvas-root">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          fitView
+          proOptions={{ hideAttribution: true }}
+        >
+          <MiniMap />
+          <Controls />
+          <Background />
+        </ReactFlow>
+      </div>
+    </LoadImageContext.Provider>
   )
 }
