@@ -19,7 +19,8 @@ import type { Edge, Node, NodeTypes } from '@xyflow/react'
 import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
 import type { CanvasNode, CanvasState } from '../model.ts'
-import './canvas.css?inline'
+import './react-flow.css'
+import './canvas.css'
 
 /** Injected per-session image loader: `sha256:<attachmentId>` → blob URL. */
 export interface CanvasViewInjected {

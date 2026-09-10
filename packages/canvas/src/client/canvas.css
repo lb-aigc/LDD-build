@@ -1,140 +1,52 @@
-/* @ldd/dsh-canvas — React Flow functional base + node card styles.
- * Imported via `?inline` so the whole sheet injects as global CSS (the client
- * bundle inlines `.module.css` per-file and React Flow's own class names must
- * stay global). Minimal functional subset — React Flow renders its DOM with
- * these exact class names; node/edge cards are ours.
+/* @ldd/dsh-canvas — node card styles + React Flow theme mapping.
  *
- * Colors ride the design-platform tokens (--dsw-alias-*) so the canvas follows
- * the active theme (light / dark via body[data-ds-dark-theme]) instead of
- * hard-coding a light palette. */
+ * Imported as a GLOBAL sheet (`.css`, NOT `?inline`): the client bundle's
+ * `dsh-css-global-inline` loader auto-injects it as a <style> tag at factory
+ * execution. (`?inline` only exports the compiled text and does NOT inject —
+ * that was the blank-canvas bug.)
+ *
+ * `react-flow.css` (also global) carries the official React Flow style.css;
+ * THIS sheet adds the container layout React Flow leaves to the host, maps
+ * React Flow's `--xy-*` theme variables onto the design-platform
+ * `--dsw-alias-*` tokens (so the canvas tracks body[data-ds-dark-theme]), and
+ * styles the LDD node cards. */
 
-/* ---- React Flow functional base (required for correct layout) ---- */
+/* ---- container layout (React Flow's own CSS omits this) ---- */
 .react-flow {
-  direction: ltr;
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
 }
 
-.react-flow__viewport {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  transform-origin: 0 0;
-  pointer-events: none;
+/* ---- map React Flow theme vars onto design tokens ---- */
+.react-flow {
+  --xy-edge-stroke: var(--dsw-alias-label-secondary);
+  --xy-edge-stroke-selected: var(--dsw-alias-label-primary);
+  --xy-edge-stroke-width: 1.5;
+  --xy-background-color: var(--dsw-alias-bg-base);
+  --xy-background-pattern-dots-color: var(--dsw-alias-border-l3);
+  --xy-minimap-background-color: var(--dsw-alias-bg-layer-1);
+  --xy-minimap-mask-background-color: var(--dsw-alias-bg-mask-3);
+  --xy-minimap-node-background-color: var(--dsw-alias-label-tertiary);
+  --xy-controls-button-background-color: var(--dsw-alias-bg-layer-1);
+  --xy-controls-button-background-color-hover: var(--dsw-alias-bg-layer-2);
+  --xy-controls-button-color: var(--dsw-alias-label-primary);
+  --xy-controls-button-color-hover: var(--dsw-alias-label-primary);
+  --xy-controls-button-border-color: var(--dsw-alias-border-l1);
+  --xy-edge-label-background-color: var(--dsw-alias-bg-layer-1);
+  --xy-edge-label-color: var(--dsw-alias-label-secondary);
+  --xy-node-background-color: var(--dsw-alias-bg-layer-1);
+  --xy-node-border: 1px solid var(--dsw-alias-border-l1);
+  --xy-node-color: var(--dsw-alias-label-primary);
+  --xy-handle-background-color: var(--dsw-alias-label-secondary);
+  --xy-handle-border-color: var(--dsw-alias-bg-layer-1);
 }
 
-.react-flow__node {
-  position: absolute;
-  pointer-events: all;
-  transform-origin: 0 0;
-}
-
-.react-flow__edges {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  overflow: visible;
-}
-
-.react-flow__edge {
-  position: absolute;
-  pointer-events: all;
-}
-
-.react-flow__edge-path {
-  stroke: var(--dsw-alias-label-tertiary, #b1b1b7);
-  stroke-width: 1.5;
-  fill: none;
-}
-
-.react-flow__edge-text {
-  fill: var(--dsw-alias-label-secondary, #555);
-  font-size: 11px;
-  pointer-events: none;
-}
-
-.react-flow__edge-textbg {
-  fill: var(--dsw-alias-bg-layer-1, #ffffff);
-}
-
-.react-flow__background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.react-flow__minimap {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  z-index: 5;
-  background: var(--dsw-alias-bg-layer-1, #ffffff);
-  border: 1px solid var(--dsw-alias-border-l1, #e5e5e5);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.react-flow__controls {
-  position: absolute;
-  bottom: 12px;
-  left: 12px;
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 0 2px 1px rgba(0, 0, 0, 0.08);
-  border-radius: 4px;
-  overflow: hidden;
-  background: var(--dsw-alias-bg-layer-1, #ffffff);
-}
-
-.react-flow__controls button {
-  background: var(--dsw-alias-bg-layer-1, #ffffff);
-  border: none;
-  border-bottom: 1px solid var(--dsw-alias-border-l1, #eeeeee);
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--dsw-alias-label-primary, #333);
-}
-
-.react-flow__controls button:last-child {
-  border-bottom: none;
-}
-
-.react-flow__controls button:hover {
-  background: var(--dsw-alias-bg-layer-2, #f4f4f5);
-}
-
-.react-flow__handle {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  background: var(--dsw-alias-label-secondary, #555);
-  border-radius: 50%;
-  pointer-events: all;
-}
-
-/* ---- LDD canvas chrome ---- */
+/* ---- LDD node cards ---- */
 .ldd-canvas-root {
   width: 100%;
   height: 100%;
-  background: var(--dsw-alias-bg-base, #fafafa);
 }
 
 .ldd-canvas-empty {
@@ -143,21 +55,22 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--dsw-alias-label-tertiary, #888);
+  color: var(--dsw-alias-label-tertiary);
   font-size: 14px;
   padding: 24px;
   text-align: center;
 }
 
 .ldd-canvas-node {
-  background: var(--dsw-alias-bg-layer-1, #ffffff);
-  border: 1px solid var(--dsw-alias-border-l1, #e2e2e7);
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 8px;
   padding: 10px 12px;
   min-width: 120px;
   max-width: 220px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   font-size: 13px;
+  color: var(--dsw-alias-label-primary);
 }
 
 .ldd-canvas-node[data-kind='image'] { border-left: 3px solid #6366f1; }
@@ -177,7 +90,7 @@
 
 .ldd-canvas-node-label {
   font-weight: 600;
-  color: var(--dsw-alias-label-primary, #1f1f23);
+  color: var(--dsw-alias-label-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -185,7 +98,7 @@
 
 .ldd-canvas-node-content {
   margin-top: 4px;
-  color: var(--dsw-alias-label-secondary, #555);
+  color: var(--dsw-alias-label-secondary);
   font-size: 12px;
   overflow: hidden;
   display: -webkit-box;
