@@ -6,9 +6,10 @@
  * scope + a commandable session face are both shimmed, never imported from the
  * harness packages.
  */
-import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-import type { SettingsScope, SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { GenerationCardSettings } from './controller.ts'
 import {
   IMAGE_PRESETS,

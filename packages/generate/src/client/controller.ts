@@ -5,12 +5,9 @@
  * which keys are configured, so the user never picks models or a default here.
  * Model choice lives in the composer picker (前端人为选择).
  */
-import type { IApiClient } from '@deepseek-ai/dsh-client-connection/client'
-import type {
-  SettingsScope,
-  SnapshotStore,
-} from '@deepseek-ai/dsh-client-runtime/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import {
   DEFAULT_PROVIDER,
   IMAGE_PRESETS,
@@ -21,6 +18,16 @@ import {
   MUSIC_KEY_ENTRIES,
 } from './presets.ts'
 import type { ClientPreset, KeyEntry } from './presets.ts'
+
+/** Structural face of the remote credentials namespace (the key literal never
+ *  rides a response; only the configured/writable flags come back). */
+interface CredentialsFace {
+  describe(refs: readonly string[]): Promise<{
+    ok: boolean
+    value: Record<string, { configured?: boolean; writable?: boolean }>
+  }>
+  set(ref: string, value: string): Promise<unknown>
+}
 
 /** One persisted model entry (written to `settings.models`). */
 export interface ModelDraft {
@@ -81,7 +88,7 @@ export class GenerateSettingsController {
 
   constructor(
     private readonly scope: SettingsScope<GenerationCardSettings>,
-    private readonly api: Pick<IApiClient, 'credentials'>,
+    private readonly credentials: CredentialsFace,
     private readonly kind: 'image' | 'video' | 'music',
   ) {
     this.keys = this.keyEntries.map((entry) => ({ ...entry, configured: false, value: '' }))
@@ -123,11 +130,10 @@ export class GenerateSettingsController {
   private async refreshConfigured(): Promise<void> {
     const refs = this.keys.map((key) => key.ref)
     if (refs.length === 0) return
-    const response = await this.api.credentials.describe({ refs })
-    if (!response.result.ok) return
-    const creds = response.result.value.credentials as Record<string, { configured?: boolean }>
+    const response = await this.credentials.describe(refs)
+    if (!response.ok) return
     for (const key of this.keys) {
-      key.configured = creds[key.ref]?.configured ?? false
+      key.configured = response.value[key.ref]?.configured ?? false
     }
     this.publish()
   }
@@ -164,15 +170,14 @@ export class GenerateSettingsController {
       for (const key of this.keys) {
         const text = key.value.trim()
         if (text === '') continue
-        await this.api.credentials.set({ ref: key.ref, value: text })
+        await this.credentials.set(key.ref, text)
       }
       // 2. Re-read the configured set after the writes.
       const refs = this.keys.map((key) => key.ref)
       const configured = new Set<string>()
-      const response = await this.api.credentials.describe({ refs })
-      if (response.result.ok) {
-        const creds = response.result.value.credentials as Record<string, { configured?: boolean }>
-        for (const [ref, view] of Object.entries(creds)) {
+      const response = await this.credentials.describe(refs)
+      if (response.ok) {
+        for (const [ref, view] of Object.entries(response.value)) {
           if (view.configured) configured.add(ref)
         }
       }

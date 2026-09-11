@@ -30,10 +30,9 @@
     },
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-commands"
+        "@deepseek-ai/dsh-client-ui-commands",
+        "@deepseek-ai/dsh-api-remotes"
       ],
       "platform": "web"
     }
@@ -50,9 +49,9 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
-    "@deepseek-ai/dsh-client-connection": ">=0.1.5-rc.1 <0.2.0",
+    "@deepseek-ai/dsh-api-remotes": ">=0.1.5-rc.1 <0.2.0",
     "@deepseek-ai/dsh-client-locale": ">=0.1.5-rc.1 <0.2.0",
-    "@deepseek-ai/dsh-client-runtime": ">=0.1.5-rc.1 <0.2.0",
+    "@deepseek-ai/dsh-client-store": ">=0.1.5-rc.1 <0.2.0",
     "@deepseek-ai/dsh-client-ui-commands": ">=0.1.5-rc.1 <0.2.0",
     "@deepseek-ai/dsh-client-ui-settings": ">=0.1.5-rc.1 <0.2.0",
     "@deepseek-ai/dsh-client-ui-slots": ">=0.1.5-rc.1 <0.2.0",
@@ -62,9 +61,9 @@
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/cordis-plugin-loader": "1.0.2",
-    "@deepseek-ai/dsh-client-connection": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-api-remotes": "0.1.5-rc.1",
     "@deepseek-ai/dsh-client-locale": "0.1.5-rc.1",
-    "@deepseek-ai/dsh-client-runtime": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-store": "0.1.5-rc.1",
     "@deepseek-ai/dsh-client-ui-commands": "0.1.5-rc.1",
     "@deepseek-ai/dsh-client-ui-primitives": "0.1.5-rc.1",
     "@deepseek-ai/dsh-client-ui-settings": "0.1.5-rc.1",

@@ -10,8 +10,10 @@
  * exports only types, so the form model and controls below are vendored here
  * rather than imported.
  */
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
-import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+// Type-only: pulls the remote RPC namespaces (ctx.remote.credentials / .session).
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the settings shell's Context merge (ctx.settingsScope).
@@ -39,26 +41,26 @@ export const MUSIC_NS = 'generate-music'
 
 const NS = 'generate'
 
-export const inject = ['slots', 'locale', 'connection', 'settingsScope', 'commandUi', 'sessions']
+export const inject = ['slots', 'locale', 'remote', 'settingsScope', 'commandUi', 'sessions']
 
 export function apply(ctx: ClientContext): void {
-  const { api } = ctx.get('connection') as ConnectionHandle
+  const credentials = ctx.remote.credentials
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'generate: card dictionaries')
 
   const image = new GenerateSettingsController(
     ctx.settingsScope.bind({ namespace: IMAGE_NS }),
-    api,
+    credentials,
     'image',
   )
   const video = new GenerateSettingsController(
     ctx.settingsScope.bind({ namespace: VIDEO_NS }),
-    api,
+    credentials,
     'video',
   )
   const music = new GenerateSettingsController(
     ctx.settingsScope.bind({ namespace: MUSIC_NS }),
-    api,
+    credentials,
     'music',
   )
 

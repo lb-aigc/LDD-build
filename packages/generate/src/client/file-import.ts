@@ -15,7 +15,8 @@
  * byte-identical, only the types are shimmed locally.
  */
 import { useSyncExternalStore } from 'react'
-import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 /** Local structural copy of the main-process import result (no apps/desktop edge). */
 interface ImportFileResultLike {
@@ -62,14 +63,13 @@ export interface SessionsLike {
   list: { getSnapshot(): { current: SessionId | undefined } }
 }
 
-/** Minimal structural face of the connection's sessions api (list → cwd). */
-interface ConnectionLike {
-  api: {
-    sessions: {
-      list(request: {}): Promise<{
-        result: { ok: boolean; value?: { items: Array<{ sessionId: SessionId; cwd?: string }> } }
-      }>
-    }
+/** Minimal structural face of the remote session namespace (list → cwd). */
+interface RemoteLike {
+  session?: {
+    list(request: {}): Promise<{
+      ok: boolean
+      value: { items: Array<{ sessionId: SessionId; cwd?: string }> }
+    }>
   }
 }
 
@@ -259,10 +259,10 @@ export async function importFilesIntoWorkspace(
     return
   }
 
-  const connection = ctx.get('connection') as ConnectionLike | undefined
-  const listed = await connection?.api.sessions.list({})
-  const cwd = listed?.result.ok === true
-    ? listed.result.value?.items.find((s) => s.sessionId === sessionId)?.cwd
+  const remote = ctx.get('remote') as RemoteLike | undefined
+  const listed = await remote?.session?.list({})
+  const cwd = listed?.ok === true
+    ? listed.value.items.find((s) => s.sessionId === sessionId)?.cwd
     : undefined
   if (cwd === undefined) {
     notify('error', '当前会话无工作区目录，无法导入文件')

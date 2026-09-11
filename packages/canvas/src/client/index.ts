@@ -13,7 +13,8 @@
  * a direct `ctx.sessions` property access would surface that conflict as
  * TS2339. `ctx.get` sidesteps it (same idiom as generate's `SessionsLike`).
  */
-import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 // Type-only: the 'conversation.view' SlotMap row (declared by ui-conversation)
 // must be in the program for the register call to type.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
