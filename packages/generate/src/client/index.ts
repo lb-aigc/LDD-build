@@ -1,12 +1,14 @@
 /**
- * Browser half of @ldd/dsh-generate: two settings cards (\"生图模型\" /
- * \"生视频模型\") on the Plugins settings page, one per generation namespace.
+ * Browser half of @ldd/dsh-generate: three settings cards (生图模型 / 生视频
+ * 模型 / 生音乐模型) on the Plugins settings page, one per generation namespace,
+ * plus the composer generation-model picker seat and the file-upload command.
  *
- * The cards edit the `generate-image` / `generate-video` settings namespaces the
- * Host half registers, plus the API-key reference through the credentials
- * domain (the key literal never rides a response). Everything is self-contained:
- * the reference ui-settings-plugins package exports only types, so the form
- * model and controls below are vendored here rather than imported.
+ * The cards edit the `generate-image` / `generate-video` / `generate-music`
+ * settings namespaces the Host half registers, plus the API-key reference
+ * through the credentials domain (the key literal never rides a response).
+ * Everything is self-contained: the reference ui-settings-plugins package
+ * exports only types, so the form model and controls below are vendored here
+ * rather than imported.
  */
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
@@ -18,43 +20,17 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-commands/client'
 import type { CommandUiContract } from '@deepseek-ai/dsh-client-ui-commands/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
-// Slot + locale type declarations (settings.plugin.item, LocaleNamespaceMap).
+// Slot + locale type declarations (settings.plugin.item, conversation.input.model, LocaleNamespaceMap).
 import type {} from './slot-contract.ts'
 
 import { GenerateSettingsCard } from './card.tsx'
 import { GenerateSettingsController } from './controller.ts'
-import { FileDock } from './file-dock.tsx'
-import {
-  clearImportedFiles,
-  describeImportedFiles,
-  hasImportedFiles,
-  importFilesIntoWorkspace,
-  importWorkspaceFiles,
-  removeImportedFile,
-  subscribeImportedFiles,
-} from './file-import.ts'
+import { importWorkspaceFiles } from './file-import.ts'
 import type { SessionsLike } from './file-import.ts'
 import { en, zh } from './locales.ts'
 import { GenerateModelPicker } from './model-picker.tsx'
 import { ModelPickerController } from './model-picker-controller.ts'
 import type { CommandableSessions } from './model-picker-controller.ts'
-
-/** Harness-side hook shape: the conversation service folds staged files into
- *  the prompt text on send, then clears them once the send succeeds. The
- *  `hasFiles`/`subscribeFiles` pair lets the upstream composer's "can submit"
- *  test count non-image files (so a video-only draft is sendable). */
-interface LddFileHooks {
-  readonly inject?: (sessionId: SessionId, text: string) => string
-  readonly commit?: (sessionId: SessionId) => void
-  readonly hasFiles?: (sessionId: SessionId) => boolean
-  readonly subscribeFiles?: (cb: () => void) => () => void
-}
-
-declare global {
-  interface Window {
-    __lddFileHooks?: LddFileHooks
-  }
-}
 
 /** Namespace strings the Host half registers (must match src/settings.ts). */
 export const IMAGE_NS = 'generate-image'
@@ -69,21 +45,6 @@ export function apply(ctx: ClientContext): void {
   const { api } = ctx.get('connection') as ConnectionHandle
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'generate: card dictionaries')
-
-  // Submit folding hook: the Harness conversation service calls these to fold
-  // staged non-image files into the prompt text (inject) and clear them after
-  // a successful send (commit). Absent in a stock Harness build.
-  window.__lddFileHooks = {
-    inject: (sessionId: SessionId, text: string): string => {
-      const desc = describeImportedFiles(sessionId)
-      return desc === '' ? text : text + desc
-    },
-    commit: (sessionId: SessionId): void => {
-      clearImportedFiles(sessionId)
-    },
-    hasFiles: (sessionId: SessionId): boolean => hasImportedFiles(sessionId),
-    subscribeFiles: (cb: () => void): (() => void) => subscribeImportedFiles(cb),
-  }
 
   const image = new GenerateSettingsController(
     ctx.settingsScope.bind({ namespace: IMAGE_NS }),
@@ -122,11 +83,15 @@ export function apply(ctx: ClientContext): void {
     }, GenerateSettingsCard)
   })
 
+  const sessionsService = ctx.get('sessions') as SessionsLike | undefined
+
   // File upload: a slash-menu command contribution (visible in the "+" command
   // menu, not a standalone composer button). Picking it opens a one-option
   // popupSelect; selecting "choose file" opens the native picker and imports
   // into the session workspace (see file-import.ts). Hidden where the Electron
-  // bridge (window.ldd) is absent.
+  // bridge (window.ldd) is absent. The 0.1.5 harness uploads dropped files
+  // natively into the attachment store, so this command is the workspace-import
+  // entry point (for tools like `analyze_video` that read by workspace path).
   const commandUi = ctx.get('commandUi') as CommandUiContract | undefined
   if (commandUi !== undefined) {
     ctx.effect(() => commandUi.register({
@@ -147,56 +112,12 @@ export function apply(ctx: ClientContext): void {
     }), 'generate: file-upload command')
   }
 
-  // Non-image drag-and-drop → workspace import. The upstream composer's drop
-  // handler splits dropped files: images stay on the image rail, everything
-  // else is re-emitted as `dsh:non-image-drop` for the workspace import path
-  // (the same behaviour as the "+" file-upload command).
-  const sessionsService = ctx.get('sessions') as SessionsLike | undefined
-  if (sessionsService !== undefined) {
-    ctx.effect(() => {
-      const onNonImageDrop = (event: Event): void => {
-        const detail = (event as CustomEvent<unknown>).detail
-        if (!Array.isArray(detail)) return
-        // `instanceof File` can fail across isolated realms; accept any
-        // object carrying the File surface (arrayBuffer/name/size) instead.
-        const files = detail.filter((file): file is File =>
-          file !== null && typeof file === 'object' && 'arrayBuffer' in file)
-        if (files.length === 0) return
-        const sessionId = sessionsService.list.getSnapshot().current
-        if (sessionId === undefined) return
-        void importFilesIntoWorkspace(ctx, sessionId, files)
-      }
-      window.addEventListener('dsh:non-image-drop', onNonImageDrop)
-      return () => window.removeEventListener('dsh:non-image-drop', onNonImageDrop)
-    }, 'generate: non-image drop import')
-  }
-
-  // Imported-file cards: rendered INSIDE the composer card via the
-  // `conversation.input.files` list slot (declared by ui-conversation beside
-  // the draft-image rail), so non-image files and image thumbnails appear in
-  // the same input box instead of files floating above it. The slot is
-  // shimmed away with a cast so this plugin keeps its zero
-  // lockfile-dependency edge on dsh-client-ui-conversation.
-  const slotsDock = ctx.slots as unknown as {
-    inject: (name: string, register: () => unknown) => void
-    register: (config: unknown, component: unknown) => unknown
-  }
-  slotsDock.inject('conversation.input.files', () => slotsDock.register({
-    name: 'conversation.input.files',
-    id: 'files',
-    order: 10,
-    locale: NS,
-    inject: (sessionId: SessionId) => ({
-      sessionId,
-      removeFile: (id: string) => { removeImportedFile(sessionId, id) },
-    }),
-  }, FileDock))
-
-  // Composer generation-model button: a single seat in the composer tool row
-  // (beside the access control). The picker reads the configured image/video/
-  // music models and issues a per-session temporary switch (a `/generate-model
-  // <kind> <key>` command). Works without a sessions service (headless browser
-  // shells) — the command just no-ops.
+  // Composer generation-model button: the stock `conversation.input.model`
+  // seat (the upstream composer's model selector, beside the ContextMeter).
+  // The picker reads the configured image/video/music models and issues a
+  // per-session temporary switch (a `/generate-model <kind> <key>` command).
+  // Works without a sessions service (headless browser shells) — the command
+  // just no-ops.
   const pickerController = new ModelPickerController(
     {
       image: ctx.settingsScope.bind({ namespace: IMAGE_NS }),
@@ -205,9 +126,9 @@ export function apply(ctx: ClientContext): void {
     },
     sessionsService as CommandableSessions | undefined,
   )
-  ctx.slots.inject('conversation.input.generate-model', function* () {
+  ctx.slots.inject('conversation.input.model', function* () {
     yield ctx.slots.register({
-      name: 'conversation.input.generate-model',
+      name: 'conversation.input.model',
       locale: NS,
       inject: (sessionId: SessionId) => pickerController.inject(sessionId),
     }, GenerateModelPicker)

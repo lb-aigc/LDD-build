@@ -30,7 +30,7 @@ import { verifyInstalledRuntime } from './runtime-install-verification.ts'
 
 const expectedPnpm = 'pnpm@11.7.0'
 const expectedNodeMajor = 24
-const defaultHarnessVersion = '0.1.1-rc.2'
+const defaultHarnessVersion = '0.1.5-rc.1'
 
 export interface BuildCommand {
   readonly command: string

@@ -7,17 +7,17 @@ describe('official Harness registry', () => {
       new Response(
         JSON.stringify({
           name: '@deepseek-ai/dsh',
-          'dist-tags': { next: '0.1.1-rc.2' },
+          'dist-tags': { next: '0.1.5-rc.2' },
           versions: {
-            '0.1.1-rc.1': version('0.1.1-rc.1'),
-            '0.1.1-rc.2': version('0.1.1-rc.2'),
+            '0.1.5-rc.1': version('0.1.5-rc.1'),
+            '0.1.5-rc.2': version('0.1.5-rc.2'),
           },
         }),
       ),
     )
 
-    await expect(client.resolve('prerelease', '0.1.1-rc.1')).resolves.toMatchObject({
-      version: '0.1.1-rc.2',
+    await expect(client.resolve('prerelease', '0.1.5-rc.1')).resolves.toMatchObject({
+      version: '0.1.5-rc.2',
       releaseTag: 'next',
     })
   })

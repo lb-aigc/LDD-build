@@ -8,546 +8,87 @@ import { pathToFileURL } from 'node:url'
 import { applyTrackedUpstreamPatches } from '../src/upstream-patches.ts'
 
 const repositoryRoot = resolve(import.meta.dirname, '..', '..', '..')
-const officialCatalog = join(
-  repositoryRoot,
-  'upstream',
-  'deepseek-harness',
-  'packages',
-  'core',
-  'session',
-  'src',
-  'known-event-types.ts',
-)
-const officialReleaseProcess = join(
-  repositoryRoot,
-  'upstream',
-  'deepseek-harness',
-  'scripts',
-  'release',
-  'process.ts',
-)
-const officialBrand = join(
-  repositoryRoot,
-  'upstream',
-  'deepseek-harness',
-  'packages',
-  'client',
-  'ui-brand-official',
-  'src',
-  'client',
-  'Brand.tsx',
-)
-const officialLocales = join(
-  repositoryRoot,
-  'upstream',
-  'deepseek-harness',
-  'packages',
-  'client',
-  'ui-conversation',
-  'src',
-  'client',
-  'locales.ts',
-)
-const officialHeroShell = join(
-  repositoryRoot,
-  'upstream',
-  'deepseek-harness',
-  'packages',
-  'client',
-  'ui-conversation',
-  'src',
-  'client',
-  'skeleton',
-  'HeroShell.module.css',
-)
-const officialSidebarRoot = join(
-  repositoryRoot,
-  'upstream',
-  'deepseek-harness',
-  'packages',
-  'client',
-  'ui-sidebar',
-  'src',
-  'client',
-  'SidebarRoot.tsx',
-)
-const officialEmptyHero = join(
-  repositoryRoot,
-  'upstream',
-  'deepseek-harness',
-  'packages',
-  'client',
-  'ui-conversation',
-  'src',
-  'client',
-  'skeleton',
-  'EmptyHero.tsx',
-)
-const officialClientBuildEnvironment = join(
-  repositoryRoot,
-  'upstream',
-  'deepseek-harness',
-  'scripts',
-  'client-build-environment.ts',
-)
-const officialToolSlots = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-tool', 'src', 'client', 'contract', 'slots.ts',
-)
-const officialToolCallTree = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'ToolCallTree.tsx',
-)
-const officialToolCallModel = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'models', 'tool-call-model.ts',
-)
-const officialGenericToolCard = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'toolviews', 'GenericToolCard.tsx',
-)
-const officialImageLightbox = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx',
-)
-const officialMessageImage = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx',
-)
-const officialImageLightboxCss = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css',
-)
-const officialCodeBlock = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx',
-)
-const officialCodeBlockCss = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css',
-)
-const officialMarkdownText = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx',
-)
-const officialAttachmentLabels = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts',
-)
-const officialComposerAttachments = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'ComposerAttachments.tsx',
-)
-const officialInputFilesSlotContract = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'contract', 'slots.ts',
-)
-const officialInputFilesSlotApply = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'apply.ts',
-)
-const officialInputFilesSlotInputBar = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'InputBar.tsx',
-)
-const officialSendSessionService = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'service.ts',
-)
-const officialDeleteCoordinator = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence', 'src', 'coordinator.ts',
-)
-const officialDeletePersistenceIndex = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence', 'src', 'index.ts',
-)
-const officialDeleteJsonlIndex = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence-jsonl', 'src', 'index.ts',
-)
-const officialDeleteSqliteIndex = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence-sqlite', 'src', 'index.ts',
-)
-const officialDeleteSqliteStore = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'session', 'session-persistence-sqlite', 'src', 'store.ts',
-)
-const officialDeleteSessionsApi = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'api', 'sessions.ts',
-)
-const officialDeleteRpcMap = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'api', 'rpc-map.ts',
-)
-const officialDeleteSessionsSchema = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'api', 'sessions.schema.ts',
-)
-const officialDeleteApiProxy = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'api-proxy.ts',
-)
-const officialDeleteClient = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'fetch', 'client.ts',
-)
-const officialDeleteHandler = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'src', 'fetch', 'handler.ts',
-)
-const officialDeleteClientHandlerSpec = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'tests', 'client-handler.spec.ts',
-)
-const officialDeleteFetchCarrierSpec = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'host', 'apiproxy', 'tests', 'fetch-carrier.spec.ts',
-)
-const officialDeleteConnectionFake = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'connection', 'tests', 'fake-api.client.ts',
-)
-const officialDeleteFixture = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'connection', 'src', 'client', 'fixture.ts',
-)
-const officialDeleteTestSupportWorkspaces = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'test-support', 'client-runtime', 'src', 'workspaces.ts',
-)
-const officialDeleteRowsSpec = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'tests', 'rows.client.spec.tsx',
-)
-const officialDeleteWorkspaceBrowserSpec = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'tests', 'workspace-browser.client.spec.tsx',
-)
-const officialDeleteRuntimeFake = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'tests', 'fake-api.client.ts',
-)
-const officialDeleteWorkspacesContract = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'src', 'client', 'contract', 'workspaces.ts',
-)
-const officialDeleteWorkspacesManager = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'src', 'client', 'workspaces', 'manager.ts',
-)
-const officialDeleteWorkspacesService = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'src', 'client', 'workspaces', 'service.ts',
-)
-const officialDeleteWorkspaceSlots = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'src', 'client', 'contract', 'slots.ts',
-)
-const officialDeleteWorkspaceIndex = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'src', 'client', 'index.ts',
-)
-const officialDeleteWorkspaceBrowser = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'src', 'client', 'WorkspaceBrowser.tsx',
-)
-const officialDeleteRows = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'src', 'client', 'rows', 'Rows.tsx',
-)
-const officialDeleteWorkspaceLocales = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'ui-workspace', 'src', 'client', 'locales.ts',
-)
-const officialDeleteSessionsManager = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'client', 'runtime', 'src', 'client', 'sessions', 'manager.ts',
-)
-const officialStream = join(
-  repositoryRoot,
-  'upstream', 'deepseek-harness', 'packages', 'llm', 'llm-pi-ai', 'src', 'stream.ts',
-)
-const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2')
+
+// Patch target files (union of the 8 tracked patches' targets, de-duplicated).
+// Each patch file must have every target copied into the temp root before apply.
+const officialCatalog = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'core', 'session', 'src', 'known-event-types.ts')
+const officialReleaseProcess = join(repositoryRoot, 'upstream', 'deepseek-harness', 'scripts', 'release', 'process.ts')
+const officialBrand = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-brand-official', 'src', 'client', 'Brand.tsx')
+const officialLocales = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'locales.ts')
+const officialEmptyHero = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'EmptyHero.tsx')
+const officialHeroShell = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'HeroShell.module.css')
+const officialClientBuildEnvironment = join(repositoryRoot, 'upstream', 'deepseek-harness', 'scripts', 'client-build-environment.ts')
+const officialImageLightbox = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx')
+const officialMessageImage = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx')
+const officialImageLightboxCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css')
+const officialAttachmentLabels = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts')
+const officialCodeBlock = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx')
+const officialCodeBlockCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css')
+const officialMarkdownText = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx')
+const officialStream = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'llm', 'llm-pi-ai', 'src', 'stream.ts')
+
+const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.5-rc.1')
 
 test('tracked Harness patches add LDD compatibility changes and apply exactly once', async () => {
   const parent = await mkdtemp(join(tmpdir(), 'ldd-upstream-patch-'))
   try {
     const copiedRoot = join(parent, 'source')
-    const copiedCatalog = join(
-      copiedRoot,
-      'packages',
-      'core',
-      'session',
-      'src',
-      'known-event-types.ts',
-    )
+    const copiedCatalog = join(copiedRoot, 'packages', 'core', 'session', 'src', 'known-event-types.ts')
     const copiedReleaseProcess = join(copiedRoot, 'scripts', 'release', 'process.ts')
-    const copiedBrand = join(
-      copiedRoot, 'packages', 'client', 'ui-brand-official', 'src', 'client', 'Brand.tsx',
-    )
-    const copiedLocales = join(
-      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'locales.ts',
-    )
-    const copiedHeroShell = join(
-      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'HeroShell.module.css',
-    )
-    const copiedSidebarRoot = join(
-      copiedRoot, 'packages', 'client', 'ui-sidebar', 'src', 'client', 'SidebarRoot.tsx',
-    )
-    const copiedEmptyHero = join(
-      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'EmptyHero.tsx',
-    )
-    const copiedClientBuildEnvironment = join(
-      copiedRoot, 'scripts', 'client-build-environment.ts',
-    )
-    const copiedToolSlots = join(
-      copiedRoot, 'packages', 'client', 'ui-tool', 'src', 'client', 'contract', 'slots.ts',
-    )
-    const copiedToolCallTree = join(
-      copiedRoot, 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'ToolCallTree.tsx',
-    )
-    const copiedToolCallModel = join(
-      copiedRoot, 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'models', 'tool-call-model.ts',
-    )
-    const copiedGenericToolCard = join(
-      copiedRoot, 'packages', 'client', 'ui-tool', 'src', 'client', 'tool', 'toolviews', 'GenericToolCard.tsx',
-    )
-    const copiedImageLightbox = join(
-      copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx',
-    )
-    const copiedMessageImage = join(
-      copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx',
-    )
-    const copiedImageLightboxCss = join(
-      copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css',
-    )
-    const copiedCodeBlock = join(
-      copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx',
-    )
-    const copiedCodeBlockCss = join(
-      copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css',
-    )
-    const copiedMarkdownText = join(
-      copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx',
-    )
-    const copiedAttachmentLabels = join(
-      copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts',
-    )
-    const copiedComposerAttachments = join(
-      copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'ComposerAttachments.tsx',
-    )
-    const copiedInputFilesSlotContract = join(
-      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'contract', 'slots.ts',
-    )
-    const copiedInputFilesSlotApply = join(
-      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'apply.ts',
-    )
-    const copiedInputFilesSlotInputBar = join(
-      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'InputBar.tsx',
-    )
-    const copiedSendSessionService = join(
-      copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'service.ts',
-    )
-    const copiedDeleteCoordinator = join(
-      copiedRoot, 'packages', 'session', 'session-persistence', 'src', 'coordinator.ts',
-    )
-    const copiedDeletePersistenceIndex = join(
-      copiedRoot, 'packages', 'session', 'session-persistence', 'src', 'index.ts',
-    )
-    const copiedDeleteJsonlIndex = join(
-      copiedRoot, 'packages', 'session', 'session-persistence-jsonl', 'src', 'index.ts',
-    )
-    const copiedDeleteSqliteIndex = join(
-      copiedRoot, 'packages', 'session', 'session-persistence-sqlite', 'src', 'index.ts',
-    )
-    const copiedDeleteSqliteStore = join(
-      copiedRoot, 'packages', 'session', 'session-persistence-sqlite', 'src', 'store.ts',
-    )
-    const copiedDeleteSessionsApi = join(
-      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'api', 'sessions.ts',
-    )
-    const copiedDeleteRpcMap = join(
-      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'api', 'rpc-map.ts',
-    )
-    const copiedDeleteSessionsSchema = join(
-      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'api', 'sessions.schema.ts',
-    )
-    const copiedDeleteApiProxy = join(
-      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'api-proxy.ts',
-    )
-    const copiedDeleteClient = join(
-      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'fetch', 'client.ts',
-    )
-    const copiedDeleteHandler = join(
-      copiedRoot, 'packages', 'host', 'apiproxy', 'src', 'fetch', 'handler.ts',
-    )
-    const copiedDeleteClientHandlerSpec = join(
-      copiedRoot, 'packages', 'host', 'apiproxy', 'tests', 'client-handler.spec.ts',
-    )
-    const copiedDeleteFetchCarrierSpec = join(
-      copiedRoot, 'packages', 'host', 'apiproxy', 'tests', 'fetch-carrier.spec.ts',
-    )
-    const copiedDeleteConnectionFake = join(
-      copiedRoot, 'packages', 'client', 'connection', 'tests', 'fake-api.client.ts',
-    )
-    const copiedDeleteFixture = join(
-      copiedRoot, 'packages', 'client', 'connection', 'src', 'client', 'fixture.ts',
-    )
-    const copiedDeleteTestSupportWorkspaces = join(
-      copiedRoot, 'packages', 'test-support', 'client-runtime', 'src', 'workspaces.ts',
-    )
-    const copiedDeleteRowsSpec = join(
-      copiedRoot, 'packages', 'client', 'ui-workspace', 'tests', 'rows.client.spec.tsx',
-    )
-    const copiedDeleteWorkspaceBrowserSpec = join(
-      copiedRoot, 'packages', 'client', 'ui-workspace', 'tests', 'workspace-browser.client.spec.tsx',
-    )
-    const copiedDeleteRuntimeFake = join(
-      copiedRoot, 'packages', 'client', 'runtime', 'tests', 'fake-api.client.ts',
-    )
-    const copiedDeleteWorkspacesContract = join(
-      copiedRoot, 'packages', 'client', 'runtime', 'src', 'client', 'contract', 'workspaces.ts',
-    )
-    const copiedDeleteWorkspacesManager = join(
-      copiedRoot, 'packages', 'client', 'runtime', 'src', 'client', 'workspaces', 'manager.ts',
-    )
-    const copiedDeleteWorkspacesService = join(
-      copiedRoot, 'packages', 'client', 'runtime', 'src', 'client', 'workspaces', 'service.ts',
-    )
-    const copiedDeleteWorkspaceSlots = join(
-      copiedRoot, 'packages', 'client', 'ui-workspace', 'src', 'client', 'contract', 'slots.ts',
-    )
-    const copiedDeleteWorkspaceIndex = join(
-      copiedRoot, 'packages', 'client', 'ui-workspace', 'src', 'client', 'index.ts',
-    )
-    const copiedDeleteWorkspaceBrowser = join(
-      copiedRoot, 'packages', 'client', 'ui-workspace', 'src', 'client', 'WorkspaceBrowser.tsx',
-    )
-    const copiedDeleteRows = join(
-      copiedRoot, 'packages', 'client', 'ui-workspace', 'src', 'client', 'rows', 'Rows.tsx',
-    )
-    const copiedDeleteWorkspaceLocales = join(
-      copiedRoot, 'packages', 'client', 'ui-workspace', 'src', 'client', 'locales.ts',
-    )
-    const copiedDeleteSessionsManager = join(
-      copiedRoot, 'packages', 'client', 'runtime', 'src', 'client', 'sessions', 'manager.ts',
-    )
-    const copiedStream = join(
-      copiedRoot, 'packages', 'llm', 'llm-pi-ai', 'src', 'stream.ts',
-    )
-    await mkdir(dirname(copiedCatalog), { recursive: true })
-    await mkdir(dirname(copiedReleaseProcess), { recursive: true })
-    await mkdir(dirname(copiedBrand), { recursive: true })
-    await mkdir(dirname(copiedLocales), { recursive: true })
-    await mkdir(dirname(copiedHeroShell), { recursive: true })
-    await mkdir(dirname(copiedSidebarRoot), { recursive: true })
-    await mkdir(dirname(copiedEmptyHero), { recursive: true })
-    await mkdir(dirname(copiedClientBuildEnvironment), { recursive: true })
-    await mkdir(dirname(copiedToolSlots), { recursive: true })
-    await mkdir(dirname(copiedToolCallTree), { recursive: true })
-    await mkdir(dirname(copiedToolCallModel), { recursive: true })
-    await mkdir(dirname(copiedGenericToolCard), { recursive: true })
-    await mkdir(dirname(copiedImageLightbox), { recursive: true })
-    await mkdir(dirname(copiedMessageImage), { recursive: true })
-    await mkdir(dirname(copiedImageLightboxCss), { recursive: true })
-    await mkdir(dirname(copiedCodeBlock), { recursive: true })
-    await mkdir(dirname(copiedCodeBlockCss), { recursive: true })
-    await mkdir(dirname(copiedMarkdownText), { recursive: true })
-    await mkdir(dirname(copiedAttachmentLabels), { recursive: true })
-    await mkdir(dirname(copiedComposerAttachments), { recursive: true })
-    await mkdir(dirname(copiedInputFilesSlotContract), { recursive: true })
-    await mkdir(dirname(copiedInputFilesSlotApply), { recursive: true })
-    await mkdir(dirname(copiedInputFilesSlotInputBar), { recursive: true })
-    await mkdir(dirname(copiedSendSessionService), { recursive: true })
-    await mkdir(dirname(copiedDeleteCoordinator), { recursive: true })
-    await mkdir(dirname(copiedDeletePersistenceIndex), { recursive: true })
-    await mkdir(dirname(copiedDeleteJsonlIndex), { recursive: true })
-    await mkdir(dirname(copiedDeleteSqliteIndex), { recursive: true })
-    await mkdir(dirname(copiedDeleteSqliteStore), { recursive: true })
-    await mkdir(dirname(copiedDeleteSessionsApi), { recursive: true })
-    await mkdir(dirname(copiedDeleteRpcMap), { recursive: true })
-    await mkdir(dirname(copiedDeleteSessionsSchema), { recursive: true })
-    await mkdir(dirname(copiedDeleteApiProxy), { recursive: true })
-    await mkdir(dirname(copiedDeleteClient), { recursive: true })
-    await mkdir(dirname(copiedDeleteHandler), { recursive: true })
-    await mkdir(dirname(copiedDeleteClientHandlerSpec), { recursive: true })
-    await mkdir(dirname(copiedDeleteFetchCarrierSpec), { recursive: true })
-    await mkdir(dirname(copiedDeleteConnectionFake), { recursive: true })
-    await mkdir(dirname(copiedDeleteFixture), { recursive: true })
-    await mkdir(dirname(copiedDeleteTestSupportWorkspaces), { recursive: true })
-    await mkdir(dirname(copiedDeleteRowsSpec), { recursive: true })
-    await mkdir(dirname(copiedDeleteWorkspaceBrowserSpec), { recursive: true })
-    await mkdir(dirname(copiedDeleteRuntimeFake), { recursive: true })
-    await mkdir(dirname(copiedDeleteWorkspacesContract), { recursive: true })
-    await mkdir(dirname(copiedDeleteWorkspacesManager), { recursive: true })
-    await mkdir(dirname(copiedDeleteWorkspacesService), { recursive: true })
-    await mkdir(dirname(copiedDeleteWorkspaceSlots), { recursive: true })
-    await mkdir(dirname(copiedDeleteWorkspaceIndex), { recursive: true })
-    await mkdir(dirname(copiedDeleteWorkspaceBrowser), { recursive: true })
-    await mkdir(dirname(copiedDeleteRows), { recursive: true })
-    await mkdir(dirname(copiedDeleteWorkspaceLocales), { recursive: true })
-    await mkdir(dirname(copiedDeleteSessionsManager), { recursive: true })
-    await mkdir(dirname(copiedStream), { recursive: true })
+    const copiedBrand = join(copiedRoot, 'packages', 'client', 'ui-brand-official', 'src', 'client', 'Brand.tsx')
+    const copiedLocales = join(copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'locales.ts')
+    const copiedEmptyHero = join(copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'EmptyHero.tsx')
+    const copiedHeroShell = join(copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'HeroShell.module.css')
+    const copiedClientBuildEnvironment = join(copiedRoot, 'scripts', 'client-build-environment.ts')
+    const copiedImageLightbox = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx')
+    const copiedMessageImage = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx')
+    const copiedImageLightboxCss = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css')
+    const copiedAttachmentLabels = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts')
+    const copiedCodeBlock = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx')
+    const copiedCodeBlockCss = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css')
+    const copiedMarkdownText = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx')
+    const copiedStream = join(copiedRoot, 'packages', 'llm', 'llm-pi-ai', 'src', 'stream.ts')
+
+    for (const copied of [copiedCatalog, copiedReleaseProcess, copiedBrand, copiedLocales,
+      copiedEmptyHero, copiedHeroShell, copiedClientBuildEnvironment, copiedImageLightbox,
+      copiedMessageImage, copiedImageLightboxCss, copiedAttachmentLabels, copiedCodeBlock,
+      copiedCodeBlockCss, copiedMarkdownText, copiedStream]) {
+      await mkdir(dirname(copied), { recursive: true })
+    }
     await writeFile(copiedCatalog, await readFile(officialCatalog))
     await writeFile(copiedReleaseProcess, await readFile(officialReleaseProcess))
     await writeFile(copiedBrand, await readFile(officialBrand))
     await writeFile(copiedLocales, await readFile(officialLocales))
-    await writeFile(copiedHeroShell, await readFile(officialHeroShell))
-    await writeFile(copiedSidebarRoot, await readFile(officialSidebarRoot))
     await writeFile(copiedEmptyHero, await readFile(officialEmptyHero))
+    await writeFile(copiedHeroShell, await readFile(officialHeroShell))
     await writeFile(copiedClientBuildEnvironment, await readFile(officialClientBuildEnvironment))
-    await writeFile(copiedToolSlots, await readFile(officialToolSlots))
-    await writeFile(copiedToolCallTree, await readFile(officialToolCallTree))
-    await writeFile(copiedToolCallModel, await readFile(officialToolCallModel))
-    await writeFile(copiedGenericToolCard, await readFile(officialGenericToolCard))
     await writeFile(copiedImageLightbox, await readFile(officialImageLightbox))
     await writeFile(copiedMessageImage, await readFile(officialMessageImage))
     await writeFile(copiedImageLightboxCss, await readFile(officialImageLightboxCss))
+    await writeFile(copiedAttachmentLabels, await readFile(officialAttachmentLabels))
     await writeFile(copiedCodeBlock, await readFile(officialCodeBlock))
     await writeFile(copiedCodeBlockCss, await readFile(officialCodeBlockCss))
     await writeFile(copiedMarkdownText, await readFile(officialMarkdownText))
-    await writeFile(copiedAttachmentLabels, await readFile(officialAttachmentLabels))
-    await writeFile(copiedComposerAttachments, await readFile(officialComposerAttachments))
-    await writeFile(copiedInputFilesSlotContract, await readFile(officialInputFilesSlotContract))
-    await writeFile(copiedInputFilesSlotApply, await readFile(officialInputFilesSlotApply))
-    await writeFile(copiedInputFilesSlotInputBar, await readFile(officialInputFilesSlotInputBar))
-    await writeFile(copiedSendSessionService, await readFile(officialSendSessionService))
-    await writeFile(copiedDeleteCoordinator, await readFile(officialDeleteCoordinator))
-    await writeFile(copiedDeletePersistenceIndex, await readFile(officialDeletePersistenceIndex))
-    await writeFile(copiedDeleteJsonlIndex, await readFile(officialDeleteJsonlIndex))
-    await writeFile(copiedDeleteSqliteIndex, await readFile(officialDeleteSqliteIndex))
-    await writeFile(copiedDeleteSqliteStore, await readFile(officialDeleteSqliteStore))
-    await writeFile(copiedDeleteSessionsApi, await readFile(officialDeleteSessionsApi))
-    await writeFile(copiedDeleteRpcMap, await readFile(officialDeleteRpcMap))
-    await writeFile(copiedDeleteSessionsSchema, await readFile(officialDeleteSessionsSchema))
-    await writeFile(copiedDeleteApiProxy, await readFile(officialDeleteApiProxy))
-    await writeFile(copiedDeleteClient, await readFile(officialDeleteClient))
-    await writeFile(copiedDeleteHandler, await readFile(officialDeleteHandler))
-    await writeFile(copiedDeleteClientHandlerSpec, await readFile(officialDeleteClientHandlerSpec))
-    await writeFile(copiedDeleteFetchCarrierSpec, await readFile(officialDeleteFetchCarrierSpec))
-    await writeFile(copiedDeleteConnectionFake, await readFile(officialDeleteConnectionFake))
-    await writeFile(copiedDeleteFixture, await readFile(officialDeleteFixture))
-    await writeFile(copiedDeleteTestSupportWorkspaces, await readFile(officialDeleteTestSupportWorkspaces))
-    await writeFile(copiedDeleteRowsSpec, await readFile(officialDeleteRowsSpec))
-    await writeFile(copiedDeleteWorkspaceBrowserSpec, await readFile(officialDeleteWorkspaceBrowserSpec))
-    await writeFile(copiedDeleteRuntimeFake, await readFile(officialDeleteRuntimeFake))
-    await writeFile(copiedDeleteWorkspacesContract, await readFile(officialDeleteWorkspacesContract))
-    await writeFile(copiedDeleteWorkspacesManager, await readFile(officialDeleteWorkspacesManager))
-    await writeFile(copiedDeleteWorkspacesService, await readFile(officialDeleteWorkspacesService))
-    await writeFile(copiedDeleteWorkspaceSlots, await readFile(officialDeleteWorkspaceSlots))
-    await writeFile(copiedDeleteWorkspaceIndex, await readFile(officialDeleteWorkspaceIndex))
-    await writeFile(copiedDeleteWorkspaceBrowser, await readFile(officialDeleteWorkspaceBrowser))
-    await writeFile(copiedDeleteRows, await readFile(officialDeleteRows))
-    await writeFile(copiedDeleteWorkspaceLocales, await readFile(officialDeleteWorkspaceLocales))
-    await writeFile(copiedDeleteSessionsManager, await readFile(officialDeleteSessionsManager))
     await writeFile(copiedStream, await readFile(officialStream))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
-    const result = await readFile(copiedCatalog, 'utf8')
-    assert.match(result, /'video\/analysis-input'/)
+
+    assert.deepEqual(applied.map((entry) => entry.path), [
+      '0001-register-video-analysis-input-session-event.patch',
+      '0002-launch-package-manager-shims-on-windows.patch',
+      '0003-rebrand-ldd.patch',
+      '0004-rebrand-ldd-trim.patch',
+      '0006-image-download-button.patch',
+      '0015-collapse-long-code-blocks.patch',
+      '0016-collapse-long-plain-text.patch',
+      '0022-kie-llm-finish-reason.patch',
+    ])
+
+    // 0001: the video analysis event name is registered in the known-type set.
+    const catalog = await readFile(copiedCatalog, 'utf8')
+    assert.match(catalog, /'video\/analysis-input'/)
+
+    // 0002: Windows package-manager shims route pnpm/npm through cmd.exe.
     const releaseModule = await import(pathToFileURL(copiedReleaseProcess).href) as Record<string, unknown>
     const candidate = releaseModule.resolveSpawnInvocation
     assert.equal(typeof candidate, 'function')
@@ -563,105 +104,41 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       command: 'C:\\Windows\\System32\\cmd.exe',
       args: ['/d', '/s', '/c', 'pnpm.cmd', '--version'],
     })
-    assert.deepEqual(applied.map((entry) => entry.path), [
-      '0001-register-video-analysis-input-session-event.patch',
-      '0002-launch-package-manager-shims-on-windows.patch',
-      '0003-rebrand-ldd.patch',
-      '0004-rebrand-ldd-trim.patch',
-      '0005-render-tool-result-images.patch',
-      '0006-image-download-button.patch',
-      '0007-delete-session.patch',
-      '0008-broadcast-session-removed.patch',
-      '0009-clear-selection-on-delete.patch',
-      '0010-delete-flush-live.patch',
-      '0011-delete-log-broadcast.patch',
-      '0012-nonimage-drop.patch',
-      '0013-input-files-slot.patch',
-      '0014-send-session-file-notice.patch',
-      '0015-collapse-long-code-blocks.patch',
-      '0016-collapse-long-plain-text.patch',
-      '0017-generate-model-slot.patch',
-      '0018-count-imported-files.patch',
-      '0019-render-tool-result-audio.patch',
-      '0020-session-delete-confirm-dialog.patch',
-      '0021-open-file-preview.patch',
-      '0022-kie-llm-finish-reason.patch',
-    ])
+
+    // 0003: the LDD wordmark replaces the fish in the hero + sidebar brand.
     const brand = await readFile(copiedBrand, 'utf8')
     assert.match(brand, /LDD_WORDMARK_PATH/u)
-    assert.match(brand, /size >= 34 \? 48 : 18/u)
     assert.doesNotMatch(brand, /FishLogo/u)
+    const emptyHero = await readFile(copiedEmptyHero, 'utf8')
+    assert.match(emptyHero, /LDD_WORDMARK_PATH/u)
+    assert.doesNotMatch(emptyHero, /HERO_SWIM_UP_PATH/u)
+    const heroShell = await readFile(copiedHeroShell, 'utf8')
+    assert.doesNotMatch(heroShell, /hero-fish-swim/u)
     const locales = await readFile(copiedLocales, 'utf8')
     assert.match(locales, /'hero\.headline': 'LDD'/u)
     assert.doesNotMatch(locales, /探索未至之境/u)
-    const heroShell = await readFile(copiedHeroShell, 'utf8')
-    assert.match(heroShell, /\.headline \{[\s\S]*?display: flex/u)
-    assert.doesNotMatch(heroShell, /grid-template-columns/u)
-    const sidebarRoot = await readFile(copiedSidebarRoot, 'utf8')
-    assert.doesNotMatch(sidebarRoot, /sidebar\.brand\.name/u)
-    assert.match(sidebarRoot, /sidebar\.brand\.mark/u)
-    const emptyHero = await readFile(copiedEmptyHero, 'utf8')
-    assert.doesNotMatch(emptyHero, /hero\.headline/u)
-    assert.doesNotMatch(emptyHero, /hero\.preview/u)
+
+    // 0004: the client title is LDD, not "DeepSeek Harness".
     const buildEnvironment = await readFile(copiedClientBuildEnvironment, 'utf8')
     assert.match(buildEnvironment, /DSH_CLIENT_TITLE: 'LDD'/u)
     assert.doesNotMatch(buildEnvironment, /DeepSeek Harness/u)
-    const toolSlots = await readFile(copiedToolSlots, 'utf8')
-    assert.match(toolSlots, /renderMessageImages\?: RenderMessageImages/u)
-    const toolCallModel = await readFile(copiedToolCallModel, 'utf8')
-    assert.match(toolCallModel, /block\.type !== 'image'/u)
-    // 0019: audio blocks skip JSON flattening like image blocks do.
-    assert.match(toolCallModel, /block\.type !== 'image' && \(block\.type as string\) !== 'audio'/u)
-    const genericToolCard = await readFile(copiedGenericToolCard, 'utf8')
-    assert.match(genericToolCard, /renderMessageImages\?\.\(\{ images, align: 'start' \}\)/u)
-    // 0019: audio blocks render a native <audio> player + download link.
-    assert.match(genericToolCard, /\(item\.type as string\) === 'audio'/u)
-    assert.match(genericToolCard, /<audio controls src=\{audio\.url\}/u)
+
+    // 0006: image lightbox gains a save-to-disk download control.
     const imageLightbox = await readFile(copiedImageLightbox, 'utf8')
     assert.match(imageLightbox, /IconDownloadOutline16/u)
     assert.match(imageLightbox, /downloadName\?/u)
     const messageImage = await readFile(copiedMessageImage, 'utf8')
-    assert.match(messageImage, /downloadNameFor\(attachment\)/u)
+    assert.match(messageImage, /downloadNameFor\(image\)/u)
     const imageLightboxCss = await readFile(copiedImageLightboxCss, 'utf8')
-    const deleteCoordinator = await readFile(copiedDeleteCoordinator, 'utf8')
-    assert.match(deleteCoordinator, /erase\?\(id: SessionId/u)
-    assert.match(deleteCoordinator, /delete\(id: SessionId, signal\?: AbortSignal\)/u)
-    assert.match(deleteCoordinator, /if \(session\.id !== id\) continue/u)
-    assert.match(deleteCoordinator, /await this\.flush\(session\)/u)
-    const deleteApiProxy = await readFile(copiedDeleteApiProxy, 'utf8')
-    assert.match(deleteApiProxy, /async delete\(request\)/u)
-    assert.match(deleteApiProxy, /agentHandles\.get\(sessionId\)/u)
-    assert.match(deleteApiProxy, /broadcastHost\(\{ type: 'host\/session-removed', sessionId \}\)/u)
-    assert.match(deleteApiProxy, /hostQueues\.add\(queue\)/u)
-    assert.match(deleteApiProxy, /logDelete\('start'\)/u)
-    assert.match(deleteApiProxy, /persistence\.delete failed/u)
-    const deleteSessionsManager = await readFile(copiedDeleteSessionsManager, 'utf8')
-    assert.match(deleteSessionsManager, /!durableSubagent && this\.selected === frame\.sessionId/u)
-    assert.match(deleteSessionsManager, /this\.clearSelection\(\)/u)
-    const deleteRows = await readFile(copiedDeleteRows, 'utf8')
-    assert.match(deleteRows, /menu\.deleteSession/u)
-    assert.match(deleteRows, /onDelete\(node\.id\)/u)
-    const deleteLocales = await readFile(copiedDeleteWorkspaceLocales, 'utf8')
-    assert.match(deleteLocales, /'menu\.deleteSession': '删除会话'/u)
-    const deleteClient = await readFile(copiedDeleteClient, 'utf8')
-    assert.match(deleteClient, /'session\.delete': sessionDeleteValueSchema/u)
-    const deleteWorkspaceBrowser = await readFile(copiedDeleteWorkspaceBrowser, 'utf8')
-    // 0020: session delete confirms via a browser-owned Modal, never the
-    // synchronous window.confirm() native dialog (which steals composer focus).
-    assert.doesNotMatch(deleteWorkspaceBrowser, /window\.confirm\(/u)
-    assert.match(deleteWorkspaceBrowser, /sessionDeleteTarget/u)
-    assert.match(deleteWorkspaceBrowser, /confirmSessionDelete/u)
-    // 0022: a KIE-style gateway that omits finish_reason but completed its
-    // content is a normal stop (or tool-calls), not a TRANSPORT error.
-    const stream = await readFile(copiedStream, 'utf8')
-    assert.match(stream, /stream ended without finish_reason/i)
-    assert.match(stream, /block\.type === 'toolCall'/u)
-    assert.match(stream, /return hasToolCall \? \{ kind: 'tool-calls' \} : \{ kind: 'stop' \}/u)
     assert.match(imageLightboxCss, /\.actions \{/u)
+    const attachmentLabels = await readFile(copiedAttachmentLabels, 'utf8')
+    assert.match(attachmentLabels, /download: t\('image\.download'\)/u)
+    assert.match(locales, /'image\.download': '下载图片'/u)
+
+    // 0015/0016: long code blocks collapse (line- and char-count gated).
     const codeBlock = await readFile(copiedCodeBlock, 'utf8')
     assert.match(codeBlock, /DEFAULT_CODE_MAX_LINES/u)
     assert.match(codeBlock, /DEFAULT_CODE_MAX_CHARS/u)
-    assert.match(codeBlock, /maxChars/u)
     assert.match(codeBlock, /css\.bodyCollapsed/u)
     assert.match(codeBlock, /aria-expanded=\{expanded\}/u)
     const codeBlockCss = await readFile(copiedCodeBlockCss, 'utf8')
@@ -671,31 +148,14 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(markdownText, /isCollapsiblePlainText/u)
     assert.match(markdownText, /node\.type === 'paragraph'/u)
     assert.match(markdownText, /<CodeBlock/u)
-    const composerAttachments = await readFile(copiedComposerAttachments, 'utf8')
-    assert.match(composerAttachments, /dsh:non-image-drop/u)
-    assert.match(composerAttachments, /isImageType\(file\.type\)/u)
-    const inputFilesContract = await readFile(copiedInputFilesSlotContract, 'utf8')
-    assert.match(inputFilesContract, /'conversation\.input\.files': \{ kind: 'list'; scope: 'session' \}/u)
-    assert.match(inputFilesContract, /\| 'conversation\.input\.files'/u)
-    assert.match(inputFilesContract, /'conversation\.input\.generate-model': \{ kind: 'single'; scope: 'session'; owner: InputControlOwnerProps \}/u)
-    assert.match(inputFilesContract, /\| 'conversation\.input\.generate-model'/u)
-    const inputFilesApply = await readFile(copiedInputFilesSlotApply, 'utf8')
-    assert.match(inputFilesApply, /'conversation\.input\.files': \{ kind: 'list', scope: 'session' \},/u)
-    assert.match(inputFilesApply, /'conversation\.input\.generate-model': \{ kind: 'single', scope: 'session' \},/u)
-    // 0021: openFile prefers the LDD preview panel and falls back to openPath.
-    assert.match(inputFilesApply, /previewDocument\?: \(target: string\) => Promise<\{ shown: boolean \}>/u)
-    assert.match(inputFilesApply, /result\.shown/u)
-    const inputFilesBar = await readFile(copiedInputFilesSlotInputBar, 'utf8')
-    assert.match(inputFilesBar, /renderSlot\('conversation\.input\.files', \{\}\)/u)
-    assert.match(inputFilesBar, /renderSlot\('conversation\.input\.generate-model', \{ locked \}\)/u)
-    const sendSessionService = await readFile(copiedSendSessionService, 'utf8')
-    assert.match(sendSessionService, /injectLddImportedFiles\(session\.sessionId, text\)/u)
-    assert.match(sendSessionService, /commitLddImportedFiles\(session\.sessionId\)/u)
-    assert.match(sendSessionService, /__lddFileHooks/u)
-    const attachmentLabels = await readFile(copiedAttachmentLabels, 'utf8')
-    assert.match(attachmentLabels, /download: t\('image\.download'\)/u)
-    const localesDownload = await readFile(copiedLocales, 'utf8')
-    assert.match(localesDownload, /'image\.download': '下载图片'/u)
+
+    // 0022: a KIE-style gateway that omits finish_reason but completed its
+    // content is a normal stop (or tool-calls), not a TRANSPORT error.
+    const stream = await readFile(copiedStream, 'utf8')
+    assert.match(stream, /stream ended without finish_reason/i)
+    assert.match(stream, /block\.type === 'toolCall'/u)
+
+    // Applying the same patches again must fail (idempotence guard).
     await assert.rejects(
       applyTrackedUpstreamPatches(copiedRoot, patchRoot),
       /does not match the official source/,

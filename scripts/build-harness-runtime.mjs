@@ -26,15 +26,15 @@ const repositoryRoot = resolve(import.meta.dirname, '..')
 const defaults = {
   source: join(repositoryRoot, 'upstream', 'deepseek-harness'),
   sourceArchive: process.env.LDD_HARNESS_SOURCE_ARCHIVE ??
-    join(repositoryRoot, 'vendor', 'sources', 'deepseek-harness-0.1.1-rc.2.zip'),
+    join(repositoryRoot, 'vendor', 'sources', 'deepseek-harness-0.1.5-rc.1.zip'),
   plugins: [
     join(repositoryRoot, 'packages', 'video-frame-analyzer'),
     join(repositoryRoot, 'packages', 'generate'),
     join(repositoryRoot, 'packages', 'canvas'),
   ],
-  patches: join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.1-rc.2'),
-  outputRoot: join(repositoryRoot, 'dist', 'runtime', '0.1.1-rc.2'),
-  outputFile: join(repositoryRoot, 'dist', 'runtime', runtimeArchiveFilename('0.1.1-rc.2')),
+  patches: join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.5-rc.1'),
+  outputRoot: join(repositoryRoot, 'dist', 'runtime', '0.1.5-rc.1'),
+  outputFile: join(repositoryRoot, 'dist', 'runtime', runtimeArchiveFilename('0.1.5-rc.1')),
 }
 const selected = {
   source: values.source ?? defaults.source,

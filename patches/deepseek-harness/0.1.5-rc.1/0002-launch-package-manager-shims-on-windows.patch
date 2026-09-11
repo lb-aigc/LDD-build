@@ -1,0 +1,57 @@
+--- a/scripts/release/process.ts
++++ b/scripts/release/process.ts
+@@ -21,6 +21,24 @@
+   readonly stderr: string
+ }
+ 
++const WINDOWS_COMMAND_SHIMS = new Set(['npm', 'npx', 'pnpm'])
++
++export function resolveSpawnInvocation(
++  command: string,
++  args: readonly string[],
++  platform: NodeJS.Platform = process.platform,
++  environment: Readonly<NodeJS.ProcessEnv> = process.env,
++): { readonly command: string; readonly args: readonly string[] } {
++  if (platform !== 'win32' || !WINDOWS_COMMAND_SHIMS.has(command.toLowerCase())) return { command, args }
++  const comSpec = Object.entries(environment).find(([key, value]) => (
++    key.toUpperCase() === 'COMSPEC' && value !== undefined && value.length > 0
++  ))?.[1] ?? 'cmd.exe'
++  return {
++    command: comSpec,
++    args: ['/d', '/s', '/c', `${command}.cmd`, ...args],
++  }
++}
++
+ /**
+  * Run a command and capture its output without judging the exit status.
+  * @param command - executable name.
+@@ -29,7 +47,8 @@
+  * @returns The exit status and captured streams.
+  */
+ export function attempt(command: string, args: readonly string[], options: RunOptions = {}): CommandResult {
+-  const result = spawnSync(command, [...args], { cwd: options.cwd, env: options.env, encoding: 'utf8' })
++  const invocation = resolveSpawnInvocation(command, args, process.platform, options.env ?? process.env)
++  const result = spawnSync(invocation.command, [...invocation.args], { cwd: options.cwd, env: options.env, encoding: 'utf8' })
+   if (result.error !== undefined) throw result.error
+   return { status: result.status, stdout: result.stdout, stderr: result.stderr }
+ }
+@@ -43,7 +62,8 @@
+  * @returns The exit status and captured streams.
+  */
+ export function attemptEchoed(command: string, args: readonly string[], options: RunOptions = {}): CommandResult {
+-  const result = spawnSync(command, [...args], {
++  const invocation = resolveSpawnInvocation(command, args, process.platform, options.env ?? process.env)
++  const result = spawnSync(invocation.command, [...invocation.args], {
+     cwd: options.cwd,
+     env: options.env,
+     encoding: 'utf8',
+@@ -81,7 +101,8 @@
+  */
+ export function runConcurrent(command: string, args: readonly string[], options: RunOptions = {}): Promise<void> {
+   return new Promise((resolveRun, rejectRun) => {
+-    const child = spawn(command, [...args], { cwd: options.cwd, env: options.env, stdio: 'inherit' })
++    const invocation = resolveSpawnInvocation(command, args, process.platform, options.env ?? process.env)
++    const child = spawn(invocation.command, [...invocation.args], { cwd: options.cwd, env: options.env, stdio: 'inherit' })
+     child.once('error', rejectRun)
+     child.once('close', (status, signal) => {
+       if (status === 0) resolveRun()

@@ -10,7 +10,7 @@ const releaseRoot = join(repositoryRoot, 'release')
 const artifacts = [
   join(releaseRoot, sourceArchiveFilename('0.2.0')),
   join(releaseRoot, installerFilename('0.2.0')),
-  join(releaseRoot, runtimeArchiveFilename('0.1.1-rc.2')),
+  join(releaseRoot, runtimeArchiveFilename('0.1.5-rc.1')),
 ].sort((left, right) => basename(left).localeCompare(basename(right), 'en'))
 
 await mkdir(releaseRoot, { mode: 0o700, recursive: true })

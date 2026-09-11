@@ -63,28 +63,28 @@ export function isAlphaOrBetaPrerelease(value: string): boolean {
   return leading === 'alpha' || leading === 'beta'
 }
 
-/** LDD 0.2.0 的插件（video-frame-analyzer / generate）编译锚点。 */
-export const LDD_PLUGIN_ANCHOR = '0.1.1-rc.2'
+/** LDD 0.2.0 的插件（video-frame-analyzer / generate / canvas）编译锚点。 */
+export const LDD_PLUGIN_ANCHOR = '0.1.5-rc.1'
 
 /**
  * Whether a candidate Harness version can be loaded by the LDD plugins. The
- * plugins declare peer ranges `>=0.1.1-rc.2 <0.2.0`, but the semver
- * prerelease rule means `>=0.1.1-rc.2` only admits prereleases with the SAME
- * [major,minor,patch] tuple — i.e. `0.1.1-rc.x` — and rejects `0.1.2-rc.1`
+ * plugins declare peer ranges `>=0.1.5-rc.1 <0.2.0`, but the semver
+ * prerelease rule means `>=0.1.5-rc.1` only admits prereleases with the SAME
+ * [major,minor,patch] tuple — i.e. `0.1.5-rc.x` — and rejects `0.1.6-rc.1`
  * (a different minor). A stable version is admitted when it sits in
- * `[0.1.1, 0.2.0)`. Auto-updating onto a version outside this set makes
+ * `[0.1.5, 0.2.0)`. Auto-updating onto a version outside this set makes
  * `pnpm install` fail with ERR_PNPM_NO_MATCHING_VERSION (the plugin's
- * `>=0.1.1-rc.2 <0.2.0` and the Harness's own `^0.1.2-rc.1` peer ranges have
+ * `>=0.1.5-rc.1 <0.2.0` and the Harness's own `^0.1.5-rc.1` peer ranges have
  * an empty intersection), so the resolver must never pick one.
  * @param value - candidate version (already parsed as semver).
  */
 export function isLddPluginCompatible(value: string): boolean {
   const version = parseSemanticVersion(value)
   if (version.prerelease.length === 0) {
-    return compareSemanticVersions(value, '0.1.1') >= 0
+    return compareSemanticVersions(value, '0.1.5') >= 0
       && compareSemanticVersions(value, '0.2.0') < 0
   }
-  return version.major === 0 && version.minor === 1 && version.patch === 1
+  return version.major === 0 && version.minor === 1 && version.patch === 5
     && compareSemanticVersions(value, LDD_PLUGIN_ANCHOR) >= 0
 }
 
