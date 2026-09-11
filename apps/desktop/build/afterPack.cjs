@@ -12,7 +12,7 @@ const { cpSync, existsSync } = require('node:fs')
 const { join, resolve } = require('node:path')
 
 exports.default = async function afterPack(context) {
-  const source = resolve(context.packager.projectDir, '../../dist/runtime/0.1.1-rc.2/node_modules')
+  const source = resolve(context.packager.projectDir, '../../dist/runtime/0.1.5-rc.1/node_modules')
   // electron-builder strips the extraResources node_modules during copy; this
   // hook restores it into the packaged app. The resources dir is platform-
   // specific: macOS puts it inside the .app bundle (appOutDir is the parent of
