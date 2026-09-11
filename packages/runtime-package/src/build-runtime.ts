@@ -141,7 +141,7 @@ export async function buildRuntime(
       cwd: copiedSource,
       env: environment,
     })
-    const landlockRoot = join(copiedSource, 'native', 'landlock-run')
+    const landlockRoot = join(copiedSource, 'native', 'system')
     const landlockEntry = join(landlockRoot, 'packages', 'entry')
     await run(pnpm, ['--dir', landlockRoot, 'run', 'build:ts'], {
       cwd: copiedSource,

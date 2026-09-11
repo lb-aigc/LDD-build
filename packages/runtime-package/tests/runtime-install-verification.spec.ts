@@ -63,8 +63,8 @@ describe('installed runtime verification', () => {
   it('accepts registry-backed landlock platform prebuilds as optional dependencies', async () => {
     const root = await fixtureRuntime([
       localLockfile(),
-      "  '@deepseek-ai/node-addon-landlock-run-linux-arm64@0.1.1': {}",
-      "  '@deepseek-ai/node-addon-landlock-run-linux-x64@0.1.1': {}",
+      "  '@deepseek-ai/node-addon-system-linux-arm64@0.1.2': {}",
+      "  '@deepseek-ai/node-addon-system-linux-x64@0.1.2': {}",
       '',
     ].join('\n'))
 

@@ -83,7 +83,7 @@ test('two complete runtime assemblies contain stable relative locks and archived
         installedDshManifest.dependencies?.['@ldd/dsh-canvas'],
         '0.2.0',
       )
-      assert.match(packageManifest, /node-addon-landlock-run/)
+      assert.match(packageManifest, /node-addon-system/)
       assert.deepEqual(observedRuntimeNodeCommands, [
         'esbuild:install.js',
         'koffi:./cnoke.cjs -P . -D src/koffi --prebuild --release',
@@ -165,12 +165,12 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
     if (destination === undefined) throw new Error('fake package pack has no destination')
     await mkdir(destination, { recursive: true })
     const workspaceName = basename(args[1] as string)
-    if ((args[1] as string).endsWith(join('landlock-run', 'packages', 'entry'))) {
+    if ((args[1] as string).endsWith(join('system', 'packages', 'entry'))) {
       await writePackageTarball(
         destination,
-        'deepseek-ai-node-addon-landlock-run-0.1.1.tgz',
-        '@deepseek-ai/node-addon-landlock-run',
-        '0.1.1',
+        'deepseek-ai-node-addon-system-0.1.2.tgz',
+        '@deepseek-ai/node-addon-system',
+        '0.1.2',
       )
     } else if (workspaceName === 'generate') {
       await writePackageTarball(
@@ -238,7 +238,7 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
       "  '@deepseek-ai/cordis@file:packages/deepseek-ai-cordis-4.0.1.tgz': {}",
       "  '@deepseek-ai/dsh@file:packages/deepseek-ai-dsh-0.1.5-rc.1.tgz': {}",
       "  '@deepseek-ai/dsh-subprocess-local@file:packages/deepseek-ai-dsh-subprocess-local-0.1.5-rc.1.tgz': {}",
-      "  '@deepseek-ai/node-addon-landlock-run@file:packages/deepseek-ai-node-addon-landlock-run-0.1.1.tgz': {}",
+      "  '@deepseek-ai/node-addon-system@file:packages/deepseek-ai-node-addon-system-0.1.2.tgz': {}",
       "  '@ldd/dsh-video-frame-analyzer@file:packages/ldd-dsh-video-frame-analyzer-0.2.0.tgz': {}",
       "  '@ldd/dsh-generate@file:packages/ldd-dsh-generate-0.2.0.tgz': {}",
       "  '@ldd/dsh-canvas@file:packages/ldd-dsh-canvas-0.2.0.tgz': {}",
