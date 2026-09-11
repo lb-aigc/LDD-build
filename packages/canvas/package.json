@@ -45,7 +45,7 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/cordis": "4.0.2",
     "@deepseek-ai/dsh-client-ui-conversation": ">=0.1.5-rc.1 <0.2.0",
     "@deepseek-ai/dsh-client-ui-renderer": ">=0.1.5-rc.1 <0.2.0",
     "@deepseek-ai/dsh-client-ui-session": ">=0.1.5-rc.1 <0.2.0",
@@ -55,8 +55,8 @@
     "@deepseek-ai/dsh-tools": ">=0.1.5-rc.1 <0.2.0"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.1",
-    "@deepseek-ai/cordis-plugin-loader": "1.0.2",
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.3",
     "@deepseek-ai/dsh-client-ui-conversation": "0.1.5-rc.1",
     "@deepseek-ai/dsh-client-ui-renderer": "0.1.5-rc.1",
     "@deepseek-ai/dsh-client-ui-session": "0.1.5-rc.1",
