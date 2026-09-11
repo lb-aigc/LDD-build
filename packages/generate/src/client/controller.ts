@@ -178,8 +178,8 @@ export class GenerateSettingsController {
       const configured = new Set<string>()
       const response = await this.credentials.describe(refs)
       if (response.ok) {
-        for (const [ref, view] of Object.entries(response.value)) {
-          if (view.configured) configured.add(ref)
+        for (const key of this.keys) {
+          if (response.value[key.ref]?.configured) configured.add(key.ref)
         }
       }
       // 3. Auto-derive the model list from the configured keys: every relay
