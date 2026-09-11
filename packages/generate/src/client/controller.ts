@@ -5,6 +5,9 @@
  * which keys are configured, so the user never picks models or a default here.
  * Model choice lives in the composer picker (前端人为选择).
  */
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+// Type-only: pulls the ctx.remote merge into this program.
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -19,15 +22,8 @@ import {
 } from './presets.ts'
 import type { ClientPreset, KeyEntry } from './presets.ts'
 
-/** Structural face of the remote credentials namespace (the key literal never
- *  rides a response; only the configured/writable flags come back). */
-interface CredentialsFace {
-  describe(refs: readonly string[]): Promise<{
-    ok: boolean
-    value: Record<string, { configured?: boolean; writable?: boolean }>
-  }>
-  set(ref: string, value: string): Promise<unknown>
-}
+/** The remote credentials namespace face (the key literal never rides a
+ *  response; only the configured/writable flags come back). */
 
 /** One persisted model entry (written to `settings.models`). */
 export interface ModelDraft {
@@ -88,13 +84,18 @@ export class GenerateSettingsController {
 
   constructor(
     private readonly scope: SettingsScope<GenerationCardSettings>,
-    private readonly credentials: CredentialsFace,
+    private readonly ctx: ClientContext,
     private readonly kind: 'image' | 'video' | 'music',
   ) {
     this.keys = this.keyEntries.map((entry) => ({ ...entry, configured: false, value: '' }))
     this.store = createSnapshotStore(this.projection())
     scope.subscribe(() => { this.store.set(this.projection()) })
     void this.refreshConfigured()
+  }
+
+  /** The remote credentials namespace, addressed by reference (value never rides it). */
+  private get credentials(): ClientContext['remote']['credentials'] {
+    return this.ctx.remote.credentials
   }
 
   private get presets(): readonly ClientPreset[] {

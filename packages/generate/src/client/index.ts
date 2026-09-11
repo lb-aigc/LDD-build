@@ -48,23 +48,22 @@ const NS = 'generate'
 export const inject = ['slots', 'locale', 'remote', 'settingsScope', 'commandUi', 'sessions']
 
 export function apply(ctx: ClientContext): void {
-  const credentials = ctx.remote.credentials
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'generate: card dictionaries')
 
   const image = new GenerateSettingsController(
     ctx.settingsScope.bind({ namespace: IMAGE_NS }),
-    credentials,
+    ctx,
     'image',
   )
   const video = new GenerateSettingsController(
     ctx.settingsScope.bind({ namespace: VIDEO_NS }),
-    credentials,
+    ctx,
     'video',
   )
   const music = new GenerateSettingsController(
     ctx.settingsScope.bind({ namespace: MUSIC_NS }),
-    credentials,
+    ctx,
     'music',
   )
 
