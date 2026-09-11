@@ -21,6 +21,10 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the command UI's Context merge (ctx.commandUi) + contribution types.
 import type {} from '@deepseek-ai/dsh-client-ui-commands/client'
 import type { CommandUiContract } from '@deepseek-ai/dsh-client-ui-commands/client'
+// Type-only: pulls the renderer-owned slots service (ctx.slots).
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+// Type-only: pulls the Session standard useProjection/sessionId seat.
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 // Slot + locale type declarations (settings.plugin.item, conversation.input.model, LocaleNamespaceMap).
 import type {} from './slot-contract.ts'
@@ -98,7 +102,7 @@ export function apply(ctx: ClientContext): void {
   if (commandUi !== undefined) {
     ctx.effect(() => commandUi.register({
       name: 'file',
-      description: t('fileImport.commandDescription'),
+      description: () => t('fileImport.commandDescription'),
       available: () => window.ldd !== undefined,
       ui: {
         kind: 'popupSelect',

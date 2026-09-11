@@ -172,7 +172,7 @@ function defineCanvasTools() {
     isConcurrencySafe: () => true,
     async execute(_args, exec) {
       const session = requireSession(exec)
-      const state = foldCanvas(session.events)
+      const state = foldCanvas(session.snapshotEvents())
       return { nodes: state.nodes, edges: state.edges, summary: describeCanvas(state) }
     },
   })
@@ -204,7 +204,7 @@ function defineCanvasTools() {
     isConcurrencySafe: () => true,
     async execute(args, exec) {
       const session = requireSession(exec)
-      const state = foldCanvas(session.events)
+      const state = foldCanvas(session.snapshotEvents())
       const auto = state.nodes.length
       const { state: next } = addNode(state, {
         kind: args.kind,
@@ -238,7 +238,7 @@ function defineCanvasTools() {
     isConcurrencySafe: () => true,
     async execute(args, exec) {
       const session = requireSession(exec)
-      const before = foldCanvas(session.events)
+      const before = foldCanvas(session.snapshotEvents())
       const next = removeNode(before, args.nodeId)
       session.append('canvas/state', { state: next })
       return { removed: next.nodes.length !== before.nodes.length }
@@ -267,7 +267,7 @@ function defineCanvasTools() {
     isConcurrencySafe: () => true,
     async execute(args, exec) {
       const session = requireSession(exec)
-      const before = foldCanvas(session.events)
+      const before = foldCanvas(session.snapshotEvents())
       const patch: Partial<Pick<CanvasNode, 'label' | 'x' | 'y' | 'content' | 'meta'>> = {}
       if (typeof args.label === 'string') patch.label = args.label
       if (typeof args.x === 'number') patch.x = args.x
@@ -299,7 +299,7 @@ function defineCanvasTools() {
     isConcurrencySafe: () => true,
     async execute(args, exec) {
       const session = requireSession(exec)
-      const state = foldCanvas(session.events)
+      const state = foldCanvas(session.snapshotEvents())
       const { state: next, edge } = addEdge(state, {
         source: args.source,
         target: args.target,

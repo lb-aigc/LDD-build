@@ -18,6 +18,10 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 // Type-only: the 'conversation.view' SlotMap row (declared by ui-conversation)
 // must be in the program for the register call to type.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+// Type-only: pulls the renderer-owned slots service (ctx.slots).
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+// Type-only: pulls the Session standard useProjection/sessionId seat.
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type { CanvasState } from '../model.ts'
 import { CanvasView } from './CanvasView.tsx'
 
