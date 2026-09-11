@@ -534,7 +534,9 @@ async function inspectCandidateHealth(
   expectedHome: string,
 ): Promise<CandidateHealthEvidence> {
   const url = new URL(baseUrl)
-  const root = await boundedFetchText(new URL('/', url), { headers: { accept: 'text/html' } })
+  // 0.1.5+ 的根路径 `/` 需要 BrowserAuth launch token（无 token 无 cookie 即
+  // 401），不能再 fetch 根路径当 web 就绪信号；以 /__ldd/health 的成功作为
+  // 替代（该端点由 LDD 插件注册，返回成功即说明 web server 与插件树都就绪）。
   const health = requireRecord(JSON.parse(await boundedFetchText(new URL('/__ldd/health', url), {
     headers: { accept: 'application/json' },
   })) as unknown, 'LDD plugin health')
@@ -556,7 +558,7 @@ async function inspectCandidateHealth(
     health.skill === 'video-analysis'
   return {
     boundHost: url.hostname,
-    webRootOk: root.length > 0,
+    webRootOk: health.product === 'LDD-Harness',
     apiManifestOk: host.version === expectedVersion && host.home === expectedHome,
     textModelDeclared: modelIds.has('deepseek-v4-flash'),
     visionModelDeclared: modelIds.has('deepseek-v4-flash-vision-exp'),

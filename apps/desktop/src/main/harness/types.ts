@@ -26,7 +26,7 @@ export interface HarnessStartOptions {
 export interface HarnessHandle {
   readonly pid: number
   readonly port: number
-  readonly url: string
+  url: string
   readonly runtimeVersion: string
   readonly ready: Promise<void>
   stop(): Promise<void>

@@ -46,8 +46,16 @@ export class HarnessSupervisor {
 
     const lifecycle = observeChildLifecycle(child)
     const credentials = collectCredentialContents(environment, options.credentialContents)
+    // 0.1.5+ 的 dsh web 会在根路径上加 BrowserAuth launch token（`dsh web:
+    // http://127.0.0.1:PORT/?token=…`）；裸根路径 401。从 stdout 的 URL 行里
+    // 捕获带 token 的 URL（必须在脱敏之前），供窗口加载和探活使用。
+    let announcedUrl: string | null = null
+    const captureAnnouncedUrl = (line: string): void => {
+      const match = /^dsh web: (https?:\/\/[^\s]+)/u.exec(line)
+      if (match !== null && match[1] !== undefined) announcedUrl = match[1]
+    }
     const diagnosticDrains = [
-      drainDiagnostics(child.stdout, 'stdout', options.onDiagnostic, credentials),
+      drainDiagnostics(child.stdout, 'stdout', options.onDiagnostic, credentials, captureAnnouncedUrl),
       drainDiagnostics(child.stderr, 'stderr', options.onDiagnostic, credentials),
     ]
     const url = `http://127.0.0.1:${port}`
@@ -72,7 +80,10 @@ export class HarnessSupervisor {
     this.#current = handle
 
     try {
-      await waitForReadiness(url, nonce, child.pid, lifecycle, options.startupTimeoutMs)
+      await waitForReadiness(url, nonce, child.pid, lifecycle, options.startupTimeoutMs, () => announcedUrl)
+      // 就绪后改用 stdout 宣布的带 token URL（0.1.5 BrowserAuth）；旧内核的
+      // URL 行不带 token，announcedUrl 即裸 URL，行为不变。
+      if (announcedUrl !== null) handle.url = announcedUrl
       return handle
     } catch (error) {
       await handle.stop().catch(() => undefined)
@@ -188,6 +199,7 @@ async function waitForReadiness(
   pid: number,
   lifecycle: ChildLifecycle,
   timeoutMs: number,
+  getAnnouncedUrl: () => string | null,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs
   let lastError: unknown
@@ -201,17 +213,14 @@ async function waitForReadiness(
       )
     }
     try {
-      const root = await fetch(url, {
-        cache: 'no-store',
-        redirect: 'error',
-        signal: AbortSignal.timeout(1_000),
-      })
-      if (!root.ok) {
-        throw new Error(`Harness root returned HTTP ${root.status}`)
-      }
-      await root.body?.cancel()
+      // 0.1.5+ 的根路径 `/` 需要 BrowserAuth launch token（无 token 无 cookie
+      // 即 401），所以不能再 `fetch(url)` 根路径当就绪信号；`/__ldd/identity`
+      // 由 LDD 插件注册、不受该认证保护，且返回 nonce+pid，是更强的就绪信号。
       await probeHarnessIdentity(url, nonce, { expectedPid: pid, timeoutMs: 1_000 })
-      return
+      // identity 就绪后，还需等 stdout 的 `dsh web:` URL 行（携带 launch
+      // token，由 Loader 树 settle 后打印、晚于 identity 注册）。等到了才算
+      // 完全就绪；老内核也打印该行（无 token），语义一致。
+      if (getAnnouncedUrl() !== null) return
     } catch (error) {
       lastError = error
     }
@@ -305,6 +314,7 @@ async function drainDiagnostics(
   source: string,
   consume: (line: string) => void,
   credentialContents: readonly string[],
+  onRawLine?: (line: string) => void,
 ): Promise<void> {
   if (stream === null) return
   let pending = ''
@@ -314,6 +324,7 @@ async function drainDiagnostics(
       const lines = pending.split(/\r?\n/)
       pending = lines.pop() ?? ''
       for (const line of lines) {
+        onRawLine?.(line)
         publishDiagnostic(source, line, consume, credentialContents)
       }
       if (pending.length > maxDiagnosticLineLength) {
@@ -327,6 +338,7 @@ async function drainDiagnostics(
       }
     }
     if (pending.length > 0) {
+      onRawLine?.(pending)
       publishDiagnostic(source, pending, consume, credentialContents)
     }
   } catch (error) {

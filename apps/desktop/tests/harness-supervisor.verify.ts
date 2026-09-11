@@ -37,7 +37,7 @@ test('supervisor avoids occupied ports, verifies identity, redacts, and stops', 
       }),
     )
     assert.notEqual(handle.port, address.port)
-    assert.equal(handle.url, `http://127.0.0.1:${handle.port}`)
+    assert.equal(handle.url, `http://127.0.0.1:${handle.port}/?token=test-launch-token`)
     assert.equal(handle.pid > 0, true)
     await handle.stop()
     assert.equal(supervisor.current, null)
