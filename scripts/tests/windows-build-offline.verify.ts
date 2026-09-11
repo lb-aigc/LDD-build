@@ -162,7 +162,7 @@ test('Windows release smoke-tests the installed Harness before artifact upload',
   assert.ok(smoke < upload, 'installed Harness smoke test must precede artifact upload')
   assert.match(
     workflow,
-    /dist\/runtime\/0\.1\.1-rc\.2\/node_modules\/@deepseek-ai\/dsh\/lib\/bin\.js/u,
+    /dist\/runtime\/0\.1\.5-rc\.1\/node_modules\/@deepseek-ai\/dsh\/lib\/bin\.js/u,
   )
   // The smoke test must really load the plugin tree — start `dsh web` with the
   // LDD-managed patch (not just print --help) and gate on the identity endpoint
