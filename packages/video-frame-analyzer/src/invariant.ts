@@ -47,7 +47,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   const staged = new WeakMap<SessionEvent, { readonly session: Session; readonly trace: VideoTrace }>()
   const seed = (session: Session): VideoTrace => {
     const trace: VideoTrace = new Map()
-    for (const event of session.events.filter(isAnalysisInput)) applyEvent(trace, event, fail)
+    for (const event of session.snapshotEvents().filter(isAnalysisInput)) applyEvent(trace, event, fail)
     traces.set(session, trace)
     return trace
   }
