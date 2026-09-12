@@ -171,7 +171,10 @@ export class GenerateSettingsController {
       for (const key of this.keys) {
         const text = key.value.trim()
         if (text === '') continue
-        await this.credentials.set(key.ref, text)
+        const setResult = await this.credentials.set(key.ref, text)
+        if (!setResult.ok) {
+          throw new Error(`credentials.set(${key.ref}) refused: ${setResult.error?.message ?? 'unknown'}`)
+        }
       }
       // 2. Re-read the configured set after the writes.
       const refs = this.keys.map((key) => key.ref)
@@ -198,8 +201,11 @@ export class GenerateSettingsController {
         key.configured = configured.has(key.ref)
         key.value = ''
       }
-    } catch {
+    } catch (error) {
       landed = false
+      // Surface the concrete failure so a device-level bug is diagnosable from
+      // the harness log / DevTools console instead of a bare "save failed".
+      console.error('[generate] save failed:', error)
     }
     this.saving = false
     this.failed = !landed

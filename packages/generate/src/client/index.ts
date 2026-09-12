@@ -45,7 +45,7 @@ export const MUSIC_NS = 'generate-music'
 
 const NS = 'generate'
 
-export const inject = ['slots', 'locale', 'remote', 'settingsScope', 'commandUi', 'sessions']
+export const inject = ['slots', 'locale', 'remote', 'remote.credentials', 'settingsScope', 'commandUi', 'sessions']
 
 export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
