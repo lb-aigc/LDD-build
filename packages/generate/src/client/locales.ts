@@ -7,6 +7,7 @@ export type GenerateLocaleKey =
   | 'fileImport.commandDescription' | 'fileImport.optionLabel' | 'fileImport.optionDetail' | 'fileImport.remove'
   | 'modelPicker.trigger' | 'modelPicker.imageGroup' | 'modelPicker.videoGroup' | 'modelPicker.musicGroup'
   | 'toolview.generating' | 'toolview.loading' | 'toolview.retry' | 'toolview.download'
+  | 'toolview.open' | 'toolview.close' | 'toolview.image'
 
 export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
@@ -34,6 +35,9 @@ export const zh: Record<GenerateLocaleKey, string> = {
   'toolview.loading': '加载中…',
   'toolview.retry': '重试',
   'toolview.download': '下载',
+  'toolview.open': '预览',
+  'toolview.close': '关闭',
+  'toolview.image': '图片',
 }
 
 export const en: Record<GenerateLocaleKey, string> = {
@@ -62,4 +66,7 @@ export const en: Record<GenerateLocaleKey, string> = {
   'toolview.loading': 'Loading…',
   'toolview.retry': 'Retry',
   'toolview.download': 'Download',
+  'toolview.open': 'Preview',
+  'toolview.close': 'Close',
+  'toolview.image': 'Image',
 }
