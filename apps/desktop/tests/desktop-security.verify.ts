@@ -24,6 +24,7 @@ test('renderer API is narrow and rejects command/path injection', () => {
     'openLogDirectory',
     'saveImage',
     'saveAudio',
+    'saveVideo',
     'importFile',
     'previewDocument',
     'previewUrl',

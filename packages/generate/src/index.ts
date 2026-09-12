@@ -288,7 +288,29 @@ function defineVideoTool(
     },
     output: {
       schema: videoResultSchema,
-      render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
+      render: (_args, value) => {
+        // Emit each video as a `video` block (the frontend renders an inline
+        // player) plus a text line carrying the URL (the model reads the URL to
+        // describe the result). The harness frontend has no video renderer for
+        // tool results by default — the video block is rendered by the LDD
+        // generate plugin's own toolview (registered under `tool.call.toolview`
+        // key `generate_video`). Without that toolview the video block degrades
+        // to JSON text, so the URL line keeps the result useful to the model.
+        const blocks: Array<{ type: 'text'; text: string } | { type: 'video'; url: string; title: string; durationSeconds: number }> = []
+        for (const video of value.videos) {
+          blocks.push({
+            type: 'video',
+            url: video.url,
+            title: `视频 ${video.index}`,
+            durationSeconds: video.durationSeconds,
+          })
+          blocks.push({
+            type: 'text',
+            text: `视频 ${video.index}（${video.durationSeconds}s ${video.resolution} ${video.aspectRatio}）：${video.url}`,
+          })
+        }
+        return blocks as any
+      },
     },
     isConcurrencySafe: () => false,
     async execute(args, exec) {

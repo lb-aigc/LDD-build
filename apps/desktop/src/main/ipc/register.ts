@@ -27,6 +27,7 @@ export interface DesktopIpcServices {
   openLogDirectory(): Promise<void>
   saveImage(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
   saveAudio(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
+  saveVideo(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
   importFile(data: ArrayBuffer, fileName: string, workspacePath: string): Promise<ImportFileResult>
   previewDocument(path: string): Promise<PreviewResult>
   previewUrl(url: string): Promise<PreviewResult>
@@ -63,6 +64,12 @@ export function registerDesktopIpc(
   )
   register(ipcMain, 'saveAudio', async (input) =>
     services.saveAudio(
+      (input.value as { data: ArrayBuffer; defaultName: string }).data,
+      (input.value as { data: ArrayBuffer; defaultName: string }).defaultName,
+    ),
+  )
+  register(ipcMain, 'saveVideo', async (input) =>
+    services.saveVideo(
       (input.value as { data: ArrayBuffer; defaultName: string }).data,
       (input.value as { data: ArrayBuffer; defaultName: string }).defaultName,
     ),
@@ -110,6 +117,7 @@ function register(
     | 'openLogDirectory'
     | 'saveImage'
     | 'saveAudio'
+    | 'saveVideo'
     | 'importFile'
     | 'previewDocument'
     | 'previewUrl'

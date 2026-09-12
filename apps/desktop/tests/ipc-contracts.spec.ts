@@ -21,6 +21,7 @@ describe('renderer IPC contract', () => {
       'openLogDirectory',
       'saveImage',
       'saveAudio',
+      'saveVideo',
       'importFile',
       'previewDocument',
       'previewUrl',

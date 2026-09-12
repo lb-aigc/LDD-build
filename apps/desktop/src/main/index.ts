@@ -168,6 +168,17 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     return { saved: true, path: result.filePath }
   }
 
+  const saveVideo = async (data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }> => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '保存视频',
+      defaultPath: defaultName,
+      filters: [{ name: '视频', extensions: ['mp4', 'webm', 'mov', 'mkv', 'avi'] }],
+    })
+    if (result.canceled || result.filePath === undefined) return { saved: false }
+    await writeFile(result.filePath, Buffer.from(data))
+    return { saved: true, path: result.filePath }
+  }
+
   const importFile = (data: ArrayBuffer, fileName: string, workspacePath: string) =>
     importWorkspaceFile(data, fileName, workspacePath)
 
@@ -240,6 +251,7 @@ export async function createDesktopShell(options: DesktopShellOptions): Promise<
     openLogDirectory: openLogs,
     saveImage,
     saveAudio,
+    saveVideo,
     importFile,
     previewDocument: (path) => previewPanel.showDocument(path),
     previewUrl: (url) => previewPanel.showUrl(url),

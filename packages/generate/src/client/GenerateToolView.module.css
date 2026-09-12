@@ -1,0 +1,64 @@
+.toolview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.mediaBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.image {
+  max-width: 320px;
+  max-height: 320px;
+  border-radius: 8px;
+  border: 1px solid var(--dsh-border, #e4e7ec);
+  object-fit: contain;
+}
+
+.audio,
+.video {
+  width: 100%;
+  max-width: 480px;
+}
+
+.video {
+  border-radius: 8px;
+  background: #000;
+}
+
+.download {
+  padding: 4px 12px;
+  font-size: 12px;
+  border: 1px solid var(--dsh-border, #d0d5dd);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsh-fg, #101828);
+  cursor: pointer;
+}
+
+.download:hover {
+  background: var(--dsh-bg-card, #f4f6f8);
+}
+
+.text {
+  font-size: 13px;
+  color: var(--dsh-fg-muted, #667085);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.running,
+.loading,
+.error {
+  font-size: 13px;
+  color: var(--dsh-fg-muted, #667085);
+}
+
+.error {
+  color: #b42318;
+}

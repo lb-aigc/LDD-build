@@ -6,6 +6,7 @@ export type GenerateLocaleKey =
   | 'unsaved' | 'save' | 'saving' | 'discard' | 'readOnly' | 'saveFailed'
   | 'fileImport.commandDescription' | 'fileImport.optionLabel' | 'fileImport.optionDetail' | 'fileImport.remove'
   | 'modelPicker.trigger' | 'modelPicker.imageGroup' | 'modelPicker.videoGroup' | 'modelPicker.musicGroup'
+  | 'toolview.generating' | 'toolview.loading' | 'toolview.retry' | 'toolview.download'
 
 export const zh: Record<GenerateLocaleKey, string> = {
   imageTitle: '生图模型',
@@ -29,6 +30,10 @@ export const zh: Record<GenerateLocaleKey, string> = {
   'modelPicker.imageGroup': '图片模型',
   'modelPicker.videoGroup': '视频模型',
   'modelPicker.musicGroup': '音乐模型',
+  'toolview.generating': '生成中…',
+  'toolview.loading': '加载中…',
+  'toolview.retry': '重试',
+  'toolview.download': '下载',
 }
 
 export const en: Record<GenerateLocaleKey, string> = {
@@ -53,4 +58,8 @@ export const en: Record<GenerateLocaleKey, string> = {
   'modelPicker.imageGroup': 'Image models',
   'modelPicker.videoGroup': 'Video models',
   'modelPicker.musicGroup': 'Music models',
+  'toolview.generating': 'Generating…',
+  'toolview.loading': 'Loading…',
+  'toolview.retry': 'Retry',
+  'toolview.download': 'Download',
 }

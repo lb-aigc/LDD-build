@@ -15,6 +15,7 @@ export const rendererApiKeys = [
   'openLogDirectory',
   'saveImage',
   'saveAudio',
+  'saveVideo',
   'importFile',
   'previewDocument',
   'previewUrl',
@@ -40,6 +41,7 @@ export const ipcChannels: Readonly<Record<RendererApiKey, string>> = Object.free
   openLogDirectory: 'ldd:logs:open',
   saveImage: 'ldd:image:save',
   saveAudio: 'ldd:audio:save',
+  saveVideo: 'ldd:video:save',
   importFile: 'ldd:file:import',
   previewDocument: 'ldd:preview:document',
   previewUrl: 'ldd:preview:url',
@@ -99,6 +101,7 @@ export interface LddRendererApi {
   openLogDirectory(): Promise<void>
   saveImage(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
   saveAudio(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
+  saveVideo(data: ArrayBuffer, defaultName: string): Promise<{ saved: boolean; path?: string }>
   importFile(data: ArrayBuffer, fileName: string, workspacePath: string): Promise<ImportFileResult>
   previewDocument(path: string): Promise<PreviewResult>
   previewUrl(url: string): Promise<PreviewResult>
@@ -121,6 +124,7 @@ export type IpcRequest =
   | { readonly method: 'openLogDirectory'; readonly value: undefined }
   | { readonly method: 'saveImage'; readonly value: { readonly data: ArrayBuffer; readonly defaultName: string } }
   | { readonly method: 'saveAudio'; readonly value: { readonly data: ArrayBuffer; readonly defaultName: string } }
+  | { readonly method: 'saveVideo'; readonly value: { readonly data: ArrayBuffer; readonly defaultName: string } }
   | { readonly method: 'importFile'; readonly value: { readonly data: ArrayBuffer; readonly fileName: string; readonly workspacePath: string } }
   | { readonly method: 'previewDocument'; readonly value: { readonly path: string } }
   | { readonly method: 'previewUrl'; readonly value: { readonly url: string } }
@@ -149,6 +153,8 @@ export function parseIpcRequest(method: InvokeApiKey, value: unknown): IpcReques
       return { method, value: parseSaveBinaryInput(value, 'save-image') }
     case 'saveAudio':
       return { method, value: parseSaveBinaryInput(value, 'save-audio') }
+    case 'saveVideo':
+      return { method, value: parseSaveBinaryInput(value, 'save-video') }
     case 'importFile':
       return { method, value: parseImportFileInput(value) }
     case 'previewDocument':

@@ -29,6 +29,7 @@ function apiFixture(): LddRendererApi {
     openLogDirectory: vi.fn(),
     saveImage: vi.fn().mockResolvedValue({ saved: false }),
     saveAudio: vi.fn().mockResolvedValue({ saved: false }),
+    saveVideo: vi.fn().mockResolvedValue({ saved: false }),
     importFile: vi.fn().mockResolvedValue({ imported: false, relativePath: '', kind: 'other' }),
     previewDocument: vi.fn().mockResolvedValue({ shown: false }),
     previewUrl: vi.fn().mockResolvedValue({ shown: false }),

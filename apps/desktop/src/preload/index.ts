@@ -26,6 +26,8 @@ const api: LddRendererApi = {
     ipcRenderer.invoke(ipcChannels.saveImage, { data, defaultName }),
   saveAudio: async (data, defaultName) =>
     ipcRenderer.invoke(ipcChannels.saveAudio, { data, defaultName }),
+  saveVideo: async (data, defaultName) =>
+    ipcRenderer.invoke(ipcChannels.saveVideo, { data, defaultName }),
   importFile: async (data, fileName, workspacePath) =>
     ipcRenderer.invoke(ipcChannels.importFile, { data, fileName, workspacePath }),
   previewDocument: async (path) => ipcRenderer.invoke(ipcChannels.previewDocument, { path }),
