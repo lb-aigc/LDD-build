@@ -33,6 +33,11 @@ export interface ModelPickerGroup {
 export interface ModelPickerState {
   readonly available: boolean
   readonly groups: ModelPickerGroup[]
+  /** Per-session temporary override, keyed by SessionId. Lives on the
+   *  controller (the plugin apply lifetime), NOT in component state — a
+   *  component remount (composer re-render between turns) must not drop the
+   *  user's pick, or the picker's check mark snaps back to the default. */
+  readonly overrides: ReadonlyMap<string, Partial<Record<GenerationKind, string>>>
 }
 
 /** The face the slot entry injects (hook + the select action). */
@@ -58,6 +63,10 @@ export class ModelPickerController {
   private readonly store: SnapshotStore<ModelPickerState>
   private readonly scopes: Record<GenerationKind, SettingsScope<GenerationCardSettings>>
   private readonly sessions: CommandableSessions | undefined
+  /** Per-session override source of truth for the picker UI. Persists across
+   *  component remounts; the host keeps its own copy (via the `/generate-model`
+   *  command), this one only feeds the check-mark display. */
+  private readonly overrides = new Map<string, Partial<Record<GenerationKind, string>>>()
 
   constructor(
     scopes: {
@@ -84,7 +93,10 @@ export class ModelPickerController {
       const resolved = resolvePickerModels(snapshot.value, KIND_PRESETS[kind])
       groups.push({ kind, models: resolved.models, defaultKey: resolved.defaultKey })
     }
-    return { available, groups }
+    // Shallow-copy the override map: the store's `set` deep-freezes the state
+    // in dev, and freezing the controller's live `this.overrides` Map would
+    // make the next `set()` on it a no-op or throw.
+    return { available, groups, overrides: new Map(this.overrides) }
   }
 
   /** Build the face for one session. `select` is bound to THAT session (the
@@ -98,6 +110,9 @@ export class ModelPickerController {
       hooks: { modelPicker: this.store },
       select: (kind, key) => {
         if (sessionId === undefined || this.sessions === undefined) return
+        const current = this.overrides.get(sessionId) ?? {}
+        this.overrides.set(sessionId, { ...current, [kind]: key })
+        this.store.set(this.projection())
         void this.sessions.binding(sessionId)?.session.command(`/generate-model ${kind} ${key}`)
       },
     }

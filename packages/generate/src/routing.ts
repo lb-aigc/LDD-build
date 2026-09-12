@@ -230,6 +230,34 @@ export function resolveProvider(
 }
 
 /**
+ * Whether a routed image model supports image-to-image. Provider-level for a
+ * plain preset (`preset.imageToImage`); per-capability for an aggregator
+ * (KIE) — a capability with a distinct `i2iModel` supports i2i, one marked
+ * `i2i: true` does same-model i2i, and one with neither is text-to-image only
+ * (Z-image, Seedream 4.0). Midjourney relays (`midjourney`/`legnext`) and any
+ * custom entry whose protocol is `midjourney`/`legnext` are excluded (their
+ * i2i consistency is too poor to expose).
+ * @param entry - one resolved routable model.
+ * @param presets - the image provider preset table.
+ */
+export function supportsImageToImage(
+  entry: RoutedModel,
+  presets: readonly ProviderPreset[],
+): boolean {
+  if (entry.provider === CUSTOM_PROVIDER_ID) {
+    return entry.protocol !== 'midjourney' && entry.protocol !== 'legnext'
+  }
+  const preset = findPreset(presets, entry.provider)
+  if (preset === undefined || !preset.imageToImage) return false
+  if (preset.aggregator === true) {
+    const capability = preset.models?.find((model) => model.id === entry.model)
+    if (capability === undefined) return false
+    return capability.i2iModel !== undefined || capability.i2i === true
+  }
+  return true
+}
+
+/**
  * Human routing catalog injected into the tool description so the agent can
  * auto-route without the user switching models. One line per configured model:
  * its key, its human label, and its strengths (the preset's `strengths`).
@@ -249,9 +277,7 @@ export function modelCatalog(resolved: ResolvedModels, presets: readonly Provide
     const label = modelLabel === '' ? baseLabel : `${baseLabel} · ${modelLabel}`
     const strengths = preset?.strengths ?? ''
     const isDefault = entry.key === resolved.defaultKey
-    const i2i = preset === undefined
-      ? ''
-      : (preset.imageToImage ? ' · 支持图生图' : ' · 仅文生图')
+    const i2i = supportsImageToImage(entry, presets) ? ' · 支持图生图' : ' · 仅文生图'
     return `- ${entry.key}${isDefault ? ' (default)' : ''}: ${label}${strengths !== '' ? ` — ${strengths}` : ''}${i2i}`
   }).join('\n')
 }

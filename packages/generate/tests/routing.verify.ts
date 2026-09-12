@@ -9,6 +9,7 @@ import {
   resolveModels,
   resolveProvider,
   routeKeyOf,
+  supportsImageToImage,
 } from '../src/routing.ts'
 
 const P = IMAGE_PROVIDER_PRESETS
@@ -196,4 +197,30 @@ test('resolveProvider isolates overrides per SessionId (switching one session ne
   assert.equal(resolveProvider(resolved, undefined, 'session-b', overrides).key, 'kie:z-image')
   // A session with no override falls back to the global default.
   assert.equal(resolveProvider(resolved, undefined, 'session-c', overrides).key, 'kie:gpt-image-2-text-to-image')
+})
+
+test('supportsImageToImage: distinct-i2i counterpart and same-model i2i both count', () => {
+  const resolved = resolveModels({ models: [{ provider: 'kie' }] }, P)
+  const byKey = (key: string) => resolved.entries.find((e) => e.key === key)!
+  // Distinct counterpart (GPT Image 2 t2i → i2i).
+  assert.equal(supportsImageToImage(byKey('kie:gpt-image-2-text-to-image'), P), true)
+  // Same-model inline field (Nano Banana Pro reuses its own id).
+  assert.equal(supportsImageToImage(byKey('kie:nano-banana-pro'), P), true)
+})
+
+test('supportsImageToImage: text-to-image-only capabilities and MJ relays are excluded', () => {
+  const resolved = resolveModels({ models: [{ provider: 'kie' }, { provider: 'legnext' }] }, P)
+  const byKey = (key: string) => resolved.entries.find((e) => e.key === key)!
+  // KIE capabilities with no i2i at all (Z-image, Seedream 4.0).
+  assert.equal(supportsImageToImage(byKey('kie:z-image'), P), false)
+  assert.equal(supportsImageToImage(byKey('kie:bytedance/seedream'), P), false)
+  // Legnext (MJ relay) — i2i consistency too poor to expose.
+  assert.equal(supportsImageToImage(byKey('legnext:8.2'), P), false)
+})
+
+test('supportsImageToImage: a plain non-aggregator preset follows its imageToImage flag', () => {
+  const resolved = resolveModels({ models: [{ provider: 'gpt-image' }, { provider: 'seedream' }] }, P)
+  const byKey = (key: string) => resolved.entries.find((e) => e.key === key)!
+  assert.equal(supportsImageToImage(byKey('gpt-image:gpt-image-2'), P), true)
+  assert.equal(supportsImageToImage(byKey('seedream'), P), true)
 })

@@ -11,15 +11,16 @@ import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
 import { aspectRatioToImageSize } from './provider.ts'
 import { collectUploadedImages } from './uploaded-images.ts'
 import type { UploadedAgentLike } from './uploaded-images.ts'
-import { CUSTOM_PROVIDER_ID, IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS, MUSIC_PROVIDER_PRESETS, findPreset } from './presets.ts'
+import { IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS, MUSIC_PROVIDER_PRESETS } from './presets.ts'
 import {
   buildProvider,
   modelCatalog,
   pickProvider,
   resolveModels,
   resolveProvider,
+  supportsImageToImage,
 } from './routing.ts'
-import type { ResolvedModels, RoutedModel } from './routing.ts'
+import type { ResolvedModels } from './routing.ts'
 import {
   IMAGE_SETTINGS_NS,
   VIDEO_SETTINGS_NS,
@@ -138,17 +139,6 @@ const musicResultSchema = {
   },
 } as const
 
-/** Whether a routed model supports image-to-image generation. Presets declare
- *  it explicitly; custom entries derive it from their protocol (MJ relays are
- *  excluded — their i2i consistency is too poor to expose). */
-function supportsImageToImage(entry: RoutedModel): boolean {
-  if (entry.provider === CUSTOM_PROVIDER_ID) {
-    return entry.protocol !== 'midjourney' && entry.protocol !== 'legnext'
-  }
-  return findPreset(IMAGE_PROVIDER_PRESETS, entry.provider)?.imageToImage ?? false
-}
-
-
 /** Resolve the `inputImages` tool argument, expanding the `@uploaded` sentinel
  *  into the user's most recently uploaded images (data URIs read back from the
  *  attachment store). */
@@ -228,8 +218,14 @@ function defineImageTool(
         exec as unknown as { agent?: UploadedAgentLike; signal: AbortSignal },
         attachments.current,
       )
-      if (references.length > 0 && !supportsImageToImage(entry)) {
-        throw new Error(`provider "${entry.key}" 不支持图生图（Midjourney 图生图一致性差，已禁用）`)
+      if (references.length > 0 && !supportsImageToImage(entry, IMAGE_PROVIDER_PRESETS)) {
+        const i2iModels = resolved.entries
+          .filter((candidate) => supportsImageToImage(candidate, IMAGE_PROVIDER_PRESETS))
+          .map((candidate) => candidate.key)
+        const hint = i2iModels.length > 0
+          ? `请先向用户说明「${entry.key}」不支持图生图，并询问是否切换到以下任一支持图生图的模型：${i2iModels.join('、')}。获得用户同意后，先调用 set_generation_model 切换模型，再重新调用 generate_image。`
+          : '当前没有配置任何支持图生图的模型，请提示用户在设置中配置一个支持图生图的模型。'
+        throw new Error(`provider "${entry.key}" 不支持图生图。${hint}`)
       }
       const provider = await buildProvider(entry, IMAGE_PROVIDER_PRESETS, secret.resolve)
       const count = args.count === undefined ? 1 : Math.max(1, Math.min(maxImagesPerRequest, args.count))

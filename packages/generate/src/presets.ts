@@ -38,6 +38,11 @@ export interface PresetModel {
   /** Distinct image-to-image capability id; omitted when the model reuses its
    *  own id for i2i, or has no i2i at all. */
   readonly i2iModel?: string
+  /** Explicit image-to-image capability. `true` = same-model i2i (the
+   *  capability reuses its own id with an inline reference field, e.g. the
+   *  Nano Banana series). Absent AND no `i2iModel` = text-to-image only (e.g.
+   *  Z-image, Seedream 4.0). */
+  readonly i2i?: boolean
 }
 
 /** A named, user-selectable provider preset shown in the settings card. */
@@ -65,6 +70,14 @@ export interface ProviderPreset {
    * first/default capability; `imageToImage` describes the protocol family.
    */
   readonly models?: readonly PresetModel[]
+  /**
+   * True when `models` are DISTINCT capabilities reached by ONE key (KIE), so
+   * image-to-image support is per-capability (each capability carries its own
+   * `i2iModel`/`i2i`). Absent = `models` (if any) are VERSION selectors
+   * (GPT Image 2 vs 1.5, MJ V8.2 vs V7) that share the protocol family's
+   * `imageToImage` capability — do NOT expand i2i per-capability for those.
+   */
+  readonly aggregator?: boolean
 }
 
 export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
@@ -128,6 +141,7 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     defaultModel: 'gpt-image-2-text-to-image',
     strengths: '聚合中转：一个 key 调 Seedream/Nano Banana/GPT Image/Flux/Grok 等几十个图像模型',
     imageToImage: true,
+    aggregator: true,
     // One configured KIE entry expands into all these capabilities: a single
     // key reaches every model, the composer picker lists them all, and the
     // agent routes to a specific one by name.
@@ -135,15 +149,15 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
       { id: 'gpt-image-2-text-to-image', label: 'GPT Image 2', i2iModel: 'gpt-image-2-image-to-image' },
       { id: 'gpt-image-2-5-flare-text-to-image', label: 'GPT Image 2.5 Flare', i2iModel: 'gpt-image-2-5-flare-image-to-image' },
       { id: 'gpt-image-2-5-sunburst-text-to-image', label: 'GPT Image 2.5 Sunburst', i2iModel: 'gpt-image-2-5-sunburst-image-to-image' },
-      { id: 'nano-banana-pro', label: 'Nano Banana Pro' },
-      { id: 'nano-banana-2', label: 'Nano Banana 2' },
-      { id: 'nano-banana-2-lite', label: 'Nano Banana 2 Lite' },
-      { id: 'bytedance/seedream', label: 'Seedream 4.0' },
+      { id: 'nano-banana-pro', label: 'Nano Banana Pro', i2i: true },
+      { id: 'nano-banana-2', label: 'Nano Banana 2', i2i: true },
+      { id: 'nano-banana-2-lite', label: 'Nano Banana 2 Lite', i2i: true },
+      { id: 'bytedance/seedream', label: 'Seedream 4.0', i2i: false },
       { id: 'seedream/5-pro-text-to-image', label: 'Seedream 5.0 Pro', i2iModel: 'seedream/5-pro-image-to-image' },
       { id: 'seedream/5-lite-text-to-image', label: 'Seedream 5.0 Lite', i2iModel: 'seedream/5-lite-image-to-image' },
       { id: 'flux-2/pro-text-to-image', label: 'Flux-2 Pro', i2iModel: 'flux-2/pro-image-to-image' },
       { id: 'flux-2/flex-text-to-image', label: 'Flux-2', i2iModel: 'flux-2/flex-image-to-image' },
-      { id: 'z-image', label: 'Z-image' },
+      { id: 'z-image', label: 'Z-image', i2i: false },
       { id: 'grok-imagine/text-to-image', label: 'Grok Imagine', i2iModel: 'grok-imagine/image-to-image' },
     ],
   },

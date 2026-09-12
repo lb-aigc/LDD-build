@@ -65,14 +65,10 @@ const itemId = (kind: GenerationKind, key: string): string => `${kind}${SEP}${ke
 export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode | null {
   const state = props.useModelPicker((snapshot) => snapshot)
   const [open, setOpen] = useState(false)
-  // Per-session temporary override, keyed by SessionId so a pick survives
-  // switching to another session and back. A single flat `currentKeys` reset on
-  // every session switch was the bug that made the previous session's pick look
-  // "changed" — the button fell back to the global default on return.
-  const [overrides, setOverrides] = useState<ReadonlyMap<string, Partial<Record<GenerationKind, string>>>>(
-    () => new Map(),
-  )
-  const currentKeys = overrides.get(props.sessionId) ?? {}
+  // Per-session temporary override lives on the controller (survives a
+  // component remount); the check mark reads it here instead of component
+  // state, so a pick never snaps back to the default between turns.
+  const currentKeys = state.overrides.get(props.sessionId) ?? {}
 
   if (!state.available || state.groups.every((group) => group.models.length === 0)) return null
 
@@ -98,11 +94,6 @@ export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode 
     if (sep < 0) return
     const kind = id.slice(0, sep) as GenerationKind
     const key = id.slice(sep + SEP.length)
-    setOverrides((prev) => {
-      const next = new Map(prev)
-      next.set(props.sessionId, { ...(next.get(props.sessionId) ?? {}), [kind]: key })
-      return next
-    })
     props.select(kind, key)
   }
 
