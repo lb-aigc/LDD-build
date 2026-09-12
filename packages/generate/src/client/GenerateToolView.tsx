@@ -9,19 +9,23 @@
  * degrades to a no-op). Image blocks resolve through the session-authorized
  * `loadImage` loader (durable attachment → blob URL); audio/video blocks carry
  * a direct temporary URL and stream straight into `<audio>`/`<video>`.
+ *
+ * Self-contained: the generate package typechecks standalone, so every type is
+ * a LOCAL structural copy (see slot-contract.ts) — no `@deepseek-ai/
+ * dsh-client-ui-tool` or `@deepseek-ai/dsh-attachment` dependency edge.
  */
 import { useEffect, useState } from 'react'
-import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
-import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { ImageMeta } from '../attach.ts'
+import type { ToolCallViewOwnerProps } from './slot-contract.ts'
 import css from './GenerateToolView.module.css'
 
-type Props = ToolCallViewProps & PropsLocale<'generate'>
+type Props = PropsRuntime<'tool.call.toolview'> & PropsLocale<'generate'>
 
 /** Media block shapes the generate tools emit (merge-extensible at runtime). */
 type MediaBlock =
   | { type: 'text'; text: string }
-  | { type: 'image'; attachment: ImageAttachmentRef }
+  | { type: 'image'; attachment: ImageMeta }
   | { type: 'audio'; url: string; title: string; durationSeconds: number }
   | { type: 'video'; url: string; title: string; durationSeconds: number }
 
@@ -62,8 +66,8 @@ async function downloadBytes(url: string, defaultName: string, kind: 'saveImage'
 
 /** Inline image: load the durable attachment, then render a thumbnail + download. */
 function GeneratedImage({ attachment, loadImage, t }: {
-  attachment: ImageAttachmentRef
-  loadImage: Props['loadImage']
+  attachment: ImageMeta
+  loadImage: ToolCallViewOwnerProps['loadImage']
   t: Props['t']
 }) {
   const [url, setUrl] = useState<string | null>(() => loadImage.peek?.(attachment) ?? null)
@@ -73,7 +77,7 @@ function GeneratedImage({ attachment, loadImage, t }: {
     let live = true
     setError(false)
     setUrl(loadImage.peek?.(attachment) ?? null)
-    void loadImage(attachment).then((u) => { if (live) setUrl(u) }).catch(() => { if (live) setError(true) })
+    void loadImage(attachment).then((loaded) => { if (live) setUrl(loaded) }).catch(() => { if (live) setError(true) })
     return () => { live = false }
   }, [attachment, loadImage, attempt])
   if (error) {
@@ -121,7 +125,7 @@ export function GenerateToolView({ block, loadImage, t }: Props) {
   if (!settled) return <div className={css.running}>{t('toolview.generating')}</div>
   const blocks = block.content as unknown as MediaBlock[]
   const text = blocks.filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-  const images = blocks.filter((b): b is { type: 'image'; attachment: ImageAttachmentRef } => b.type === 'image')
+  const images = blocks.filter((b): b is { type: 'image'; attachment: ImageMeta } => b.type === 'image')
   const audios = blocks.filter((b): b is { type: 'audio'; url: string; title: string; durationSeconds: number } => b.type === 'audio')
   const videos = blocks.filter((b): b is { type: 'video'; url: string; title: string; durationSeconds: number } => b.type === 'video')
   return (

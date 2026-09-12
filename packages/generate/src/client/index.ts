@@ -23,8 +23,6 @@ import type {} from '@deepseek-ai/dsh-client-ui-commands/client'
 import type { CommandUiContract } from '@deepseek-ai/dsh-client-ui-commands/client'
 // Type-only: pulls the renderer-owned slots service (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-// Type-only: pulls the tool-view slot declaration (tool.call.toolview).
-import type {} from '@deepseek-ai/dsh-client-ui-tool/client'
 // Type-only: pulls the Session standard useProjection/sessionId seat.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
