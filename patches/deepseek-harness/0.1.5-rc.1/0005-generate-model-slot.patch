@@ -17,7 +17,6 @@
      | 'conversation.composer.dock'
    >
    & InjectFace<ComposerBarInjected>
-
 --- a/packages/client/ui-conversation/src/client/apply.ts
 +++ b/packages/client/ui-conversation/src/client/apply.ts
 @@ -303,6 +303,7 @@
@@ -28,7 +27,6 @@
        'conversation.composer.dock': { kind: 'list', scope: 'session' },
      },
      inject: (sessionId: SessionId | undefined): ComposerBarInjected => {
-
 --- a/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
 +++ b/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
 @@ -516,6 +516,7 @@
