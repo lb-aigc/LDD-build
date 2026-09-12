@@ -9,3 +9,82 @@
  } as const
  
  /** Public variable carrying the source commit embedded in client artifacts. */
+
+--- a/packages/client/ui-conversation/src/client/skeleton/EmptyHero.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/EmptyHero.tsx
+@@ -86,7 +86,7 @@
+  * @returns the LDD wordmark svg element.
+  */
+ function HeroFish() {
+-  const height = 22
++  const height = 48
+   const width = (height * LDD_WORDMARK_VIEWBOX_WIDTH) / LDD_WORDMARK_VIEWBOX_HEIGHT
+   return (
+     <svg
+@@ -107,7 +107,7 @@
+  * @param props - see {@link HeroShellProps}.
+  * @returns the centered hero element tree.
+  */
+-export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
++export function HeroShell({ renderSlot, children }: HeroShellProps) {
+   return (
+     <div className={css.root}>
+       <div className={css.stack}>
+@@ -116,11 +116,6 @@
+             {renderSlot('conversation.hero.brand.mark', { size: 34, className: css.fish }, {
+               fallback: <HeroFish />,
+             })}
+-          </span>
+-          <span className={css.titleGroup}>
+-            {/* Own element: keeps the headline text addressable apart from the badge. */}
+-            <span>{t('hero.headline')}</span>
+-            <span className={css.previewBadge}>{t('hero.preview')}</span>
+           </span>
+         </div>
+         <div className={css.body}>
+
+--- a/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
++++ b/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
+@@ -38,15 +38,6 @@
+  */
+ const SCROLLBAR_LINGER_MS = 2000
+ 
+-/** Format complete-build metadata for the local brand badge. */
+-function localBuildVersion(): string | undefined {
+-  const version = process.env.DSH_CLIENT_VERSION
+-  if (version === undefined) return undefined
+-  const commit = process.env.DSH_CLIENT_COMMIT_HASH
+-  return version
+-    + (commit === undefined ? '' : `-${commit}`)
+-    + (process.env.DSH_CLIENT_GIT_DIRTY === 'true' ? '-dirty' : '')
+-}
+ 
+ type PanelRowProps =
+   Pick<SidebarPanelMetadata, 'id' | 'label'>
+@@ -161,7 +152,6 @@
+     }
+   }, [pointerInside])
+ 
+-  const buildVersion = localBuildVersion()
+ 
+   return (
+     <div
+@@ -191,18 +181,6 @@
+               <span className={css.brandMark}>
+                 {renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
+               </span>
+-              <span className={css.brandName}>
+-                {renderSlot('sidebar.brand.name', {}, {
+-                  fallback: buildVersion === undefined
+-                    ? <span className={css.fallbackBrandName}>{t('brand.localBuild')}</span>
+-                    : (
+-                      <span className={css.localBuildBrand}>
+-                        <span className={css.localBuildTitle}>{t('brand.localBuild')}</span>
+-                        <span className={css.buildVersion}>{buildVersion}</span>
+-                      </span>
+-                    ),
+-                })}
+-              </span>
+             </span>
+           </button>
+         )}

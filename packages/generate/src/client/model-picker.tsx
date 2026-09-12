@@ -1,6 +1,6 @@
 /**
  * Composer generation-model picker: a chip in the composer tool row (the
- * `conversation.input.model` seat) that opens a harness-native `Menu`
+ * `conversation.input.generate-model` seat) that opens a harness-native `Menu`
  * grouped into 图片模型 / 视频模型 / 音乐模型. Picking one runs a per-session
  * temporary switch for THAT modality (no "set default" — the model choice IS
  * the pick). Styled to match the sibling PermissionSelect / ModelSelect
@@ -17,7 +17,7 @@ import type { GenerateLocaleKey } from './locales.ts'
 import css from './model-picker.module.css'
 
 export type GenerateModelPickerProps =
-  PropsRuntime<'conversation.input.model'>
+  PropsRuntime<'conversation.input.generate-model'>
   & PropsLocale<'generate'>
   & InjectFace<ModelPickerFace>
 

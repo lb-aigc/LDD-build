@@ -18,6 +18,10 @@ const officialLocales = join(repositoryRoot, 'upstream', 'deepseek-harness', 'pa
 const officialEmptyHero = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'EmptyHero.tsx')
 const officialHeroShell = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'HeroShell.module.css')
 const officialClientBuildEnvironment = join(repositoryRoot, 'upstream', 'deepseek-harness', 'scripts', 'client-build-environment.ts')
+const officialSidebarRoot = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-sidebar', 'src', 'client', 'SidebarRoot.tsx')
+const officialSlots = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'contract', 'slots.ts')
+const officialApply = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'apply.ts')
+const officialInputBar = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'InputBar.tsx')
 const officialImageLightbox = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx')
 const officialMessageImage = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx')
 const officialImageLightboxCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css')
@@ -40,6 +44,10 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedEmptyHero = join(copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'EmptyHero.tsx')
     const copiedHeroShell = join(copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'HeroShell.module.css')
     const copiedClientBuildEnvironment = join(copiedRoot, 'scripts', 'client-build-environment.ts')
+    const copiedSidebarRoot = join(copiedRoot, 'packages', 'client', 'ui-sidebar', 'src', 'client', 'SidebarRoot.tsx')
+    const copiedSlots = join(copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'contract', 'slots.ts')
+    const copiedApply = join(copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'apply.ts')
+    const copiedInputBar = join(copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'InputBar.tsx')
     const copiedImageLightbox = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx')
     const copiedMessageImage = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx')
     const copiedImageLightboxCss = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css')
@@ -52,7 +60,8 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     for (const copied of [copiedCatalog, copiedReleaseProcess, copiedBrand, copiedLocales,
       copiedEmptyHero, copiedHeroShell, copiedClientBuildEnvironment, copiedImageLightbox,
       copiedMessageImage, copiedImageLightboxCss, copiedAttachmentLabels, copiedCodeBlock,
-      copiedCodeBlockCss, copiedMarkdownText, copiedStream]) {
+      copiedCodeBlockCss, copiedMarkdownText, copiedStream, copiedSidebarRoot,
+      copiedSlots, copiedApply, copiedInputBar]) {
       await mkdir(dirname(copied), { recursive: true })
     }
     await writeFile(copiedCatalog, await readFile(officialCatalog))
@@ -70,6 +79,10 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedCodeBlockCss, await readFile(officialCodeBlockCss))
     await writeFile(copiedMarkdownText, await readFile(officialMarkdownText))
     await writeFile(copiedStream, await readFile(officialStream))
+    await writeFile(copiedSidebarRoot, await readFile(officialSidebarRoot))
+    await writeFile(copiedSlots, await readFile(officialSlots))
+    await writeFile(copiedApply, await readFile(officialApply))
+    await writeFile(copiedInputBar, await readFile(officialInputBar))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
 
@@ -78,6 +91,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0002-launch-package-manager-shims-on-windows.patch',
       '0003-rebrand-ldd.patch',
       '0004-rebrand-ldd-trim.patch',
+      '0005-generate-model-slot.patch',
       '0006-image-download-button.patch',
       '0015-collapse-long-code-blocks.patch',
       '0016-collapse-long-plain-text.patch',
@@ -122,6 +136,22 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const buildEnvironment = await readFile(copiedClientBuildEnvironment, 'utf8')
     assert.match(buildEnvironment, /DSH_CLIENT_TITLE: 'LDD'/u)
     assert.doesNotMatch(buildEnvironment, /DeepSeek Harness/u)
+
+    // 0004 (continued): sidebar brand name dropped (mark only), hero title/preview dropped.
+    const sidebarRoot = await readFile(copiedSidebarRoot, 'utf8')
+    assert.doesNotMatch(sidebarRoot, /sidebar\.brand\.name/u)
+    assert.doesNotMatch(sidebarRoot, /localBuildVersion/u)
+    assert.doesNotMatch(emptyHero, /titleGroup/u)
+    assert.match(emptyHero, /const height = 48/u)
+
+    // 0005: a dedicated generate-model seat (slots + apply + InputBar) so the
+    // stock model seat stays the harness-native LLM selector.
+    const slots = await readFile(copiedSlots, 'utf8')
+    assert.match(slots, /'conversation\.input\.generate-model'/u)
+    const applyMod = await readFile(copiedApply, 'utf8')
+    assert.match(applyMod, /'conversation\.input\.generate-model'/u)
+    const inputBar = await readFile(copiedInputBar, 'utf8')
+    assert.match(inputBar, /conversation\.input\.generate-model/u)
 
     // 0006: image lightbox gains a save-to-disk download control.
     const imageLightbox = await readFile(copiedImageLightbox, 'utf8')

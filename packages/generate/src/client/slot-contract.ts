@@ -14,9 +14,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     /** One plugin's card inside the plugin configuration section. */
     'settings.plugin.item': { kind: 'keyed'; scope: 'root'; owner: SettingsPluginItemOwnerProps }
     /** The composer tool-row generation-model seat (single, session-scoped).
-     *  Registered under the stock `conversation.input.model` seat (the upstream
-     *  composer's model selector), whose owner share is `{ locked: boolean }`. */
-    'conversation.input.model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
+     *  Registered under the dedicated `conversation.input.generate-model` seat
+     *  (added by 0005), whose owner share is `{ locked: boolean }`. The stock
+     *  `conversation.input.model` seat stays the harness-native LLM selector. */
+    'conversation.input.generate-model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
   }
   interface LocaleNamespaceMap {
     /** The generation-settings card's own copy. */

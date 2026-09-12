@@ -1,0 +1,41 @@
+--- a/packages/client/ui-conversation/src/client/contract/slots.ts
++++ b/packages/client/ui-conversation/src/client/contract/slots.ts
+@@ -184,6 +184,8 @@
+     'conversation.input.plan': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
+     /** Model selector inside the composer tool row. */
+     'conversation.input.model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
++    /** Generation-model selector inside the composer tool row (LDD). */
++    'conversation.input.generate-model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
+   }
+ 
+   interface GlobalStandardProps {
+@@ -340,6 +342,7 @@
+     | 'conversation.input.attachments' | 'conversation.input.overlay'
+     | 'conversation.input.left' | 'conversation.input.plan'
+     | 'conversation.input.right' | 'conversation.input.model'
++    | 'conversation.input.generate-model'
+     | 'conversation.composer.dock'
+   >
+   & InjectFace<ComposerBarInjected>
+
+--- a/packages/client/ui-conversation/src/client/apply.ts
++++ b/packages/client/ui-conversation/src/client/apply.ts
+@@ -303,6 +303,7 @@
+       'conversation.input.plan': { kind: 'single', scope: 'session' },
+       'conversation.input.right': { kind: 'list', scope: 'session' },
+       'conversation.input.model': { kind: 'single', scope: 'session' },
++      'conversation.input.generate-model': { kind: 'single', scope: 'session' },
+       'conversation.composer.dock': { kind: 'list', scope: 'session' },
+     },
+     inject: (sessionId: SessionId | undefined): ComposerBarInjected => {
+
+--- a/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
+@@ -516,6 +516,7 @@
+             <div className={css.modes}>
+               {accessSelect}
+               {sessionId === undefined ? null : renderSlot('conversation.input.plan', { locked })}
++              {sessionId === undefined ? null : renderSlot('conversation.input.generate-model', { locked })}
+             </div>
+             {input === undefined || sessionId === undefined
+               ? null

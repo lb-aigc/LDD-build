@@ -26,7 +26,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the Session standard useProjection/sessionId seat.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
-// Slot + locale type declarations (settings.plugin.item, conversation.input.model, LocaleNamespaceMap).
+// Slot + locale type declarations (settings.plugin.item, conversation.input.generate-model, LocaleNamespaceMap).
 import type {} from './slot-contract.ts'
 
 import { GenerateSettingsCard } from './card.tsx'
@@ -117,8 +117,9 @@ export function apply(ctx: ClientContext): void {
     }), 'generate: file-upload command')
   }
 
-  // Composer generation-model button: the stock `conversation.input.model`
-  // seat (the upstream composer's model selector, beside the ContextMeter).
+  // Composer generation-model button: the dedicated
+  // `conversation.input.generate-model` seat (added by 0005). The stock
+  // `conversation.input.model` seat stays the harness-native LLM selector.
   // The picker reads the configured image/video/music models and issues a
   // per-session temporary switch (a `/generate-model <kind> <key>` command).
   // Works without a sessions service (headless browser shells) — the command
@@ -131,9 +132,9 @@ export function apply(ctx: ClientContext): void {
     },
     sessionsService as CommandableSessions | undefined,
   )
-  ctx.slots.inject('conversation.input.model', function* () {
+  ctx.slots.inject('conversation.input.generate-model', function* () {
     yield ctx.slots.register({
-      name: 'conversation.input.model',
+      name: 'conversation.input.generate-model',
       locale: NS,
       inject: (sessionId: SessionId) => pickerController.inject(sessionId),
     }, GenerateModelPicker)
