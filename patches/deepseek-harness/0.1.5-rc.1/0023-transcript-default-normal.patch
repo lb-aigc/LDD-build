@@ -1,0 +1,11 @@
+--- a/packages/client/ui-chat/src/chat-settings.ts
++++ b/packages/client/ui-chat/src/chat-settings.ts
+@@ -15,7 +15,7 @@
+ export type TranscriptViewMode = typeof TRANSCRIPT_VIEW_MODES[number]
+ 
+ /** Default preserves the compact process disclosure introduced by Chat. */
+-export const DEFAULT_TRANSCRIPT_VIEW_MODE: TranscriptViewMode = 'compact'
++export const DEFAULT_TRANSCRIPT_VIEW_MODE: TranscriptViewMode = 'normal'
+ 
+ /** Durable Chat section shared by the Host schema and browser scope. */
+ export interface ChatSettings {

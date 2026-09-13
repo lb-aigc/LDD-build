@@ -30,6 +30,7 @@ const officialCodeBlock = join(repositoryRoot, 'upstream', 'deepseek-harness', '
 const officialCodeBlockCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css')
 const officialMarkdownText = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx')
 const officialStream = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'llm', 'llm-pi-ai', 'src', 'stream.ts')
+const officialChatSettings = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-chat', 'src', 'chat-settings.ts')
 
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.5-rc.1')
 
@@ -56,12 +57,13 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedCodeBlockCss = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css')
     const copiedMarkdownText = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx')
     const copiedStream = join(copiedRoot, 'packages', 'llm', 'llm-pi-ai', 'src', 'stream.ts')
+    const copiedChatSettings = join(copiedRoot, 'packages', 'client', 'ui-chat', 'src', 'chat-settings.ts')
 
     for (const copied of [copiedCatalog, copiedReleaseProcess, copiedBrand, copiedLocales,
       copiedEmptyHero, copiedHeroShell, copiedClientBuildEnvironment, copiedImageLightbox,
       copiedMessageImage, copiedImageLightboxCss, copiedAttachmentLabels, copiedCodeBlock,
       copiedCodeBlockCss, copiedMarkdownText, copiedStream, copiedSidebarRoot,
-      copiedSlots, copiedApply, copiedInputBar]) {
+      copiedSlots, copiedApply, copiedInputBar, copiedChatSettings]) {
       await mkdir(dirname(copied), { recursive: true })
     }
     await writeFile(copiedCatalog, await readFile(officialCatalog))
@@ -83,6 +85,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedSlots, await readFile(officialSlots))
     await writeFile(copiedApply, await readFile(officialApply))
     await writeFile(copiedInputBar, await readFile(officialInputBar))
+    await writeFile(copiedChatSettings, await readFile(officialChatSettings))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
 
@@ -96,6 +99,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0015-collapse-long-code-blocks.patch',
       '0016-collapse-long-plain-text.patch',
       '0022-kie-llm-finish-reason.patch',
+      '0023-transcript-default-normal.patch',
     ])
 
     // 0001: the video analysis event name is registered in the known-type set.
@@ -184,6 +188,11 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const stream = await readFile(copiedStream, 'utf8')
     assert.match(stream, /stream ended without finish_reason/i)
     assert.match(stream, /block\.type === 'toolCall'/u)
+
+    // 0023: the default transcript mode is normal, so generated media results
+    // render inline instead of folding behind the turn-process disclosure.
+    const chatSettings = await readFile(copiedChatSettings, 'utf8')
+    assert.match(chatSettings, /DEFAULT_TRANSCRIPT_VIEW_MODE: TranscriptViewMode = 'normal'/u)
 
     // Applying the same patches again must fail (idempotence guard).
     await assert.rejects(

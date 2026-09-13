@@ -45,3 +45,10 @@ treatment with no per-skill instruction. It also extends `CodeBlock`'s collapse
 trigger with a character-count dimension so a single long paragraph collapses
 the same as many short lines.
 
+`0023-transcript-default-normal.patch` flips the completed-Turn transcript
+default from `compact` to `normal`. The 0.1.5 compact disclosure folds a
+finished turn's process (reasoning + tool calls) into a "1 次工具调用" row,
+which hides generated image/audio/video results behind a click. Defaulting to
+`normal` renders media inline (the pre-0.1.5 behavior); the user can still
+switch back through the Transcript view setting row.
+

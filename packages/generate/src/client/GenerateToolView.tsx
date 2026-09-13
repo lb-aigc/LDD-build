@@ -37,8 +37,6 @@ type MediaBlock =
 /** Local structural face of the Electron save bridge (apps/desktop). */
 interface LddSaveBridge {
   saveImage?: (data: ArrayBuffer, defaultName: string) => Promise<{ saved: boolean; path?: string }>
-  saveAudio?: (data: ArrayBuffer, defaultName: string) => Promise<{ saved: boolean; path?: string }>
-  saveVideo?: (data: ArrayBuffer, defaultName: string) => Promise<{ saved: boolean; path?: string }>
 }
 
 const bridge = (window as { ldd?: LddSaveBridge }).ldd
@@ -51,21 +49,6 @@ function imageExtension(mediaType: string): string {
     case 'image/webp': return 'webp'
     case 'image/gif': return 'gif'
     default: return 'png'
-  }
-}
-
-/** Fetch a URL's bytes and hand them to the Electron save bridge (audio/video). */
-async function downloadBytes(url: string, defaultName: string, kind: 'saveAudio' | 'saveVideo'): Promise<void> {
-  const fn = bridge?.[kind]
-  if (fn === undefined) return
-  try {
-    const response = await fetch(url)
-    if (!response.ok) return
-    const data = await response.arrayBuffer()
-    await fn(data, defaultName)
-  } catch {
-    // Cross-origin / expired temporary URL: the inline player already failed,
-    // so a failed download is non-fatal here.
   }
 }
 
@@ -191,26 +174,20 @@ function GenerateLightbox({ src, alt, downloadName, t, onClose }: {
   )
 }
 
-/** Inline audio: native player + download. */
-function GeneratedAudio({ url, title, t }: { url: string; title: string; t: Props['t'] }) {
+/** Inline audio: native player (its own ⋮ menu offers download). */
+function GeneratedAudio({ url }: { url: string }) {
   return (
     <div className={css.mediaBlock}>
       <audio className={css.audio} controls src={url} />
-      <button type="button" className={css.download} onClick={() => {
-        void downloadBytes(url, `${title}.mp3`, 'saveAudio')
-      }}>{t('toolview.download')}</button>
     </div>
   )
 }
 
-/** Inline video: native player + download. */
-function GeneratedVideo({ url, title, t }: { url: string; title: string; t: Props['t'] }) {
+/** Inline video: native player (its own ⋮ menu offers download). */
+function GeneratedVideo({ url }: { url: string }) {
   return (
     <div className={css.mediaBlock}>
       <video className={css.video} controls src={url} />
-      <button type="button" className={css.download} onClick={() => {
-        void downloadBytes(url, `${title}.mp4`, 'saveVideo')
-      }}>{t('toolview.download')}</button>
     </div>
   )
 }
@@ -234,8 +211,8 @@ export function GenerateToolView({ block, loadImage, t }: Props) {
           ))}
         </div>
       )}
-      {videos.map((vid, i) => <GeneratedVideo key={`vid-${i}`} url={vid.url} title={vid.title} t={t} />)}
-      {audios.map((aud, i) => <GeneratedAudio key={`aud-${i}`} url={aud.url} title={aud.title} t={t} />)}
+      {videos.map((vid, i) => <GeneratedVideo key={`vid-${i}`} url={vid.url} />)}
+      {audios.map((aud, i) => <GeneratedAudio key={`aud-${i}`} url={aud.url} />)}
       {text.map((tb, i) => <div key={`txt-${i}`} className={css.text}>{tb.text}</div>)}
     </div>
   )
