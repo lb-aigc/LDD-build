@@ -2,6 +2,7 @@ import type { GenerateImageRequest, GenerateImageResult, GenerateVideoRequest, G
 import type { ImageSize, ImageResolution } from '../config.ts'
 import { resolutionAspectPixels } from '../provider.ts'
 import type { GenerationProvider, ProviderOptions } from '../provider.ts'
+import { parseDataUri } from '../attach.ts'
 
 const POLL_INTERVAL_MS = 3000
 const MAX_POLLS = 200
@@ -12,6 +13,24 @@ const MAX_VIDEO_DURATION = 30
 
 /** KIE's file-upload API lives on a different origin than its task API. */
 const DEFAULT_FILE_UPLOAD_BASE_URL = 'https://kieai.redpandaai.co'
+
+/** Reference-image byte threshold (7 MiB) above which a `data:` URI uploads via
+ *  the stream endpoint instead of base64. The base64 endpoint caps payloads at
+ *  10MB (the base64 string length), and a 4K PNG's base64 easily exceeds that —
+ *  the stream (multipart) endpoint has no such cap and is the documented path
+ *  for large files. */
+const STREAM_UPLOAD_THRESHOLD = 7 * 1024 * 1024
+
+/** File extension for a media type, used as the stream upload's file name suffix. */
+function extensionOf(mediaType: string): string {
+  switch (mediaType) {
+    case 'image/png': return 'png'
+    case 'image/jpeg': return 'jpg'
+    case 'image/webp': return 'webp'
+    case 'image/gif': return 'gif'
+    default: return 'bin'
+  }
+}
 
 /** Image size → aspect ratio fallback (used when the caller did not set an
  *  explicit aspectRatio; non-KIE providers only expose the three sizes). */
@@ -352,8 +371,54 @@ export class KieProvider implements GenerationProvider {
    *  KIE's file-upload API and replaced with the returned public URL. */
   private async resolveToPublicUrl(reference: string, signal: AbortSignal): Promise<string> {
     if (reference.startsWith('http://') || reference.startsWith('https://')) return reference
-    if (reference.startsWith('data:')) return await this.uploadBase64(reference, signal)
+    if (reference.startsWith('data:')) return await this.uploadToPublicUrl(reference, signal)
     throw new Error(`${this.id}: 参考图必须是 http(s) URL 或 data URI（收到 ${reference.slice(0, 40)}…）`)
+  }
+
+  /** Upload a `data:` URI reference image to KIE, choosing the base64 endpoint
+   *  for small images and the stream (multipart) endpoint for large ones (the
+   *  base64 endpoint caps at 10MB and a 4K PNG's base64 exceeds it). */
+  private async uploadToPublicUrl(dataUri: string, signal: AbortSignal): Promise<string> {
+    const parsed = parseDataUri(dataUri)
+    if (parsed === undefined) throw new Error(`${this.id}: 参考图 data URI 无法解析`)
+    if (parsed.data.length > STREAM_UPLOAD_THRESHOLD) {
+      return await this.uploadStream(parsed.data, parsed.mediaType, signal)
+    }
+    return await this.uploadBase64(dataUri, signal)
+  }
+
+  /** Stream-upload image bytes (multipart, no 10MB cap) and return the public
+   *  download URL. File names carry a unique suffix so multi-image references
+   *  don't overwrite each other on the upload host. */
+  private async uploadStream(data: Uint8Array, mediaType: string, signal: AbortSignal): Promise<string> {
+    const { apiKey } = this.options
+    const uploadBaseURL = this.options.fileUploadBaseURL ?? DEFAULT_FILE_UPLOAD_BASE_URL
+    const fileName = `reference-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extensionOf(mediaType)}`
+    const form = new FormData()
+    form.append('file', new Blob([data as unknown as BlobPart], { type: mediaType }), fileName)
+    form.append('uploadPath', 'images/user-uploads')
+    const response = await fetchWithRetry(`${trimSlash(uploadBaseURL)}/api/file-stream-upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    }, signal)
+    if (!response.ok) {
+      const body = await response.text().catch(() => '')
+      throw new Error(`${this.id} 图片上传失败 ${response.status}${body ? `: ${body}` : ''}`)
+    }
+    const payload = (await response.json()) as {
+      code?: number
+      msg?: string
+      data?: { downloadUrl?: string; fileUrl?: string }
+    }
+    if (payload.code !== 200) {
+      throw new Error(`${this.id} 图片上传返回错误 ${payload.code ?? '?'}: ${payload.msg ?? ''}`)
+    }
+    const url = payload.data?.downloadUrl ?? payload.data?.fileUrl
+    if (url === undefined || url === '') {
+      throw new Error(`${this.id}: 图片上传响应缺少 URL`)
+    }
+    return url
   }
 
   /** Upload a base64 image (data URI or raw base64) to KIE and return its

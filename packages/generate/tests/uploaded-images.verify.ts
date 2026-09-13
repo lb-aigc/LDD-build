@@ -51,16 +51,32 @@ test('returns empty without a session or store', async () => {
   assert.deepEqual(await collectUploadedImages({ events: [] } as never, undefined, new AbortController().signal), [])
 })
 
-test('only inspects the most recent image-bearing user message', async () => {
+test('collects images across multiple user messages (not just the latest)', async () => {
   const store = fakeStore(new Map([['new', bytes], ['old', bytes]]))
   const session = {
     events: [
       { type: 'user/message', data: { content: [{ type: 'image', attachment: { attachmentId: 'old', mediaType: PNG, bytes: 4, width: 1, height: 1 } }] } },
+      { type: 'assistant/message', data: { content: [] } },
       { type: 'user/message', data: { content: [{ type: 'text', text: 'turn it top-down' }] } },
       { type: 'user/message', data: { content: [{ type: 'image', attachment: { attachmentId: 'new', mediaType: PNG, bytes: 4, width: 1, height: 1 } }] } },
     ],
   }
   const result = await collectUploadedImages(session as never, store, new AbortController().signal)
-  assert.equal(result.length, 1)
-  assert.ok(result[0]!.includes('iVBORw'))
+  // Both the earlier and the latest image are collected — the old behaviour
+  // only returned the single latest message's image and dropped the earlier one.
+  assert.equal(result.length, 2)
+  assert.ok(result[0]!.startsWith(`data:${PNG};base64,`))
+  assert.ok(result[1]!.startsWith(`data:${PNG};base64,`))
+})
+
+test('caps at maxImages, keeping the most recent uploads', async () => {
+  const images = new Map<string, Uint8Array>()
+  const events: Array<{ type: string; data: { content: Array<{ type: string; attachment: ImageMeta }> } }> = []
+  for (let i = 0; i < 10; i++) {
+    const id = `img-${i}`
+    images.set(id, bytes)
+    events.push({ type: 'user/message', data: { content: [{ type: 'image', attachment: { attachmentId: id, mediaType: PNG, bytes: 4, width: 1, height: 1 } }] } })
+  }
+  const result = await collectUploadedImages({ events } as never, fakeStore(images), new AbortController().signal)
+  assert.equal(result.length, 8) // default maxImages = 8
 })
