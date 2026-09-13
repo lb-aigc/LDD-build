@@ -1,12 +1,13 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
+import { readFile } from 'node:fs/promises'
 
 import { imageAspectRatios, imageResolutions, maxImagesPerRequest, maxVideoDurationSeconds, videoAspectRatios, videoResolutions } from './config.ts'
 import type { GenerationConfig, ImageAspectRatio, ImageResolution, ImageSize } from './config.ts'
 import { credentialsServiceResolver, environmentSecretResolver } from './credentials.ts'
 import type { SecretResolver } from './credentials.ts'
-import { attachImageFromUrl, imageBlockOf } from './attach.ts'
+import { attachImageFromUrl, imageBlockOf, mediaTypeFromUrl } from './attach.ts'
 import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
 import { aspectRatioToImageSize } from './provider.ts'
 import { collectUploadedImages } from './uploaded-images.ts'
@@ -139,9 +140,26 @@ const musicResultSchema = {
   },
 } as const
 
+/** Read a local image file path into a `data:` URI. This lets the agent pass a
+ *  workspace file path (e.g. `D:\\file\\inputs\\ref.jpg`) directly as a reference
+ *  image instead of writing shell scripts to upload it to a relay — the root
+ *  cause of the "dozens of pwsh/node calls for one image-to-image" behaviour.
+ *  The media type is guessed from the extension; an unreadable path or unknown
+ *  extension returns undefined and the entry is dropped from the references. */
+async function readLocalImageReference(path: string): Promise<string | undefined> {
+  try {
+    const mediaType = mediaTypeFromUrl(path)
+    if (mediaType === undefined) return undefined
+    const bytes = await readFile(path)
+    return `data:${mediaType};base64,${Buffer.from(bytes).toString('base64')}`
+  } catch {
+    return undefined
+  }
+}
+
 /** Resolve the `inputImages` tool argument, expanding the `@uploaded` sentinel
  *  into the user's most recently uploaded images (data URIs read back from the
- *  attachment store). */
+ *  attachment store) and reading LOCAL FILE PATHS into data URIs. */
 async function resolveReferenceImages(
   inputImages: unknown,
   exec: { agent?: UploadedAgentLike; signal: AbortSignal },
@@ -151,9 +169,20 @@ async function resolveReferenceImages(
   if (raw.length === 0) return []
   const wantsUploaded = raw.some((entry) => entry === '@uploaded' || entry === '@latest')
   const explicit = raw.filter((entry) => entry !== '@uploaded' && entry !== '@latest')
-  if (!wantsUploaded) return explicit
+  const resolved: string[] = []
+  for (const entry of explicit) {
+    if (entry.startsWith('http://') || entry.startsWith('https://') || entry.startsWith('data:')) {
+      resolved.push(entry)
+      continue
+    }
+    // A local file path (absolute or workspace-relative) → data URI, so the
+    // agent references workspace files directly instead of scripting uploads.
+    const dataUri = await readLocalImageReference(entry)
+    if (dataUri !== undefined) resolved.push(dataUri)
+  }
+  if (!wantsUploaded) return resolved
   const uploaded = await collectUploadedImages(exec.agent?.session, store, exec.signal)
-  return [...explicit, ...uploaded]
+  return [...resolved, ...uploaded]
 }
 
 function defineImageTool(
@@ -178,7 +207,7 @@ function defineImageTool(
       aspectRatio: { type: 'string', enum: [...imageAspectRatios], description: 'Target aspect ratio. Choose from the enum to match the composition: 16:9 and 9:16 for horizontal/vertical widescreen, 1:1 square, 4:3 / 3:4 classic photo, 2:1 / 1:2 cinematic, 4:5 / 5:4 portrait/landscape, 21:9 / 9:21 ultra-wide. Omit to default to 16:9.' },
       resolution: { type: 'string', enum: [...imageResolutions], description: 'Output resolution tier: 4K / 2K / 1K. Always request 4K FIRST; the provider automatically degrades to 2K or 1K only when the chosen aspect ratio does not support the higher tier (1:1 caps at 2K; 4:5 / 5:4 / 9:21 cap at 1K). Omit to default to 4K.' },
       style: { type: 'string', description: 'Optional visual style keyword (e.g. photorealistic, anime, watercolor, cyberpunk).' },
-      inputImages: { type: 'array', items: { type: 'string' }, description: 'Reference images for image-to-image: an array of http(s) URLs or data URIs, or the sentinel "@uploaded" to use the user\'s most recently uploaded images (up to 8, across multiple messages). When several references are given, describe EACH image\'s role in the prompt (e.g. "第一张是角色脸请锁定，第二张是房间布局请参考") so the model does not conflate them. Only providers that support i2i accept it — Midjourney and Legnext reject it.' },
+      inputImages: { type: 'array', items: { type: 'string' }, description: 'Reference images for image-to-image. Each entry is one of: (a) an http(s) URL, (b) a data URI, (c) a LOCAL FILE PATH to a workspace image (e.g. "D:/file/inputs/ref.jpg" — the tool reads the file itself; do NOT write shell scripts to upload it), or (d) the sentinel "@uploaded" for images the user just attached. When several references are given, describe EACH image\'s role in the prompt. Only providers that support i2i accept it — Midjourney and Legnext reject it.' },
     },
     output: {
       schema: imageResultSchema,
