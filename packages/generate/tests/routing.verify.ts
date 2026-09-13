@@ -5,6 +5,7 @@ import { CUSTOM_PROVIDER_ID, IMAGE_PROVIDER_PRESETS } from '../src/presets.ts'
 import {
   buildProvider,
   modelCatalog,
+  modelPickContextText,
   pickProvider,
   resolveModels,
   resolveProvider,
@@ -223,4 +224,22 @@ test('supportsImageToImage: a plain non-aggregator preset follows its imageToIma
   const byKey = (key: string) => resolved.entries.find((e) => e.key === key)!
   assert.equal(supportsImageToImage(byKey('gpt-image:gpt-image-2'), P), true)
   assert.equal(supportsImageToImage(byKey('seedream'), P), true)
+})
+
+test('modelPickContextText is empty when nothing is picked', () => {
+  assert.equal(modelPickContextText(undefined, undefined, undefined), '')
+})
+
+test('modelPickContextText names a single image pick and forbids silent switching', () => {
+  const text = modelPickContextText('legnext:8.2', undefined, undefined)
+  assert.match(text, /生图=legnext:8\.2/)
+  assert.match(text, /勿擅自切换到其他模型/)
+})
+
+test('modelPickContextText joins multiple modality picks with ；', () => {
+  const text = modelPickContextText('legnext:8.2', 'kie:veo-3', 'suno:v4')
+  assert.match(text, /生图=legnext:8\.2/)
+  assert.match(text, /生视频=kie:veo-3/)
+  assert.match(text, /生音乐=suno:v4/)
+  assert.match(text, /；/)
 })

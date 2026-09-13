@@ -16,6 +16,7 @@ import { IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS, MUSIC_PROVIDER_PRESETS 
 import {
   buildProvider,
   modelCatalog,
+  modelPickContextText,
   pickProvider,
   resolveModels,
   resolveProvider,
@@ -202,7 +203,7 @@ function defineImageTool(
       + modelCatalog(resolved, IMAGE_PROVIDER_PRESETS),
     parameters: {
       prompt: { type: 'string', required: true, description: 'The image description. Be concrete and detailed: subject, style, composition, lighting, palette, mood. Rewrite the user intent into a rich visual prompt.' },
-      provider: { type: 'string', enum: providerKeys, description: 'Which configured model to use. Match the request to the model whose strengths fit (see the catalog above); omit to use the default model.' },
+      provider: { type: 'string', enum: providerKeys, description: 'Which configured model to use. Match the request to the model whose strengths fit (see the catalog above). If the user has selected a model (see the runtime context), omit this to use the user\'s pick; otherwise omit to use the default model.' },
       count: { type: 'integer', description: 'How many image variants to generate (1-4).' },
       aspectRatio: { type: 'string', enum: [...imageAspectRatios], description: 'Target aspect ratio. Choose from the enum to match the composition: 16:9 and 9:16 for horizontal/vertical widescreen, 1:1 square, 4:3 / 3:4 classic photo, 2:1 / 1:2 cinematic, 4:5 / 5:4 portrait/landscape, 21:9 / 9:21 ultra-wide. Omit to default to 16:9.' },
       resolution: { type: 'string', enum: [...imageResolutions], description: 'Output resolution tier: 4K / 2K / 1K. Always request 4K FIRST; the provider automatically degrades to 2K or 1K only when the chosen aspect ratio does not support the higher tier (1:1 caps at 2K; 4:5 / 5:4 / 9:21 cap at 1K). Omit to default to 4K.' },
@@ -306,7 +307,7 @@ function defineVideoTool(
       + modelCatalog(resolved, VIDEO_PROVIDER_PRESETS),
     parameters: {
       prompt: { type: 'string', required: true, description: 'The video description: subject, action, camera movement, scene, lighting, mood, pacing. Rewrite the user intent into a rich scene prompt.' },
-      provider: { type: 'string', enum: providerKeys, description: 'Which configured model to use; omit to use the default model.' },
+      provider: { type: 'string', enum: providerKeys, description: 'Which configured model to use. Omit to use the user\'s selected model (or the default when none is selected).' },
       durationSeconds: { type: 'number', description: 'Target duration in seconds (1-30).' },
       resolution: { type: 'string', enum: [...videoResolutions], description: 'Target video resolution.' },
       aspectRatio: { type: 'string', enum: [...videoAspectRatios], description: 'Target frame aspect ratio; use 9:16 for vertical short-video.' },
@@ -375,7 +376,7 @@ function defineMusicTool(
       + modelCatalog(resolved, MUSIC_PROVIDER_PRESETS),
     parameters: {
       prompt: { type: 'string', required: true, description: 'The music description. Non-custom mode: describe the mood/style/subject; the lyrics are auto-generated. Custom mode with lyrics (instrumental=false): the EXACT lyrics to sing, including [Verse]/[Chorus] section markers.' },
-      provider: { type: 'string', enum: providerKeys, description: 'Which configured music model to use; omit to use the default model.' },
+      provider: { type: 'string', enum: providerKeys, description: 'Which configured music model to use. Omit to use the user\'s selected model (or the default when none is selected).' },
       customMode: { type: 'boolean', description: 'True = custom mode (you supply style/title/lyrics); false (default) = simplified auto mode with only a prompt.' },
       instrumental: { type: 'boolean', description: 'True = instrumental (no lyrics). In custom mode this requires style+title; in non-custom mode it is ignored.' },
       style: { type: 'string', description: 'Music style (custom mode), e.g. Jazz, Classical, Electronic, Pop, Rock, Hip-hop.' },
@@ -543,6 +544,36 @@ export function apply(ctx: Context, config: Config): void {
     video: new Map<string, string>(),
     music: new Map<string, string>(),
   }
+
+  // Surface a per-session generation-model pick (the composer button) into the
+  // model's runtime context, so the agent honours it from the FIRST tool call
+  // instead of routing by strengths and then being blocked by resolveProvider.
+  // Re-evaluated every assembly, so the pick stays visible across steps. The
+  // service is optional (headless hosts without systemPrompt just skip it).
+  ctx.inject(['systemPrompt'], (spCtx) => {
+    const systemPrompt = (spCtx as unknown as {
+      systemPrompt?: {
+        context: (entry: {
+          name: string
+          order: number
+          text: string | ((assemble: { agent?: { id?: string } }) => string)
+        }) => () => void
+      }
+    }).systemPrompt
+    systemPrompt?.context({
+      name: 'generate:model-pick',
+      order: 200,
+      text: (assemble) => {
+        const sessionId = assemble.agent?.id
+        if (sessionId === undefined) return ''
+        return modelPickContextText(
+          sessionOverrides.image.get(sessionId),
+          sessionOverrides.video.get(sessionId),
+          sessionOverrides.music.get(sessionId),
+        )
+      },
+    })
+  })
 
   // Secret resolver: env-only by default, upgraded to the harness credentials
   // service (env + store + .env) when it is present, so the settings card's

@@ -281,3 +281,26 @@ export function modelCatalog(resolved: ResolvedModels, presets: readonly Provide
     return `- ${entry.key}${isDefault ? ' (default)' : ''}: ${label}${strengths !== '' ? ` — ${strengths}` : ''}${i2i}`
   }).join('\n')
 }
+
+/**
+ * The runtime-context sentence that surfaces a per-session generation-model
+ * pick to the agent, so it honours the composer-button choice from the FIRST
+ * tool call instead of routing by strengths and then being blocked by
+ * `resolveProvider`. Empty when the user picked nothing, so the context
+ * contributes nothing and the agent falls back to the catalog default.
+ * @param image - the session's picked image-model routing key, if any.
+ * @param video - the session's picked video-model routing key, if any.
+ * @param music - the session's picked music-model routing key, if any.
+ */
+export function modelPickContextText(
+  image: string | undefined,
+  video: string | undefined,
+  music: string | undefined,
+): string {
+  const parts: string[] = []
+  if (image !== undefined) parts.push(`生图=${image}`)
+  if (video !== undefined) parts.push(`生视频=${video}`)
+  if (music !== undefined) parts.push(`生音乐=${music}`)
+  if (parts.length === 0) return ''
+  return `当前会话用户已通过界面选定生成模型（请直接使用，勿擅自切换到其他模型，除非用户明确要求切换）：${parts.join('；')}`
+}
