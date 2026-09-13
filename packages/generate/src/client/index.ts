@@ -112,7 +112,7 @@ export function apply(ctx: ClientContext): void {
           detail: t('fileImport.optionDetail'),
         }],
         onSelect: async (_option: unknown, session: { sessionId: SessionId }) => {
-          await importWorkspaceFiles(ctx, session.sessionId)
+          await importWorkspaceFiles(ctx, session.sessionId, t('fileImport.imageHint'))
         },
       },
     }), 'generate: file-upload command')

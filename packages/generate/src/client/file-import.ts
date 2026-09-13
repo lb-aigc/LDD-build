@@ -34,23 +34,17 @@ declare global {
   }
 }
 
-/** Minimal structural face of the per-session input (setDraft / notify / state / addImages). */
+/** Minimal structural face of the per-session input (notify only). */
 interface SessionInputLike {
-  setDraft(text: string): void
   notify(level: 'info' | 'error', text: string): void
-  state: { getSnapshot(): { draft: string } }
-  addImages(ids: readonly string[]): boolean
 }
 
-/** Minimal structural face of the conversation service: the input resolver
- * plus the draft-image rail (createDraftImages / releaseDraftImages). */
+/** Minimal structural face of the conversation service: the input resolver. */
 interface ConversationLike {
   input: { for(actx: ClientContext): SessionInputLike }
-  createDraftImages(files: readonly File[]): readonly { id: string }[]
-  releaseDraftImages(attachments: readonly { id: string }[]): void
 }
 
-/** Image MIME types the draft-image rail accepts (mirrors service.ts imageMediaType). */
+/** Image MIME types recognized by the composer's native drag/paste upload. */
 const IMAGE_MEDIA_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
 
 function isImageType(type: string): boolean {
@@ -209,10 +203,14 @@ function pickFiles(): Promise<File[]> {
  * @param ctx - the generate plugin's root context (connection + sessions services).
  * @param sessionId - target session.
  */
-export async function importWorkspaceFiles(ctx: ClientContext, sessionId: SessionId): Promise<void> {
+export async function importWorkspaceFiles(
+  ctx: ClientContext,
+  sessionId: SessionId,
+  imageHint?: string,
+): Promise<void> {
   const files = await pickFiles()
   if (files.length === 0) return
-  await importFilesIntoWorkspace(ctx, sessionId, files)
+  await importFilesIntoWorkspace(ctx, sessionId, files, imageHint)
 }
 
 /**
@@ -220,11 +218,17 @@ export async function importWorkspaceFiles(ctx: ClientContext, sessionId: Sessio
  * record the non-image files in the file-card store. Shared by the "+"
  * file-upload command (which picks first) and the composer's non-image
  * drag-and-drop path (which already holds the dropped File objects).
+ *
+ * Images ride the 0.1.5 native drag/paste upload path (they land on the
+ * composer attachment rail and become prompt attachments), so this function
+ * only writes non-image files into the workspace; an image-only batch just
+ * surfaces `imageHint` and returns.
  */
 export async function importFilesIntoWorkspace(
   ctx: ClientContext,
   sessionId: SessionId,
   files: readonly File[],
+  imageHint?: string,
 ): Promise<void> {
   const sessions = ctx.get('sessions') as SessionsLike | undefined
   const actx = sessions?.scope(sessionId)
@@ -233,22 +237,13 @@ export async function importFilesIntoWorkspace(
   const shell = conversation === undefined ? undefined : conversation.input.for(actx)
   const notify = (level: 'info' | 'error', text: string): void => { shell?.notify(level, text) }
 
-  // Split: images go on the draft-image rail (thumbnail preview, sent with the
-  // message), everything else is written into the workspace for the agent's
-  // tools to read. This mirrors the drag-and-drop split so "+" and drop agree.
+  // Split: images are handled by the composer's native upload (drag/paste);
+  // everything else is written into the workspace for the agent's tools to read.
   const images = files.filter((file) => isImageType(file.type))
   const others = files.filter((file) => !isImageType(file.type))
 
-  if (images.length > 0 && conversation !== undefined && shell !== undefined) {
-    try {
-      const attachments = conversation.createDraftImages(images)
-      if (!shell.addImages(attachments.map((attachment) => attachment.id))) {
-        // Busy admission phase refused the rail; release the object URLs.
-        conversation.releaseDraftImages(attachments)
-      }
-    } catch (error: unknown) {
-      notify('error', error instanceof Error ? error.message : String(error))
-    }
+  if (images.length > 0) {
+    notify('info', imageHint ?? '图片请直接拖拽或粘贴到输入框')
   }
 
   if (others.length === 0) return

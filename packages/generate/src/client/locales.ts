@@ -5,6 +5,7 @@ export type GenerateLocaleKey =
   | 'keyListHint' | 'keyPlaceholder' | 'configured' | 'unconfigured'
   | 'unsaved' | 'save' | 'saving' | 'discard' | 'readOnly' | 'saveFailed'
   | 'fileImport.commandDescription' | 'fileImport.optionLabel' | 'fileImport.optionDetail' | 'fileImport.remove'
+  | 'fileImport.imageHint'
   | 'modelPicker.trigger' | 'modelPicker.imageGroup' | 'modelPicker.videoGroup' | 'modelPicker.musicGroup'
   | 'toolview.generating' | 'toolview.loading' | 'toolview.retry' | 'toolview.download'
   | 'toolview.open' | 'toolview.close' | 'toolview.image'
@@ -23,10 +24,11 @@ export const zh: Record<GenerateLocaleKey, string> = {
   discard: '放弃',
   readOnly: '该配置只读，无法在此修改。',
   saveFailed: '保存失败，请重试。',
-  'fileImport.commandDescription': '上传文件到工作区（视频/图片/文档/文本）',
+  'fileImport.commandDescription': '上传文件到工作区（视频/文档/文本）',
   'fileImport.optionLabel': '选择文件',
   'fileImport.optionDetail': '从本地选择文件导入到当前工作区',
   'fileImport.remove': '移除文件卡片',
+  'fileImport.imageHint': '图片请直接拖拽或粘贴到输入框，本命令只导入非图片文件',
   'modelPicker.trigger': '切换生成模型',
   'modelPicker.imageGroup': '图片模型',
   'modelPicker.videoGroup': '视频模型',
@@ -54,10 +56,11 @@ export const en: Record<GenerateLocaleKey, string> = {
   discard: 'Discard',
   readOnly: 'This configuration is read-only.',
   saveFailed: 'Save failed, please retry.',
-  'fileImport.commandDescription': 'Upload files to the workspace (video/image/document/text)',
+  'fileImport.commandDescription': 'Upload files to the workspace (video/document/text)',
   'fileImport.optionLabel': 'Choose file',
   'fileImport.optionDetail': 'Import a local file into the current workspace',
   'fileImport.remove': 'Remove file card',
+  'fileImport.imageHint': 'For images, drag & drop or paste them into the composer — this command imports non-image files only',
   'modelPicker.trigger': 'Switch generation model',
   'modelPicker.imageGroup': 'Image models',
   'modelPicker.videoGroup': 'Video models',
