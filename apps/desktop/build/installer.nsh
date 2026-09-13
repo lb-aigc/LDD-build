@@ -1,70 +1,14 @@
 ; LDD installer customizations.
 ;
-;   customPageAfterChangeDir — a "data directory" page inserted after the
-;     install-directory page and before the install step. The user may pick a
-;     non-system-drive location for sessions/attachments/kernels/logs; leaving
-;     it blank keeps the built-in system-drive default.
+;   customInstall — clears any prior API key so a fresh or overwrite install
+;     forces the user to re-enter keys (the installer ships ZERO keys).
 ;
-;   customInstall — writes the chosen data directory (bare path) to
-;     %APPDATA%\LDD\location.json, and clears any prior API key so a fresh or
-;     overwrite install forces the user to re-enter keys (the installer ships
-;     ZERO keys).
-
-; Data-directory page state (declared at top level so both the page and the
-; install section see them, regardless of macro-expansion order). Guarded by
-; !ifndef BUILD_UNINSTALLER so the uninstaller build (which skips the page via
-; its own guard below) does not emit NSIS warning 6001 "variable not referenced",
-; which electron-builder treats as a hard error.
-!ifndef BUILD_UNINSTALLER
-  Var /GLOBAL LddDataDir
-  Var /GLOBAL LddDataDirPage
-  Var /GLOBAL LddDataDirInput
-!endif
-
-!macro customPageAfterChangeDir
-  !insertmacro MUI_PAGE_INIT
-
-  !ifndef BUILD_UNINSTALLER
-    Function LddDataDirPageCreate_${MUI_UNIQUEID}
-      !insertmacro MUI_HEADER_TEXT "选择数据目录" "留空则数据保存在系统盘；可输入其他盘符路径。"
-      nsDialogs::Create 1018
-      Pop $LddDataDirPage
-      ${If} $LddDataDirPage == error
-        Abort
-      ${EndIf}
-
-      ${NSD_CreateLabel} 0 0 100% 40u "数据目录用于保存会话记录、图片附件、内核与日志。留空则继续使用系统盘默认位置；输入 D:\LDD 等路径可将数据保存到其他盘（目标须为空目录或新目录）。"
-      Pop $0
-
-      ${NSD_CreateText} 0 44u 75% 13u "$LddDataDir"
-      Pop $LddDataDirInput
-
-      ${NSD_CreateButton} 78% 42u 22% 15u "浏览..."
-      Pop $0
-      ${NSD_OnClick} $0 LddDataDirBrowse_${MUI_UNIQUEID}
-
-      nsDialogs::Show
-    FunctionEnd
-
-    Function LddDataDirBrowse_${MUI_UNIQUEID}
-      ${NSD_GetText} $LddDataDirInput $0
-      nsDialogs::SelectFolderDialog "选择数据目录" "$0"
-      Pop $0
-      ${If} $0 != error
-        ${NSD_SetText} $LddDataDirInput $0
-      ${EndIf}
-    FunctionEnd
-
-    Function LddDataDirPageLeave_${MUI_UNIQUEID}
-      ${NSD_GetText} $LddDataDirInput $LddDataDir
-    FunctionEnd
-
-    PageEx custom
-      PageCallbacks LddDataDirPageCreate_${MUI_UNIQUEID} LddDataDirPageLeave_${MUI_UNIQUEID}
-      Caption " "
-    PageExEnd
-  !endif
-!macroend
+;   The "选择数据目录" installer page was REMOVED (2026-09-13). The NSIS page
+;   never reliably wrote %APPDATA%\LDD\location.json (its macro could not be
+;   locally verified and left the value empty at install time), so the data
+;   directory is now managed from the in-app management panel instead
+;   (menu 帮助 → Harness 内核更新… → 数据目录 → 更改数据目录), which is
+;   Electron-backed, tested, and reliable. See data-directory-relocation.md.
 
 !macro customInstall
   ; The installer ships ZERO API keys. Model keys are only ever entered by the
@@ -72,16 +16,6 @@
   ; %APPDATA%\LDD\harness\.credentials.yaml). A fresh or overwrite install
   ; therefore clears any previously-configured key so the user re-enters it.
   Delete "$APPDATA\LDD\harness\.credentials.yaml"
-
-  ; Persist a data directory chosen on the installer's data-location page.
-  ; Written as a bare path (the desktop parses a `{`-prefixed line as JSON and
-  ; any other line as the directory), avoiding JSON backslash escaping here.
-  ${If} $LddDataDir != ""
-    CreateDirectory "$APPDATA\LDD"
-    FileOpen $0 "$APPDATA\LDD\location.json" w
-    FileWrite $0 "$LddDataDir"
-    FileClose $0
-  ${EndIf}
 !macroend
 
 !macro customUnInstall

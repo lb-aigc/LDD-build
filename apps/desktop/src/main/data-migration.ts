@@ -76,11 +76,12 @@ export async function migrateDataDirectory(
 
 /**
  * Migrate legacy data into a relocated directory when (and only when) the
- * relocation was recorded out-of-band (the NSIS installer writes location.json
- * without copying — it has no Node runtime). Guards: the target's harness dir
- * must be absent/empty and the legacy harness home must actually hold data, so
- * a fresh install (nothing to move) and an already-relocated install (target
- * non-empty) both no-op. Returns whether a migration ran.
+ * relocation was recorded out-of-band without copying (historically the NSIS
+ * installer wrote location.json without copying — it had no Node runtime; that
+ * page is now removed). Guards: the target's harness dir must be absent/empty
+ * and the legacy harness home must actually hold data, so a fresh install
+ * (nothing to move) and an already-relocated install (target non-empty) both
+ * no-op. Returns whether a migration ran.
  */
 export async function migrateDataDirectoryIfNeeded(paths: DataMigrationPaths): Promise<boolean> {
   const newDshHome = join(resolve(paths.newDataDirectory), 'harness')

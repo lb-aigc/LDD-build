@@ -72,10 +72,12 @@ export async function readDataLocation(locationPath: string): Promise<DataLocati
 }
 
 /**
- * Parse the on-disk location config, which the NSIS installer writes as a bare
- * path (no JSON — the installer avoids backslash escaping) and the desktop
- * settings UI writes as a JSON object. A `{`-prefixed line is parsed as JSON;
- * any other non-blank line is the data directory itself.
+ * Parse the on-disk location config. Today only the desktop settings UI writes
+ * it (as a JSON object); the bare-path branch is a HISTORICAL compatibility
+ * shim for the NSIS installer, which used to write a bare path (no JSON — it
+ * avoided backslash escaping) before the installer page was removed
+ * (2026-09-13). A `{`-prefixed line is parsed as JSON; any other non-blank
+ * line is the data directory itself.
  */
 export function parseDataLocationText(text: string): DataLocation {
   const trimmed = text.trim()
