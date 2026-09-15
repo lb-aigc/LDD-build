@@ -15,15 +15,23 @@ import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { z as zod } from 'zod'
 import type { ZodType } from 'zod'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import { KNOWN_SESSION_EVENT_TYPES, type Session, type SessionEvent } from '@deepseek-ai/dsh-session'
 // Type-only: resolves `ctx.sessionProjections` for the optional unit child.
 import type {} from '@deepseek-ai/dsh-session-projection'
 
 import { addEdge, addNode, emptyCanvas, removeNode, updateNode } from './model.ts'
 import type { CanvasEdge, CanvasNode, CanvasNodeKind, CanvasState } from './model.ts'
+import { registerCanvasSessionEvent } from './session-compat.ts'
 
 export const name = 'ldd-canvas'
 export const inject = ['tools']
+
+// Register the out-of-repo `canvas/state` event type into the harness's runtime
+// persistence vocabulary BEFORE any session opens, so canvas-bearing logs read
+// back cleanly (历史加载失败). Same seam as video-frame-analyzer's
+// `video/analysis-input`. Must run at module load, not inside apply(), because
+// a session can open before apply() completes.
+registerCanvasSessionEvent(KNOWN_SESSION_EVENT_TYPES)
 
 // ---- Session event: whole-value canvas snapshot (the durable mirror). ----
 declare module '@deepseek-ai/dsh-session/types' {
