@@ -304,7 +304,7 @@ export function CanvasView({ useProjection, loadImage, ask }: CanvasViewProps) {
           nodesDraggable={false}
           nodesConnectable={false}
           onNodeClick={(_, node) => {
-            const data = node.data as CanvasNodeData
+            const data = node.data as unknown as CanvasNodeData
             setSelected({ id: node.id, label: data.label, kind: data.kind })
             setQuestion('')
           }}
