@@ -43,10 +43,57 @@
   --xy-handle-border-color: var(--dsw-alias-bg-layer-1);
 }
 
-/* ---- LDD node cards ---- */
+/* ---- LDD node cards ----
+ * The two seats hand the canvas different boxes: the Conversation view tab gives
+ * it a block box (where `width/height: 100%` does the work), while the right
+ * Sidebar's tab body is `display:flex; min-height:0; flex:auto` (the kit's
+ * `.panelBody`), where the canvas has to BE a flex item to get a definite
+ * height. Both are declared so one sheet serves both seats. */
 .ldd-canvas-root {
+  position: relative;
   width: 100%;
   height: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.ldd-canvas-root > .react-flow {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ---- Session header utility: the way into the right Sidebar's canvas tab ---- */
+.ldd-canvas-header-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.ldd-canvas-header-button:hover {
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+}
+
+.ldd-canvas-header-button:focus-visible {
+  outline: 2px solid var(--dsw-alias-border-l3);
+  outline-offset: 1px;
+}
+
+.ldd-canvas-header-button svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
 }
 
 .ldd-canvas-empty {
@@ -61,44 +108,160 @@
   text-align: center;
 }
 
+/* ---- node card frame ---- */
 .ldd-canvas-node {
   background: var(--dsw-alias-bg-layer-1);
   border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 8px;
-  padding: 10px 12px;
-  min-width: 120px;
-  max-width: 220px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  min-width: 140px;
+  max-width: 240px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
   font-size: 13px;
   color: var(--dsw-alias-label-primary);
+  transition: box-shadow 0.12s ease, border-color 0.12s ease;
 }
 
+.ldd-canvas-node:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  border-color: var(--dsw-alias-border-l2);
+}
+
+/* Kind accent strip (left border). */
 .ldd-canvas-node[data-kind='image'] { border-left: 3px solid #6366f1; }
 .ldd-canvas-node[data-kind='video'] { border-left: 3px solid #f59e0b; }
 .ldd-canvas-node[data-kind='music'] { border-left: 3px solid #10b981; }
 .ldd-canvas-node[data-kind='text'] { border-left: 3px solid #3b82f6; }
 .ldd-canvas-node[data-kind='note'] { border-left: 3px solid #a855f7; }
 
+/* ---- card head: kind glyph + caption + one meta fact ---- */
+.ldd-canvas-node-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.ldd-canvas-node-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.ldd-canvas-node-kind svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ldd-canvas-node-fact {
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- image body ---- */
 .ldd-canvas-node-image {
   width: 100%;
-  max-height: 140px;
+  max-height: 150px;
   object-fit: cover;
-  border-radius: 6px;
-  margin-bottom: 8px;
   display: block;
 }
 
 .ldd-canvas-image-placeholder {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   height: 90px;
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
-  border: 1px dashed var(--dsw-alias-border-l3);
-  border-radius: 6px;
-  margin-bottom: 8px;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: 1px dashed var(--dsw-alias-border-l3);
+}
+
+.ldd-canvas-image-placeholder svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+
+/* ---- media (video/music) placeholder body ---- */
+.ldd-canvas-node-media {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 12px;
+}
+
+.ldd-canvas-node-media-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+}
+
+.ldd-canvas-node-media-glyph svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ldd-canvas-node-media-caption {
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* ---- text / note body ---- */
+.ldd-canvas-node-text {
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ldd-canvas-node[data-kind='note'] .ldd-canvas-node-text {
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.06), transparent);
+}
+
+.ldd-canvas-node-text-empty {
+  color: var(--dsw-alias-label-tertiary);
+  font-style: italic;
+}
+
+/* ---- bottom title ---- */
+.ldd-canvas-node-label {
+  padding: 8px 12px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-top: 1px solid var(--dsw-alias-border-l1);
 }
 
 /* Handles are present so edges render, but invisible in the read-only MVP. */
@@ -109,20 +272,60 @@
   pointer-events: none;
 }
 
-.ldd-canvas-node-label {
-  font-weight: 600;
-  color: var(--dsw-alias-label-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* ---- ask bar (a clicked node → ask the agent about it) ---- */
+.ldd-canvas-ask {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  z-index: 10;
 }
 
-.ldd-canvas-node-content {
-  margin-top: 4px;
-  color: var(--dsw-alias-label-secondary);
+.ldd-canvas-ask-title {
   font-size: 12px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+  max-width: 180px;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+}
+
+.ldd-canvas-ask-input {
+  width: 260px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  outline: none;
+}
+
+.ldd-canvas-ask-input:focus {
+  border-color: var(--dsw-alias-border-l3);
+}
+
+.ldd-canvas-ask-submit {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-bg-base);
+  cursor: pointer;
+}
+
+.ldd-canvas-ask-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
