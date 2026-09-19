@@ -179,6 +179,20 @@ export async function buildRuntime(
       if (existsSync(join(pluginWorkspace, 'tsdown.config.ts'))) {
         await run(pnpm, ['--dir', pluginWorkspace, 'bundle'], { cwd: copiedSource, env: environment })
       }
+    }
+    // Generate typert Remote artifacts for plugins that declare a `./typert`
+    // export BEFORE packing, so `lib/typert.host.js` / `lib/typert.remote-client.js`
+    // ship in the tarball. The generator scans the harness face tsconfig, so
+    // the plugins are first appended to the throwaway copied tsconfig.host.json
+    // references (never the sha256-locked upstream tree).
+    const typertPlugins = (await Promise.all(pluginWorkspaces.map(async (pluginWorkspace) => (
+      await pluginHasTypertExport(pluginWorkspace) ? pluginWorkspace : undefined
+    )))).filter((pluginWorkspace): pluginWorkspace is string => pluginWorkspace !== undefined)
+    if (typertPlugins.length > 0) {
+      await registerPluginFaceReferences(copiedSource, typertPlugins)
+      await generatePluginTypertArtifacts(copiedSource, typertPlugins, environment, run)
+    }
+    for (const pluginWorkspace of pluginWorkspaces) {
       await run(pnpm, ['--dir', pluginWorkspace, 'pack', '--pack-destination', lddTarballs], {
         cwd: copiedSource,
         env: environment,
@@ -600,4 +614,92 @@ export function resolveSpawnInvocation(
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error
+}
+
+/**
+ * A plugin that exposes a typert Remote declares a `./typert` export (the same
+ * gate the harness generator's `hasTypertExport` uses). Plugins without one —
+ * the ordinary agent-unidirectional ones — are left untouched.
+ */
+async function pluginHasTypertExport(pluginWorkspace: string): Promise<boolean> {
+  const manifestPath = join(pluginWorkspace, 'package.json')
+  if (!existsSync(manifestPath)) return false
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as { exports?: unknown }
+  if (manifest.exports === null || typeof manifest.exports !== 'object' || Array.isArray(manifest.exports)) {
+    return false
+  }
+  return Object.hasOwn(manifest.exports, './typert')
+}
+
+/**
+ * Append LDD plugin workspaces to the harness face tsconfig's `references` so
+ * the typert generator's `loadRegistrations` (which only admits packages under
+ * `<root>/packages`) can see them. `copiedSource` is the throwaway mkdtemp tree
+ * produced by `copyOfficialSource`, so this string edit never touches the
+ * sha256-locked upstream source. The `references` array is the top-level
+ * tsconfig's final key, so its closing `]` is the file's last `]` and the `}`
+ * before it closes the last entry.
+ */
+async function registerPluginFaceReferences(copiedSource: string, pluginWorkspaces: readonly string[]): Promise<void> {
+  const tsconfigPath = join(copiedSource, 'tsconfig.host.json')
+  const raw = await readFile(tsconfigPath, 'utf8')
+  const refsStart = raw.indexOf('"references": [')
+  if (refsStart === -1) throw new Error('harness tsconfig.host.json is missing its references array')
+  const refsClose = raw.lastIndexOf(']')
+  const lastEntryClose = raw.lastIndexOf('}', refsClose)
+  if (refsClose < refsStart || lastEntryClose < refsStart) {
+    throw new Error('harness tsconfig.host.json references array is malformed')
+  }
+  const entries = pluginWorkspaces
+    .map((pluginWorkspace) => `    { "path": "./packages/ldd/${basename(resolve(pluginWorkspace))}" }`)
+    .join(',\n')
+  const updated = `${raw.slice(0, lastEntryClose)}},\n${entries}\n  ${raw.slice(refsClose)}`
+  await writeFile(tsconfigPath, updated, { mode: 0o600 })
+}
+
+/**
+ * Run the harness typert generator over the selected LDD plugins and write the
+ * emitted `lib/typert.host.js` / `lib/typert.remote-client.js` artifacts into
+ * each plugin's `lib/` directory (they are then picked up by `pnpm pack`
+ * because the plugin's `files` already lists them). The generator runs as a
+ * one-shot ESM script inside `copiedSource`, where `build:official` has already
+ * compiled the generator's `lib/types` output and `pnpm install` resolved its
+ * `typescript` / `gen-mapping` dependencies.
+ */
+async function generatePluginTypertArtifacts(
+  copiedSource: string,
+  pluginWorkspaces: readonly string[],
+  environment: Readonly<NodeJS.ProcessEnv>,
+  run: BuildCommandRunner,
+): Promise<void> {
+  const names = await Promise.all(pluginWorkspaces.map(async (pluginWorkspace) => {
+    const manifest = JSON.parse(await readFile(join(pluginWorkspace, 'package.json'), 'utf8')) as { name?: unknown }
+    if (typeof manifest.name !== 'string') throw new Error(`plugin workspace has no package name: ${pluginWorkspace}`)
+    return manifest.name
+  }))
+  const script = [
+    "import { WorkspaceTypertGenerator } from './packages/typert/generator/lib/types/workspace.js'",
+    "import { mkdirSync, writeFileSync } from 'node:fs'",
+    "import { resolve } from 'node:path'",
+    `const names = ${JSON.stringify(names)}`,
+    "const root = process.cwd()",
+    "const generator = new WorkspaceTypertGenerator(root, { checkDiagnostics: false })",
+    "const artifacts = generator.generate(names, ['host'])",
+    "for (const artifact of artifacts) {",
+    "  const out = resolve(root, artifact.packageRoot, 'lib')",
+    "  mkdirSync(out, { recursive: true })",
+    "  writeFileSync(resolve(out, 'typert.' + artifact.face + '.js'), artifact.js)",
+    "  writeFileSync(resolve(out, 'typert.' + artifact.face + '.d.ts'), artifact.dts)",
+    "  if (artifact.remote !== undefined) {",
+    "    writeFileSync(resolve(out, 'typert.remote-client.js'), artifact.remote.js)",
+    "    writeFileSync(resolve(out, 'typert.remote-client.d.ts'), artifact.remote.dts)",
+    "  }",
+    "}",
+    "console.log('typert: generated ' + artifacts.length + ' artifact(s) for ' + names.join(', '))",
+  ].join('\n')
+  await run(process.execPath, ['--input-type=module', '-e', script], {
+    cwd: copiedSource,
+    env: environment,
+    captureOutput: true,
+  })
 }

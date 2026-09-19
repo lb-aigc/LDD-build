@@ -22,6 +22,7 @@ import type {} from '@deepseek-ai/dsh-session-projection'
 import { addEdge, addNode, emptyCanvas, removeNode, updateNode } from './model.ts'
 import type { CanvasEdge, CanvasNode, CanvasNodeKind, CanvasState } from './model.ts'
 import { registerCanvasSessionEvent } from './session-compat.ts'
+import { CanvasService } from './remote.ts'
 
 export const name = 'ldd-canvas'
 export const inject = ['tools']
@@ -340,4 +341,15 @@ export function apply(ctx: Context): void {
 
   const disposers = defineCanvasTools().map((tool) => ctx.tools.register(tool))
   ctx.effect(() => () => { for (const dispose of disposers) dispose() }, 'ldd-canvas: dispose tools')
+
+  // The write-back Remote service. `new CanvasService(ctx)` registers `ctx.canvas`
+  // (cordis Service auto-provides on the owning fiber) AND binds it to the
+  // typert gateway (`bindTypertRemote`), so the client's `ctx.remote.canvas`
+  // verbs reach these methods and the change lands as a durable `canvas/state`.
+  new CanvasService(ctx)
 }
+
+// Re-export the write-back Remote service so the package's public surface
+// (`@ldd/dsh-canvas`) exposes it; the typert generator's surface walk reaches
+// the `@Remote` methods through the `./remote.ts` import above.
+export { CanvasService } from './remote.ts'

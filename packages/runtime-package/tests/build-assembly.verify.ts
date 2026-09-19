@@ -85,6 +85,7 @@ test('two complete runtime assemblies contain stable relative locks and archived
       )
       assert.match(packageManifest, /node-addon-system/)
       assert.deepEqual(observedRuntimeNodeCommands, [
+        'source:--input-type=module -e typert-generator',
         'esbuild:install.js',
         'koffi:./cnoke.cjs -P . -D src/koffi --prebuild --release',
         'node-pty:scripts/prebuild.js',
@@ -106,6 +107,18 @@ test('two complete runtime assemblies contain stable relative locks and archived
 
 const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
   if (_command === process.execPath) {
+    // Typert Remote generation runs a one-shot ESM script inside the copied
+    // harness source. Its exact script body is an implementation detail, so
+    // record a stable label and assert the generator import is present.
+    if (args[0] === '--input-type=module' && args[1] === '-e') {
+      assert.match(
+        String(args[2] ?? ''),
+        /WorkspaceTypertGenerator/,
+        'typert generation must run the harness generator',
+      )
+      observedRuntimeNodeCommands.push('source:--input-type=module -e typert-generator')
+      return ''
+    }
     const packageLabel = basename(options.cwd)
     const detail = packageLabel === 'runtime' ? args.slice(1).join(' ') : args.join(' ')
     observedRuntimeNodeCommands.push(`${packageLabel}:${detail}`)
