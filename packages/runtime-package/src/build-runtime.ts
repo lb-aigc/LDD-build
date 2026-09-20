@@ -171,6 +171,20 @@ export async function buildRuntime(
       env: environment,
     })
     await mkdir(lddTarballs, { recursive: true })
+    // Generate typert Remote artifacts BEFORE the tsc build: a plugin whose
+    // client half imports its own `./remote` contribution (self-import) needs
+    // `lib/typert.remote-client.d.ts` on disk when `tsc -p` resolves that
+    // subpath. The generator scans the harness face tsconfig, so the plugins
+    // are first appended to the throwaway copied tsconfig.host.json references
+    // (never the sha256-locked upstream tree); `tsc -p` later re-emits the node
+    // half into `lib/` but does not clean the generated typert files.
+    const typertPlugins = (await Promise.all(pluginWorkspaces.map(async (pluginWorkspace) => (
+      await pluginHasTypertExport(pluginWorkspace) ? pluginWorkspace : undefined
+    )))).filter((pluginWorkspace): pluginWorkspace is string => pluginWorkspace !== undefined)
+    if (typertPlugins.length > 0) {
+      await registerPluginFaceReferences(copiedSource, typertPlugins)
+      await generatePluginTypertArtifacts(copiedSource, typertPlugins, environment, run)
+    }
     for (const pluginWorkspace of pluginWorkspaces) {
       await run(pnpm, ['--dir', pluginWorkspace, 'build'], { cwd: copiedSource, env: environment })
       // A plugin that ships a browser settings card bundles it with tsdown
@@ -179,18 +193,6 @@ export async function buildRuntime(
       if (existsSync(join(pluginWorkspace, 'tsdown.config.ts'))) {
         await run(pnpm, ['--dir', pluginWorkspace, 'bundle'], { cwd: copiedSource, env: environment })
       }
-    }
-    // Generate typert Remote artifacts for plugins that declare a `./typert`
-    // export BEFORE packing, so `lib/typert.host.js` / `lib/typert.remote-client.js`
-    // ship in the tarball. The generator scans the harness face tsconfig, so
-    // the plugins are first appended to the throwaway copied tsconfig.host.json
-    // references (never the sha256-locked upstream tree).
-    const typertPlugins = (await Promise.all(pluginWorkspaces.map(async (pluginWorkspace) => (
-      await pluginHasTypertExport(pluginWorkspace) ? pluginWorkspace : undefined
-    )))).filter((pluginWorkspace): pluginWorkspace is string => pluginWorkspace !== undefined)
-    if (typertPlugins.length > 0) {
-      await registerPluginFaceReferences(copiedSource, typertPlugins)
-      await generatePluginTypertArtifacts(copiedSource, typertPlugins, environment, run)
     }
     for (const pluginWorkspace of pluginWorkspaces) {
       await run(pnpm, ['--dir', pluginWorkspace, 'pack', '--pack-destination', lddTarballs], {

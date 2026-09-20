@@ -7,19 +7,19 @@
  * edit / delete) and the change lands as a durable `canvas/state` session event
  * — zero agent round-trip.
  *
- * Each verb takes the owning `Agent` as its FIRST parameter. The typert
- * generator recognizes it as a lookup (the `agent: TypertLookup<Agent,
- * SessionId>` entry in `@deepseek-ai/dsh-agent/types`) and the harness
- * `agents` service resolves the wire `agentId` back to the live `Agent`; the
- * verb then reads the current canvas out of `agent.session.snapshotEvents()`,
- * applies a pure `model.ts` transition, and commits a whole-value
- * `canvas/state` event via `session.append` — the exact seam the `canvas_*`
- * tools already use, so agent and user edits share one durable mirror.
+ * Every verb takes the owning session's `SessionId` as its FIRST parameter —
+ * the same direct (non-lookup) shape the harness `session-controller` uses
+ * (`prompt({ sessionId })`, `commands.execute(sessionId, …)`). The client calls
+ * `ctx.remote.canvas.addNode(sessionId, request)` with no scope machinery; the
+ * host resolves the live `Agent` through `ctx.agents.get(sessionId)` and writes
+ * back through `agent.session.append` — the exact seam the `canvas_*` tools
+ * already use, so agent and user edits share one durable mirror.
  */
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 import { addEdge, addNode, emptyCanvas, removeNode, updateNode } from './model.ts'
 import type { CanvasNode, CanvasState } from './types.ts'
@@ -41,16 +41,23 @@ export class CanvasService extends TypertRemoteService {
     super(ctx, 'canvas')
   }
 
+  /** Resolve the live Agent owning a session id (the canvas write-back seam). */
+  private sessionOf(sessionId: SessionId): Session {
+    const agent: Agent | undefined = this.ctx.agents.get(sessionId)
+    if (agent === undefined) throw new Error(`canvas: 会话不可用 (${String(sessionId)})`)
+    return agent.session
+  }
+
   /** Read the whole canvas. */
   @Remote('inspect')
-  inspect(agent: Agent): CanvasState {
-    return foldCanvas(agent.session.snapshotEvents())
+  inspect(sessionId: SessionId): CanvasState {
+    return foldCanvas(this.sessionOf(sessionId).snapshotEvents())
   }
 
   /** Add a node; returns the full new canvas (the client re-renders from it). */
   @Remote('addNode')
-  addNode(agent: Agent, request: CanvasAddNodeRequest): CanvasState {
-    const session = agent.session
+  addNode(sessionId: SessionId, request: CanvasAddNodeRequest): CanvasState {
+    const session = this.sessionOf(sessionId)
     const before = foldCanvas(session.snapshotEvents())
     const auto = before.nodes.length
     const { state: next } = addNode(before, {
@@ -68,8 +75,8 @@ export class CanvasService extends TypertRemoteService {
 
   /** Remove a node (and its touching edges); returns the full new canvas. */
   @Remote('removeNode')
-  removeNode(agent: Agent, nodeId: string): CanvasState {
-    const session = agent.session
+  removeNode(sessionId: SessionId, nodeId: string): CanvasState {
+    const session = this.sessionOf(sessionId)
     const before = foldCanvas(session.snapshotEvents())
     const next = removeNode(before, nodeId)
     session.append('canvas/state', { state: next })
@@ -78,8 +85,8 @@ export class CanvasService extends TypertRemoteService {
 
   /** Patch one node's mutable fields; returns the full new canvas. */
   @Remote('updateNode')
-  updateNode(agent: Agent, nodeId: string, patch: CanvasUpdateNodeRequest): CanvasState {
-    const session = agent.session
+  updateNode(sessionId: SessionId, nodeId: string, patch: CanvasUpdateNodeRequest): CanvasState {
+    const session = this.sessionOf(sessionId)
     const before = foldCanvas(session.snapshotEvents())
     const next = updateNode(before, nodeId, {
       ...(patch.label === undefined ? {} : { label: patch.label }),
@@ -94,8 +101,8 @@ export class CanvasService extends TypertRemoteService {
 
   /** Move a node (position-only convenience; returns the full new canvas). */
   @Remote('moveNode')
-  moveNode(agent: Agent, nodeId: string, x: number, y: number): CanvasState {
-    const session = agent.session
+  moveNode(sessionId: SessionId, nodeId: string, x: number, y: number): CanvasState {
+    const session = this.sessionOf(sessionId)
     const before = foldCanvas(session.snapshotEvents())
     const next = updateNode(before, nodeId, { x, y })
     session.append('canvas/state', { state: next })
@@ -104,8 +111,8 @@ export class CanvasService extends TypertRemoteService {
 
   /** Link two nodes; returns the full new canvas. */
   @Remote('link')
-  link(agent: Agent, request: CanvasLinkRequest): CanvasState {
-    const session = agent.session
+  link(sessionId: SessionId, request: CanvasLinkRequest): CanvasState {
+    const session = this.sessionOf(sessionId)
     const before = foldCanvas(session.snapshotEvents())
     const { state: next } = addEdge(before, {
       source: request.source,

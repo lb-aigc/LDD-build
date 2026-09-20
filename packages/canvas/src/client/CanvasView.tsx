@@ -23,11 +23,21 @@ import {
 import type { Edge, Node, NodeTypes } from '@xyflow/react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { CanvasNode, CanvasState, JsonValue } from '../model.ts'
+import type { CanvasAddNodeRequest, CanvasLinkRequest, CanvasUpdateNodeRequest } from '../types.ts'
 import './react-flow.css'
 import './canvas.css'
 
-/** Injected per-session canvas face: image loader + one-shot agent prompt. */
-export interface CanvasViewInjected {
+/** The write-back verbs the seat face exposes (the client half of CanvasService). */
+export interface CanvasWriteback {
+  addNode(request: CanvasAddNodeRequest): Promise<CanvasState>
+  removeNode(nodeId: string): Promise<CanvasState>
+  updateNode(nodeId: string, patch: CanvasUpdateNodeRequest): Promise<CanvasState>
+  moveNode(nodeId: string, x: number, y: number): Promise<CanvasState>
+  link(request: CanvasLinkRequest): Promise<CanvasState>
+}
+
+/** Injected per-session canvas face: image loader + one-shot agent prompt + write-back. */
+export interface CanvasViewInjected extends CanvasWriteback {
   loadImage: (attachmentId: string) => Promise<string>
   ask: (text: string) => Promise<void>
 }
@@ -47,6 +57,12 @@ export interface CanvasViewProps {
   loadImage: CanvasViewInjected['loadImage']
   /** Injected one-shot agent prompt (ask about a selected node). */
   ask: CanvasViewInjected['ask']
+  /** Injected write-back verbs (user edits land as durable canvas/state events). */
+  addNode: CanvasWriteback['addNode']
+  removeNode: CanvasWriteback['removeNode']
+  updateNode: CanvasWriteback['updateNode']
+  moveNode: CanvasWriteback['moveNode']
+  link: CanvasWriteback['link']
 }
 
 const LoadImageContext = createContext<(attachmentId: string) => Promise<string>>(
@@ -267,7 +283,7 @@ interface SelectedNode {
   kind: CanvasNode['kind']
 }
 
-export function CanvasView({ useProjection, loadImage, ask }: CanvasViewProps) {
+export function CanvasView({ useProjection, loadImage, ask, addNode, removeNode, updateNode, moveNode, link }: CanvasViewProps) {
   const canvas = useProjection('canvas')
   const nodes = useMemo(() => (canvas === undefined ? [] : toFlowNodes(canvas)), [canvas])
   const edges = useMemo(() => (canvas === undefined ? [] : toFlowEdges(canvas)), [canvas])
