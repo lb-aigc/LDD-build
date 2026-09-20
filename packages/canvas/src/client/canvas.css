@@ -110,6 +110,7 @@
 
 /* ---- node card frame ---- */
 .ldd-canvas-node {
+  position: relative;
   background: var(--dsw-alias-bg-layer-1);
   border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 10px;
@@ -264,12 +265,212 @@
   border-top: 1px solid var(--dsw-alias-border-l1);
 }
 
-/* Handles are present so edges render, but invisible in the read-only MVP. */
+/* Handles are the link endpoints: dim by default, bright on hover so the user
+ * can grab them to drag a connection between two nodes. */
 .ldd-canvas-handle {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
+  opacity: 0.35;
+  transition: opacity 0.12s ease;
+}
+
+.ldd-canvas-node:hover .ldd-canvas-handle {
+  opacity: 1;
+}
+
+/* ---- node delete button (hover-revealed, top-right) ---- */
+.ldd-canvas-node-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
   opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+
+.ldd-canvas-node:hover .ldd-canvas-node-delete {
+  opacity: 1;
+}
+
+.ldd-canvas-node-delete:hover {
+  background: var(--dsw-alias-bg-layer-3, var(--dsw-alias-bg-layer-2));
+  color: var(--dsw-alias-danger, #ef4444);
+}
+
+.ldd-canvas-node-delete svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---- empty-canvas hint (overlaid, non-blocking) ---- */
+.ldd-canvas-empty-hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   pointer-events: none;
+  max-width: 320px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px dashed var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+  z-index: 4;
+}
+
+/* ---- toolbar (add nodes) ---- */
+.ldd-canvas-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.ldd-canvas-toolbar button {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ldd-canvas-toolbar button:hover {
+  border-color: var(--dsw-alias-border-l3);
+  background: var(--dsw-alias-bg-layer-3, var(--dsw-alias-bg-layer-2));
+}
+
+/* ---- edit bar (a selected node → rename / content / delete / ask) ---- */
+.ldd-canvas-edit {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(520px, calc(100% - 32px));
+  padding: 10px 12px;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  z-index: 10;
+}
+
+.ldd-canvas-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ldd-canvas-edit-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+}
+
+.ldd-canvas-edit-kind svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ldd-canvas-edit-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  outline: none;
+}
+
+.ldd-canvas-edit-label:focus {
+  border-color: var(--dsw-alias-border-l3);
+}
+
+.ldd-canvas-edit-save {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-bg-base);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ldd-canvas-edit-delete {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-danger, #ef4444);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ldd-canvas-edit-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.ldd-canvas-edit-content {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.ldd-canvas-edit-content:focus {
+  border-color: var(--dsw-alias-border-l3);
+}
+
+.ldd-canvas-edit-ask {
+  border-top: 1px solid var(--dsw-alias-border-l1);
+  padding-top: 8px;
 }
 
 /* ---- ask bar (a clicked node → ask the agent about it) ---- */

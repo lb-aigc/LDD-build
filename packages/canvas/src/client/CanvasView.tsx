@@ -6,21 +6,35 @@
  * Reads the whole canvas through `useProjection('canvas')` and renders it with
  * React Flow. Image nodes resolve their `sha256:` attachment (or an http url)
  * into a thumbnail via the injected `loadImage`; text/note nodes show inline
- * content. MVP posture is READ-ONLY presentation: the agent mutates through
- * the `canvas_*` tools, the user can pan / zoom / inspect, and node dragging is
- * disabled until the write-back path (right-side panel phase) lands.
+ * content.
+ *
+ * Phase 3 — the user edits the canvas directly, with zero agent round-trip:
+ * - DRAG a node (React Flow keeps it responsive locally via `applyNodeChanges`;
+ *   `onNodeDragStop` persists through the `moveNode` verb).
+ * - CONNECT two nodes by dragging a handle (persists through `link`).
+ * - ADD a note/text node from the toolbar (persists through `addNode`).
+ * - EDIT label/content and DELETE via the bottom edit bar on a selected node
+ *   (`updateNode` / `removeNode`).
+ *
+ * Every write lands as a durable `canvas/state` event on the Host, so the
+ * projection re-renders from the SAME mirror the `canvas_*` tools mutate — agent
+ * and user edits share one durable source of truth. Writes are fire-and-forget
+ * with local feedback; the projection's refresh is the authoritative reconcile.
  */
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Background,
   Controls,
   Handle,
   MiniMap,
+  Panel,
   Position,
   ReactFlow,
+  applyEdgeChanges,
+  applyNodeChanges,
 } from '@xyflow/react'
-import type { Edge, Node, NodeTypes } from '@xyflow/react'
+import type { Edge, Node, NodeTypes, OnConnect } from '@xyflow/react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { CanvasNode, CanvasState, JsonValue } from '../model.ts'
 import type { CanvasAddNodeRequest, CanvasLinkRequest, CanvasUpdateNodeRequest } from '../types.ts'
@@ -68,6 +82,11 @@ export interface CanvasViewProps {
 const LoadImageContext = createContext<(attachmentId: string) => Promise<string>>(
   async () => { throw new Error('canvas: no image loader injected') },
 )
+
+/** Write-back actions reachable from deep inside a node card (the delete button). */
+const CanvasActionsContext = createContext<{ removeNode: (nodeId: string) => void }>({
+  removeNode: () => {},
+})
 
 /** A node's `url` is either a `sha256:` attachment id or a plain http(s) url. */
 function isShaAttachment(url: string | undefined): url is string {
@@ -176,8 +195,9 @@ function metaText(kind: CanvasNode['kind'], meta: Record<string, JsonValue> | un
 }
 
 /** One node card: a head row (kind glyph + caption + meta fact) over a kind body. */
-function CanvasNodeCard({ data }: { data: CanvasNodeData }) {
+function CanvasNodeCard({ id, data }: { id: string; data: CanvasNodeData }) {
   const loadImage = useContext(LoadImageContext)
+  const { removeNode } = useContext(CanvasActionsContext)
   const [resolved, setResolved] = useState<string | null>(null)
   const sha = isShaAttachment(data.url)
   const fact = metaText(data.kind, data.meta)
@@ -206,10 +226,25 @@ function CanvasNodeCard({ data }: { data: CanvasNodeData }) {
 
   return (
     <div className="ldd-canvas-node" data-kind={data.kind}>
-      {/* Handles give React Flow endpoints for edges — without them edges do not
-          render. isConnectable={false} keeps the read-only posture. */}
-      <Handle type="target" position={Position.Left} className="ldd-canvas-handle" isConnectable={false} />
-      <Handle type="source" position={Position.Right} className="ldd-canvas-handle" isConnectable={false} />
+      {/* Handles give React Flow endpoints for edges; connectable so the user can
+          drag a link between nodes (persisted via the `link` verb). */}
+      <Handle type="target" position={Position.Left} className="ldd-canvas-handle" />
+      <Handle type="source" position={Position.Right} className="ldd-canvas-handle" />
+
+      <button
+        type="button"
+        className="ldd-canvas-node-delete"
+        title="删除节点"
+        aria-label={`删除「${data.label}」`}
+        onClick={(event) => {
+          event.stopPropagation()
+          removeNode(id)
+        }}
+      >
+        <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
+          <path d="M3.5 4.5h9M6.5 4.5V3h3v1.5M4.5 4.5l.7 9h5.6l.7-9M6.5 6.5v5M9.5 6.5v5" />
+        </svg>
+      </button>
 
       <div className="ldd-canvas-node-head">
         <span className="ldd-canvas-node-kind">{kindIcon(data.kind)}<span>{KIND_LABEL[data.kind]}</span></span>
@@ -276,84 +311,197 @@ function toFlowEdges(state: CanvasState): Edge[] {
   }))
 }
 
-/** A node the user has clicked, kept lean (only what the ask bar needs). */
+/** A node the user has selected for editing / asking. */
 interface SelectedNode {
   id: string
   label: string
   kind: CanvasNode['kind']
+  content?: string
 }
 
 export function CanvasView({ useProjection, loadImage, ask, addNode, removeNode, updateNode, moveNode, link }: CanvasViewProps) {
   const canvas = useProjection('canvas')
-  const nodes = useMemo(() => (canvas === undefined ? [] : toFlowNodes(canvas)), [canvas])
-  const edges = useMemo(() => (canvas === undefined ? [] : toFlowEdges(canvas)), [canvas])
+
+  // Local, RESPONSIVE flow state: the projection is the authoritative mirror,
+  // but dragging must feel immediate, so React Flow's `applyNodeChanges` mutates
+  // a local copy on every drag frame; the projection refresh reconciles it.
+  const [flowNodes, setFlowNodes] = useState<Node[]>([])
+  const [flowEdges, setFlowEdges] = useState<Edge[]>([])
+
   const [selected, setSelected] = useState<SelectedNode | null>(null)
+  const [draftLabel, setDraftLabel] = useState('')
+  const [draftContent, setDraftContent] = useState('')
   const [question, setQuestion] = useState('')
+
+  // Reconcile local flow state from the projection (authoritative) on every change.
+  useEffect(() => {
+    if (canvas !== undefined) {
+      setFlowNodes(toFlowNodes(canvas))
+      setFlowEdges(toFlowEdges(canvas))
+    }
+  }, [canvas])
+
+  // Seed the edit drafts when a node is selected.
+  useEffect(() => {
+    if (selected !== null) {
+      setDraftLabel(selected.label)
+      setDraftContent(selected.content ?? '')
+    }
+  }, [selected])
+
+  const onNodesChange = useCallback((changes: Parameters<typeof applyNodeChanges>[0]) => {
+    setFlowNodes((nds) => applyNodeChanges(changes, nds))
+  }, [])
+
+  const onEdgesChange = useCallback((changes: Parameters<typeof applyEdgeChanges>[0]) => {
+    setFlowEdges((eds) => applyEdgeChanges(changes, eds))
+  }, [])
+
+  // Fire-and-forget write-back: log (not throw) so a transient failure never
+  // takes the React tree down; the projection refresh is the reconcile.
+  const run = useCallback((p: Promise<unknown>) => {
+    void p.catch((error: unknown) => { console.error('[ldd-canvas] write-back failed:', error) })
+  }, [])
 
   if (canvas === undefined) {
     return <div className="ldd-canvas-empty">画布不可用（canvas 插件未挂载）。</div>
   }
-  if (canvas.nodes.length === 0) {
-    return (
-      <div className="ldd-canvas-empty">
-        画布当前为空。在对话中让智能体往画布添加节点（例如「把这几张图放到画布上」），或直接调用 canvas 工具。
-      </div>
-    )
+
+  const onDragStop = (_: unknown, node: Node): void => {
+    run(moveNode(node.id, node.position.x, node.position.y))
   }
 
-  const submit = (): void => {
+  const onConnect: OnConnect = (connection) => {
+    const source = connection.source
+    const target = connection.target
+    if (source === null || target === null) return
+    run(link({ source, target }))
+  }
+
+  const addNote = (): void => { run(addNode({ kind: 'note', label: '新笔记', content: '' })) }
+  const addText = (): void => { run(addNode({ kind: 'text', label: '新文本', content: '' })) }
+
+  const saveEdit = (): void => {
+    if (selected === null) return
+    const patch: CanvasUpdateNodeRequest = {}
+    const label = draftLabel.trim()
+    if (label !== '' && label !== selected.label) patch.label = label
+    if ((selected.kind === 'text' || selected.kind === 'note') && draftContent !== selected.content) {
+      patch.content = draftContent
+    }
+    if (Object.keys(patch).length > 0) run(updateNode(selected.id, patch))
+    setSelected(null)
+  }
+
+  const deleteSelected = (): void => {
+    if (selected === null) return
+    run(removeNode(selected.id))
+    setSelected(null)
+  }
+
+  const submitAsk = (): void => {
     if (selected === null) return
     const text = question.trim()
     if (text === '') return
     void ask(`关于画布上的节点「${selected.label}」（${KIND_LABEL[selected.kind]}），${text}`)
-    setSelected(null)
     setQuestion('')
   }
 
+  const actions = useMemo(() => ({
+    removeNode: (nodeId: string) => {
+      run(removeNode(nodeId))
+      setSelected((sel) => (sel !== null && sel.id === nodeId ? null : sel))
+    },
+  }), [removeNode, run])
+
   return (
     <LoadImageContext.Provider value={loadImage}>
-      <div className="ldd-canvas-root">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          onNodeClick={(_, node) => {
-            const data = node.data as unknown as CanvasNodeData
-            setSelected({ id: node.id, label: data.label, kind: data.kind })
-            setQuestion('')
-          }}
-          onPaneClick={() => { setSelected(null); setQuestion('') }}
-          fitView
-          proOptions={{ hideAttribution: true }}
-        >
-          <MiniMap />
-          <Controls />
-          <Background />
-        </ReactFlow>
-        {selected !== null && (
-          <div className="ldd-canvas-ask">
-            <span className="ldd-canvas-ask-title">问 agent · {selected.label}</span>
-            <input
-              className="ldd-canvas-ask-input"
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              onKeyDown={(event) => { if (event.key === 'Enter') submit() }}
-              placeholder="关于这个节点你想问什么？"
-              autoFocus
-            />
-            <button
-              type="button"
-              className="ldd-canvas-ask-submit"
-              onClick={submit}
-              disabled={question.trim() === ''}
-            >
-              发送
-            </button>
-          </div>
-        )}
-      </div>
+      <CanvasActionsContext.Provider value={actions}>
+        <div className="ldd-canvas-root">
+          <ReactFlow
+            nodes={flowNodes}
+            edges={flowEdges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeDragStop={onDragStop}
+            onConnect={onConnect}
+            onNodeClick={(_, node) => {
+              const data = node.data as unknown as CanvasNodeData
+              setSelected({
+                id: node.id,
+                label: data.label,
+                kind: data.kind,
+                ...(data.content === undefined ? {} : { content: data.content }),
+              })
+              setQuestion('')
+            }}
+            onPaneClick={() => { setSelected(null); setQuestion('') }}
+            fitView
+            proOptions={{ hideAttribution: true }}
+          >
+            <Panel position="top-left" className="ldd-canvas-toolbar">
+              <button type="button" onClick={addNote} title="添加一个笔记节点">＋ 笔记</button>
+              <button type="button" onClick={addText} title="添加一个文本节点">＋ 文本</button>
+            </Panel>
+            <MiniMap />
+            <Controls />
+            <Background />
+          </ReactFlow>
+
+          {canvas.nodes.length === 0 && (
+            <div className="ldd-canvas-empty-hint">
+              画布为空。用上方「＋ 笔记 / ＋ 文本」建节点，或在对话中让智能体往画布添加内容。
+            </div>
+          )}
+
+          {selected !== null && (
+            <div className="ldd-canvas-edit">
+              <div className="ldd-canvas-edit-row">
+                <span className="ldd-canvas-edit-kind">{kindIcon(selected.kind)}<span>{KIND_LABEL[selected.kind]}</span></span>
+                <input
+                  className="ldd-canvas-edit-label"
+                  value={draftLabel}
+                  onChange={(event) => setDraftLabel(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') saveEdit() }}
+                  placeholder="节点标题"
+                />
+                <button type="button" className="ldd-canvas-edit-save" onClick={saveEdit}>保存</button>
+                <button type="button" className="ldd-canvas-edit-delete" onClick={deleteSelected}>删除</button>
+              </div>
+
+              {(selected.kind === 'text' || selected.kind === 'note') && (
+                <textarea
+                  className="ldd-canvas-edit-content"
+                  value={draftContent}
+                  onChange={(event) => setDraftContent(event.target.value)}
+                  placeholder="内容…"
+                  rows={3}
+                />
+              )}
+
+              <div className="ldd-canvas-edit-row ldd-canvas-edit-ask">
+                <span className="ldd-canvas-ask-title">问 agent</span>
+                <input
+                  className="ldd-canvas-ask-input"
+                  value={question}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') submitAsk() }}
+                  placeholder="关于这个节点你想问什么？"
+                />
+                <button
+                  type="button"
+                  className="ldd-canvas-ask-submit"
+                  onClick={submitAsk}
+                  disabled={question.trim() === ''}
+                >
+                  发送
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </CanvasActionsContext.Provider>
     </LoadImageContext.Provider>
   )
 }
