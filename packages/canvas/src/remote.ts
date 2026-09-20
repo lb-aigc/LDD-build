@@ -17,7 +17,6 @@
  */
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 import type { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
@@ -41,11 +40,11 @@ export class CanvasService extends TypertRemoteService {
     super(ctx, 'canvas')
   }
 
-  /** Resolve the live Agent owning a session id (the canvas write-back seam). */
+  /** Resolve the live Session owning a session id (the canvas write-back seam). */
   private sessionOf(sessionId: SessionId): Session {
-    const agent: Agent | undefined = this.ctx.agents.get(sessionId)
-    if (agent === undefined) throw new Error(`canvas: 会话不可用 (${String(sessionId)})`)
-    return agent.session
+    const session = this.ctx.sessions.get(sessionId)
+    if (session === undefined) throw new Error(`canvas: 会话不可用 (${String(sessionId)})`)
+    return session
   }
 
   /** Read the whole canvas. */
