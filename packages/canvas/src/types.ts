@@ -16,6 +16,9 @@ export type { CanvasEdge, CanvasNode, CanvasNodeKind, CanvasState, JsonValue }
 
 /** New-node input for {@link CanvasService.addNode}. */
 export interface CanvasAddNodeRequest {
+  /** Caller-supplied id (optional). Lets the client build node+edge in one
+   *  shot: mint the id, addNode({ id }), then link({ source, target: id }). */
+  id?: string
   kind: CanvasNode['kind']
   label: string
   x?: number

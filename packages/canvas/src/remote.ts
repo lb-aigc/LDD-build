@@ -60,6 +60,7 @@ export class CanvasService extends TypertRemoteService {
     const before = foldCanvas(session.snapshotEvents())
     const auto = before.nodes.length
     const { state: next } = addNode(before, {
+      ...(request.id === undefined ? {} : { id: request.id }),
       kind: request.kind,
       label: request.label,
       x: typeof request.x === 'number' ? request.x : (auto % 4) * 220,

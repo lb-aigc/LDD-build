@@ -33,12 +33,17 @@ import {
   applyEdgeChanges,
   applyNodeChanges,
 } from '@xyflow/react'
-import type { Edge, Node, NodeTypes, OnConnect, ReactFlowInstance } from '@xyflow/react'
+import type { Edge, FinalConnectionState, Node, NodeTypes, OnConnect, OnConnectStartParams, ReactFlowInstance } from '@xyflow/react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import { newId } from '../model.ts'
 import type { CanvasNode, CanvasState, JsonValue } from '../model.ts'
 import type { CanvasAddNodeRequest, CanvasLinkRequest, CanvasUpdateNodeRequest } from '../types.ts'
 import './react-flow.css'
 import './canvas.css'
+
+/** Local-only ids for the drag-to-create ghost node + dashed edge overlay. */
+const GHOST_NODE_ID = '__draft-target__'
+const GHOST_EDGE_ID = '__draft-edge__'
 
 /** The write-back verbs the seat face exposes (the client half of CanvasService). */
 export interface CanvasWriteback {
@@ -294,12 +299,25 @@ function CanvasNodeCard({ id, data }: { id: string; data: CanvasNodeData }) {
   )
 }
 
+/** The drop target shown while a dragged connection awaits its new node:
+ *  a dashed "＋" marker at the release point. The ghost node + dashed edge are
+ *  local-only (never written back) — picking a menu item replaces them with the
+ *  real node + a solid edge. */
+function DraftTargetNode() {
+  return (
+    <div className="ldd-canvas-draft-target">
+      <span className="ldd-canvas-draft-plus">＋</span>
+    </div>
+  )
+}
+
 const nodeTypes: NodeTypes = {
   image: CanvasNodeCard,
   video: CanvasNodeCard,
   music: CanvasNodeCard,
   text: CanvasNodeCard,
   note: CanvasNodeCard,
+  draft: DraftTargetNode,
 }
 
 function toFlowNodes(state: CanvasState): Node[] {
@@ -346,10 +364,14 @@ export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, 
   // The React Flow instance, captured on init so a pane double-click can map a
   // viewport (screen) coordinate into flow-space for placing a new node.
   const rfRef = useRef<ReactFlowInstance | null>(null)
-  // The add-node menu, opened by double-clicking empty canvas: screen position
-  // (for the floating menu) + flow position (where the new node lands).
-  const [menu, setMenu] = useState<{ x: number; y: number; flowX: number; flowY: number } | null>(null)
+  // The add-node menu, opened by double-clicking empty canvas OR by dropping a
+  // dragged connection on empty canvas: screen position (for the floating menu)
+  // + flow position (where the new node lands) + optional source node (a
+  // drag-to-create, so the new node gets wired to that source).
+  const [menu, setMenu] = useState<{ x: number; y: number; flowX: number; flowY: number; sourceNodeId?: string } | null>(null)
   const lastPaneClick = useRef<{ time: number; x: number; y: number } | null>(null)
+  // The node a dragged connection left from (set onConnectStart, read+cleared onConnectEnd).
+  const connectSourceRef = useRef<string | null>(null)
 
   // Reconcile local flow state from the projection (authoritative) on every change.
   useEffect(() => {
@@ -358,6 +380,38 @@ export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, 
       setFlowEdges(toFlowEdges(canvas))
     }
   }, [canvas])
+
+  // While a dragged connection awaits its new node, overlay a local ghost node +
+  // a dashed edge so the user sees the pending link (the release point + the
+  // line that turns solid once a menu item is picked). Local-only: picking an
+  // item writes the real node + edge, and the projection reconcile drops the
+  // ghost. A double-click menu (no source) renders no overlay.
+  const displayNodes = useMemo<Node[]>(() => {
+    if (menu === null || menu.sourceNodeId === undefined) return flowNodes
+    const ghost: Node = {
+      id: GHOST_NODE_ID,
+      type: 'draft',
+      position: { x: menu.flowX, y: menu.flowY },
+      data: {},
+      draggable: false,
+      selectable: false,
+      connectable: false,
+    }
+    return [...flowNodes, ghost]
+  }, [flowNodes, menu])
+
+  const displayEdges = useMemo<Edge[]>(() => {
+    if (menu === null || menu.sourceNodeId === undefined) return flowEdges
+    const dashed: Edge = {
+      id: GHOST_EDGE_ID,
+      source: menu.sourceNodeId,
+      target: GHOST_NODE_ID,
+      type: 'smoothstep',
+      animated: true,
+      style: { strokeDasharray: '6 6' },
+    }
+    return [...flowEdges, dashed]
+  }, [flowEdges, menu])
 
   // Seed the edit drafts when a node is selected.
   useEffect(() => {
@@ -396,6 +450,31 @@ export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, 
     run(link({ source, target }))
   }
 
+  // Start of a dragged connection: remember the source node, so a release on
+  // empty canvas can offer "create a node here" wired back to that source.
+  const onConnectStart = useCallback((_event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
+    connectSourceRef.current = params.nodeId
+  }, [])
+
+  // End of a dragged connection. A valid drop already went through onConnect;
+  // an empty-canvas release opens the add-node menu (the dashed ghost edge
+  // stays on screen until a menu item is picked).
+  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => {
+    const source = connectSourceRef.current
+    connectSourceRef.current = null
+    if (source === null) return
+    if (connectionState.isValid) return
+    // MouseEvent carries clientX/Y directly; TouchEvent keeps them under `touches`.
+    const point = event instanceof MouseEvent
+      ? { x: event.clientX, y: event.clientY }
+      : { x: event.touches[0]?.clientX ?? event.changedTouches[0]?.clientX ?? 0, y: event.touches[0]?.clientY ?? event.changedTouches[0]?.clientY ?? 0 }
+    const flow = rfRef.current?.screenToFlowPosition({ x: point.x, y: point.y })
+    if (flow === undefined) return
+    setSelected(null)
+    setQuestion('')
+    setMenu({ x: point.x, y: point.y, flowX: flow.x, flowY: flow.y, sourceNodeId: source })
+  }, [])
+
   // Double-click empty canvas → open the add-node menu at that spot. A single
   // click just clears selection (and closes the menu). The viewport coordinate
   // maps through the React Flow instance so the node lands under the cursor.
@@ -416,22 +495,43 @@ export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, 
     }
   }
 
-  // Place a new asset node at the double-click spot.
-  const addAssetNode = (kind: 'image' | 'video' | 'music', label: string): void => {
+  // Place a new asset node at the double-click / connection-drop spot. For a
+  // drag-to-create (a sourceNodeId), mint the id up front and wire the new node
+  // to that source in the same breath, so the dashed ghost becomes a solid edge.
+  // Await addNode BEFORE link — the write-back is fire-and-forget otherwise and
+  // a concurrent link could reach the host before the target node exists.
+  const addAssetNode = async (kind: 'image' | 'video' | 'music', label: string): Promise<void> => {
     if (menu === null) return
-    run(addNode({ kind, label, x: menu.flowX, y: menu.flowY }))
+    const { flowX, flowY, sourceNodeId } = menu
+    const id = newId()
+    try {
+      await addNode({ id, kind, label, x: flowX, y: flowY })
+      if (sourceNodeId !== undefined) await link({ source: sourceNodeId, target: id })
+    } catch (error) {
+      console.error('[ldd-canvas] add-node (drag-to-create) failed:', error)
+    }
     setMenu(null)
   }
 
-  // Upload local media files, then place a card for each landed asset.
+  // Upload local media files, then place a card for each landed asset. On a
+  // drag-to-create, the first asset wires to the source (the rest just land).
+  // Each node is awaited so the first node exists before its link is written.
   const uploadAssets = async (): Promise<void> => {
     if (menu === null) return
+    const { flowX, flowY, sourceNodeId } = menu
     const assets = await pickFilesAndUpload().catch(() => [])
-    assets.forEach((asset, index) => {
+    for (let index = 0; index < assets.length; index += 1) {
+      const asset = assets[index]!
       const col = index % 3
       const row = Math.floor(index / 3)
-      run(addNode({ kind: asset.kind, label: asset.name, x: menu.flowX + col * 40, y: menu.flowY + row * 40 }))
-    })
+      const id = newId()
+      try {
+        await addNode({ id, kind: asset.kind, label: asset.name, x: flowX + col * 40, y: flowY + row * 40 })
+        if (sourceNodeId !== undefined && index === 0) await link({ source: sourceNodeId, target: id })
+      } catch (error) {
+        console.error('[ldd-canvas] upload node failed:', error)
+      }
+    }
     setMenu(null)
   }
 
@@ -473,14 +573,16 @@ export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, 
       <CanvasActionsContext.Provider value={actions}>
         <div className="ldd-canvas-root">
           <ReactFlow
-            nodes={flowNodes}
-            edges={flowEdges}
+            nodes={displayNodes}
+            edges={displayEdges}
             nodeTypes={nodeTypes}
             onInit={(rf) => { rfRef.current = rf }}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onNodeDragStop={onDragStop}
             onConnect={onConnect}
+            onConnectStart={onConnectStart}
+            onConnectEnd={onConnectEnd}
             onNodeClick={(_, node) => {
               const data = node.data as unknown as CanvasNodeData
               setSelected({
@@ -510,9 +612,9 @@ export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, 
           {menu !== null && (
             <div className="ldd-canvas-menu" style={{ left: menu.x, top: menu.y }}>
               <button type="button" onClick={() => { void uploadAssets() }}>上传</button>
-              <button type="button" onClick={() => addAssetNode('image', '新图片')}>图片</button>
-              <button type="button" onClick={() => addAssetNode('music', '新音频')}>音频</button>
-              <button type="button" onClick={() => addAssetNode('video', '新视频')}>视频</button>
+              <button type="button" onClick={() => { void addAssetNode('image', '新图片') }}>图片</button>
+              <button type="button" onClick={() => { void addAssetNode('music', '新音频') }}>音频</button>
+              <button type="button" onClick={() => { void addAssetNode('video', '新视频') }}>视频</button>
             </div>
           )}
 

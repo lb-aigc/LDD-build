@@ -369,6 +369,30 @@
   background: var(--dsw-alias-bg-layer-2);
 }
 
+/* ---- drag-to-create ghost target (dashed ＋ marker at the release point) ---- */
+.ldd-canvas-draft-target {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ldd-canvas-draft-plus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px dashed var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 18px;
+  line-height: 1;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
 /* ---- edit bar (a selected node → rename / content / delete / ask) ---- */
 .ldd-canvas-edit {
   position: absolute;
