@@ -1,37 +1,31 @@
 /**
  * @ldd/dsh-canvas — Browser half.
  *
- * The same canvas shows up in TWO seats, both fed by the ONE host-side truth
- * (`useProjection('canvas')`, which folds the durable `canvas/state` events):
+ * The canvas lives in ONE seat — the right Sidebar, as a page-type tab
+ * (`kind: 'canvas'`) — fed by the ONE host-side truth (`useProjection('canvas')`,
+ * which folds the durable `canvas/state` events). The registration uses the
+ * stock public two-stage path: `ctx.sidebarRightTabs.register` declares the tab
+ * type, the keyed `sidebar.right.pane.tab` seat hosts its body. That is the same
+ * path `ui-sidebar-files` and `ui-sidebar-documentpreview` take, so it costs zero
+ * upstream patches. It deliberately claims NO guide entry: the shipped guide
+ * draws its own page whenever more than one entry is registered, which would
+ * turn the strip's add control from "open Files" into "open the guide". The way
+ * in is the always-mounted 「画布」 utility in the Session header below.
  *
- * 1. The right Sidebar, as a page-type tab (`kind: 'canvas'`), registered
- *    through the stock public two-stage path — `ctx.sidebarRightTabs.register`
- *    for what the type IS, the keyed `sidebar.right.pane.tab` seat for its body.
- *    That is the same path `ui-sidebar-files` and `ui-sidebar-documentpreview`
- *    take, so it costs zero upstream patches. It deliberately claims NO guide
- *    entry: the shipped guide draws its own page whenever more than one entry is
- *    registered, which would turn the strip's add control from "open Files" into
- *    "open the guide". The way in is the always-mounted 「画布」 utility in the
- *    Session header below.
- * 2. The Conversation's own view tab (对话 / 轨迹 / 画布). Kept while the sidebar
- *    route beds in, so there is a fallback; delete this registration (and the
- *    `@deepseek-ai/dsh-client-ui-conversation` inject/peer edges) once the
- *    sidebar route has proven itself.
- *
- * Both seats are session-scoped, so the framework hands each body `useProjection`
- * and `sessionId` on its own. The face injected into each seat carries the image
- * loader, the one-shot agent prompt, AND the write-back verbs — the six typert
- * Remote methods of {@link CanvasService}, mounted here from the generated
- * `@ldd/dsh-canvas/remote` contribution and called directly with the session id
- * (the same direct shape the harness `session-controller` uses; no scope
- * machinery). Every write lands as a durable `canvas/state` event on the Host,
- * so the projection re-renders from the SAME mirror the `canvas_*` tools mutate.
+ * The seat is session-scoped, so the framework hands the body `useProjection`
+ * and `sessionId`. The injected face carries the image loader, the one-shot
+ * agent prompt, the write-back verbs (the six typert Remote methods of
+ * {@link CanvasService}, mounted from the generated `@ldd/dsh-canvas/remote`
+ * contribution and called directly with the session id — the same direct shape
+ * `session-controller` uses), AND the file-upload entry (`pickFilesAndUpload`).
+ * Every write lands as a durable `canvas/state` event on the Host, so the
+ * projection re-renders from the SAME mirror the `canvas_*` tools mutate.
  *
  * The right-Sidebar services are taken through `ctx.inject` rather than the
  * top-level `inject` list: the canvas has to keep working in a composition
  * without the right Sidebar, and a missing optional service must not take the
- * Conversation tab down with it. The host half uses the same idiom for its
- * optional `sessionProjections`.
+ * canvas down with it. The host half uses the same idiom for its optional
+ * `sessionProjections`.
  *
  * The sessions service is read through `ctx.get('sessions')` with a minimal
  * STRUCTURAL face (not `ctx.sessions.<method>`). This package's single tsconfig
@@ -45,8 +39,8 @@
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-// Type-only: the 'conversation.view' SlotMap row (declared by ui-conversation)
-// must be in the program for the register call to type.
+// Type-only: the 'conversation.session.header.utilities' SlotMap row (declared
+// by ui-conversation) must be in the program for the header-button register call.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 // Type-only: pulls the renderer-owned slots service (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -58,6 +52,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { CanvasState } from '../model.ts'
 import type { CanvasAddNodeRequest, CanvasLinkRequest, CanvasUpdateNodeRequest } from '../types.ts'
 import { CanvasView } from './CanvasView.tsx'
+import type { CanvasUploadedAsset } from './CanvasView.tsx'
 import { CanvasPanelButton } from './CanvasPanelButton.tsx'
 // The generated Remote contribution (TYPERT_REMOTE): a pure descriptor/codec
 // value, inlined by tsdown into lib/client.js (no shared runtime identity).
@@ -100,6 +95,73 @@ interface CanvasRemoteNamespaceLike {
 interface CanvasRemoteLike {
   $mount(contribution: unknown): Promise<unknown>
   canvas: CanvasRemoteNamespaceLike
+  /** Session list (session-controller's remote) to resolve a session's workspace cwd. */
+  session?: {
+    list(request: Record<string, never>): Promise<{
+      ok: boolean
+      value: { items: Array<{ sessionId: SessionId; cwd?: string }> }
+    }>
+  }
+}
+
+/** Local structural copy of the main-process import result (no apps/desktop edge). */
+interface ImportFileResultLike {
+  readonly imported: boolean
+  readonly relativePath: string
+  readonly kind: 'video' | 'image' | 'document' | 'text' | 'other'
+}
+
+declare global {
+  interface Window {
+    readonly ldd?: {
+      importFile(data: ArrayBuffer, fileName: string, workspacePath: string): Promise<ImportFileResultLike>
+    }
+  }
+}
+
+/** Extensions mapped to the three canvas media kinds (audio is NOT in the shell's kind vocabulary). */
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'])
+const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm'])
+const AUDIO_EXTS = new Set(['.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wma'])
+
+/** Map one uploaded file name to a canvas media kind, or undefined when unsupported. */
+function mediaKindOf(fileName: string): 'image' | 'video' | 'music' | undefined {
+  const dot = fileName.lastIndexOf('.')
+  const ext = dot === -1 ? '' : fileName.slice(dot).toLowerCase()
+  if (IMAGE_EXTS.has(ext)) return 'image'
+  if (VIDEO_EXTS.has(ext)) return 'video'
+  if (AUDIO_EXTS.has(ext)) return 'music'
+  return undefined
+}
+
+/** Open the native file picker and resolve the chosen files (empty on cancel). */
+function pickFiles(): Promise<File[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.multiple = true
+    input.hidden = true
+    let settled = false
+    input.onchange = () => {
+      settled = true
+      const files = Array.from(input.files ?? [])
+      input.remove()
+      resolve(files)
+    }
+    const onFocus = (): void => {
+      window.removeEventListener('focus', onFocus)
+      window.setTimeout(() => {
+        if (!settled) {
+          settled = true
+          input.remove()
+          resolve([])
+        }
+      }, 300)
+    }
+    window.addEventListener('focus', onFocus)
+    document.body.appendChild(input)
+    input.click()
+  })
 }
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
@@ -165,14 +227,36 @@ function createCanvasFace(ctx: ClientContext) {
         unwrap(await remoteOf().moveNode(sessionId, nodeId, x, y), 'moveNode'),
       link: async (request: CanvasLinkRequest): Promise<CanvasState> =>
         unwrap(await remoteOf().link(sessionId, request), 'link'),
+      pickFilesAndUpload: async (): Promise<CanvasUploadedAsset[]> => {
+        const files = await pickFiles()
+        if (files.length === 0) return []
+        const remote = ctx.get('remote') as CanvasRemoteLike | undefined
+        const listed = await remote?.session?.list({})
+        const cwd = listed?.ok === true
+          ? listed.value.items.find((item) => item.sessionId === sessionId)?.cwd
+          : undefined
+        if (cwd === undefined) throw new Error('canvas: 当前会话无工作区目录，无法上传文件')
+        const ldd = window.ldd
+        if (ldd === undefined) throw new Error('canvas: 当前环境不支持文件上传')
+        const assets: CanvasUploadedAsset[] = []
+        for (const file of files) {
+          const kind = mediaKindOf(file.name)
+          if (kind === undefined) continue
+          const data = await file.arrayBuffer()
+          const res = await ldd.importFile(data, file.name, cwd)
+          if (!res.imported) continue
+          assets.push({ name: file.name, kind })
+        }
+        return assets
+      },
     }
   }
 }
 
 /**
  * Register the browser half: the right-Sidebar tab type and its body, the
- * Session-header way in, the Conversation view tab it is migrating from, and the
- * write-back Remote mount (the generated `canvas` namespace contribution).
+ * Session-header way in, and the write-back Remote mount (the generated
+ * `canvas` namespace contribution).
  * @param ctx - client root context carrying the slots and the Session seat.
  */
 export function apply(ctx: ClientContext): void {
@@ -192,9 +276,9 @@ export function apply(ctx: ClientContext): void {
     }
   })
 
-  // --- right Sidebar: the canvas as a page-type tab (primary home) -----------
+  // --- right Sidebar: the canvas as a page-type tab (the only seat) --------
   // Optional by construction: `ctx.inject` waits only for this slice, so a
-  // composition without the right Sidebar still gets the Conversation tab below.
+  // composition without the right Sidebar simply has no canvas tab.
   ctx.inject(['sidebarRightTabs', 'sidebarRight'], (sidebarCtx) => {
     // No `patterns` = a page type, opened by kind. No `guide` entry on purpose —
     // see this module's header comment.
@@ -221,13 +305,4 @@ export function apply(ctx: ClientContext): void {
       inject: () => ({ open: () => { sidebarCtx.sidebarRight.openTab(CANVAS_KIND) } }),
     }, CanvasPanelButton))
   })
-
-  // --- Conversation view tab (transition fallback; delete when settled) ------
-  ctx.slots.inject('conversation.view', () => ctx.slots.register({
-    name: 'conversation.view',
-    id: CANVAS_KIND,
-    order: 20,
-    label: () => '画布',
-    inject: face,
-  }, CanvasView))
 }

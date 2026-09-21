@@ -21,20 +21,19 @@
  * and user edits share one durable source of truth. Writes are fire-and-forget
  * with local feedback; the projection's refresh is the authoritative reconcile.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Background,
   Controls,
   Handle,
   MiniMap,
-  Panel,
   Position,
   ReactFlow,
   applyEdgeChanges,
   applyNodeChanges,
 } from '@xyflow/react'
-import type { Edge, Node, NodeTypes, OnConnect } from '@xyflow/react'
+import type { Edge, Node, NodeTypes, OnConnect, ReactFlowInstance } from '@xyflow/react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { CanvasNode, CanvasState, JsonValue } from '../model.ts'
 import type { CanvasAddNodeRequest, CanvasLinkRequest, CanvasUpdateNodeRequest } from '../types.ts'
@@ -54,6 +53,15 @@ export interface CanvasWriteback {
 export interface CanvasViewInjected extends CanvasWriteback {
   loadImage: (attachmentId: string) => Promise<string>
   ask: (text: string) => Promise<void>
+  /** Pick local media files, upload them into the session workspace, and return
+   *  the ones that map to a canvas asset kind (image/video/music). */
+  pickFilesAndUpload: () => Promise<CanvasUploadedAsset[]>
+}
+
+/** One media file that was uploaded and can become a canvas node. */
+export interface CanvasUploadedAsset {
+  name: string
+  kind: 'image' | 'video' | 'music'
 }
 
 /**
@@ -71,6 +79,8 @@ export interface CanvasViewProps {
   loadImage: CanvasViewInjected['loadImage']
   /** Injected one-shot agent prompt (ask about a selected node). */
   ask: CanvasViewInjected['ask']
+  /** Injected file upload (pick local media → workspace → asset list). */
+  pickFilesAndUpload: CanvasViewInjected['pickFilesAndUpload']
   /** Injected write-back verbs (user edits land as durable canvas/state events). */
   addNode: CanvasWriteback['addNode']
   removeNode: CanvasWriteback['removeNode']
@@ -319,7 +329,7 @@ interface SelectedNode {
   content?: string
 }
 
-export function CanvasView({ useProjection, loadImage, ask, addNode, removeNode, updateNode, moveNode, link }: CanvasViewProps) {
+export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, addNode, removeNode, updateNode, moveNode, link }: CanvasViewProps) {
   const canvas = useProjection('canvas')
 
   // Local, RESPONSIVE flow state: the projection is the authoritative mirror,
@@ -332,6 +342,14 @@ export function CanvasView({ useProjection, loadImage, ask, addNode, removeNode,
   const [draftLabel, setDraftLabel] = useState('')
   const [draftContent, setDraftContent] = useState('')
   const [question, setQuestion] = useState('')
+
+  // The React Flow instance, captured on init so a pane double-click can map a
+  // viewport (screen) coordinate into flow-space for placing a new node.
+  const rfRef = useRef<ReactFlowInstance | null>(null)
+  // The add-node menu, opened by double-clicking empty canvas: screen position
+  // (for the floating menu) + flow position (where the new node lands).
+  const [menu, setMenu] = useState<{ x: number; y: number; flowX: number; flowY: number } | null>(null)
+  const lastPaneClick = useRef<{ time: number; x: number; y: number } | null>(null)
 
   // Reconcile local flow state from the projection (authoritative) on every change.
   useEffect(() => {
@@ -378,8 +396,44 @@ export function CanvasView({ useProjection, loadImage, ask, addNode, removeNode,
     run(link({ source, target }))
   }
 
-  const addNote = (): void => { run(addNode({ kind: 'note', label: '新笔记', content: '' })) }
-  const addText = (): void => { run(addNode({ kind: 'text', label: '新文本', content: '' })) }
+  // Double-click empty canvas → open the add-node menu at that spot. A single
+  // click just clears selection (and closes the menu). The viewport coordinate
+  // maps through the React Flow instance so the node lands under the cursor.
+  const onPaneClick = (event: { clientX: number; clientY: number }): void => {
+    setSelected(null)
+    setQuestion('')
+    const now = Date.now()
+    const last = lastPaneClick.current
+    const near = last !== null && now - last.time < 350
+      && Math.hypot(event.clientX - last.x, event.clientY - last.y) < 40
+    if (near) {
+      lastPaneClick.current = null
+      const flow = rfRef.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      setMenu({ x: event.clientX, y: event.clientY, flowX: flow?.x ?? 0, flowY: flow?.y ?? 0 })
+    } else {
+      lastPaneClick.current = { time: now, x: event.clientX, y: event.clientY }
+      setMenu(null)
+    }
+  }
+
+  // Place a new asset node at the double-click spot.
+  const addAssetNode = (kind: 'image' | 'video' | 'music', label: string): void => {
+    if (menu === null) return
+    run(addNode({ kind, label, x: menu.flowX, y: menu.flowY }))
+    setMenu(null)
+  }
+
+  // Upload local media files, then place a card for each landed asset.
+  const uploadAssets = async (): Promise<void> => {
+    if (menu === null) return
+    const assets = await pickFilesAndUpload().catch(() => [])
+    assets.forEach((asset, index) => {
+      const col = index % 3
+      const row = Math.floor(index / 3)
+      run(addNode({ kind: asset.kind, label: asset.name, x: menu.flowX + col * 40, y: menu.flowY + row * 40 }))
+    })
+    setMenu(null)
+  }
 
   const saveEdit = (): void => {
     if (selected === null) return
@@ -422,6 +476,7 @@ export function CanvasView({ useProjection, loadImage, ask, addNode, removeNode,
             nodes={flowNodes}
             edges={flowEdges}
             nodeTypes={nodeTypes}
+            onInit={(rf) => { rfRef.current = rf }}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onNodeDragStop={onDragStop}
@@ -435,15 +490,12 @@ export function CanvasView({ useProjection, loadImage, ask, addNode, removeNode,
                 ...(data.content === undefined ? {} : { content: data.content }),
               })
               setQuestion('')
+              setMenu(null)
             }}
-            onPaneClick={() => { setSelected(null); setQuestion('') }}
+            onPaneClick={onPaneClick}
             fitView
             proOptions={{ hideAttribution: true }}
           >
-            <Panel position="top-left" className="ldd-canvas-toolbar">
-              <button type="button" onClick={addNote} title="添加一个笔记节点">＋ 笔记</button>
-              <button type="button" onClick={addText} title="添加一个文本节点">＋ 文本</button>
-            </Panel>
             <MiniMap />
             <Controls />
             <Background />
@@ -451,7 +503,16 @@ export function CanvasView({ useProjection, loadImage, ask, addNode, removeNode,
 
           {canvas.nodes.length === 0 && (
             <div className="ldd-canvas-empty-hint">
-              画布为空。用上方「＋ 笔记 / ＋ 文本」建节点，或在对话中让智能体往画布添加内容。
+              画布为空。双击画布添加节点，或在对话中让智能体往画布添加内容。
+            </div>
+          )}
+
+          {menu !== null && (
+            <div className="ldd-canvas-menu" style={{ left: menu.x, top: menu.y }}>
+              <button type="button" onClick={() => { void uploadAssets() }}>上传</button>
+              <button type="button" onClick={() => addAssetNode('image', '新图片')}>图片</button>
+              <button type="button" onClick={() => addAssetNode('music', '新音频')}>音频</button>
+              <button type="button" onClick={() => addAssetNode('video', '新视频')}>视频</button>
             </div>
           )}
 

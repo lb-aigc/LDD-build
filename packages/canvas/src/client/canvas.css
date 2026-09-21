@@ -335,32 +335,38 @@
   z-index: 4;
 }
 
-/* ---- toolbar (add nodes) ---- */
-.ldd-canvas-toolbar {
+/* ---- add-node menu (double-click empty canvas) ---- */
+.ldd-canvas-menu {
+  position: fixed;
+  z-index: 20;
   display: flex;
-  gap: 6px;
-  padding: 6px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 128px;
+  padding: 4px;
   background: var(--dsw-alias-bg-layer-1);
-  border: 1px solid var(--dsw-alias-border-l1);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
 }
 
-.ldd-canvas-toolbar button {
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 6px;
-  background: var(--dsw-alias-bg-layer-2);
+.ldd-canvas-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 13px;
+  text-align: left;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
-  white-space: nowrap;
 }
 
-.ldd-canvas-toolbar button:hover {
-  border-color: var(--dsw-alias-border-l3);
-  background: var(--dsw-alias-bg-layer-3, var(--dsw-alias-bg-layer-2));
+.ldd-canvas-menu button:hover {
+  background: var(--dsw-alias-bg-layer-2);
 }
 
 /* ---- edit bar (a selected node → rename / content / delete / ask) ---- */
