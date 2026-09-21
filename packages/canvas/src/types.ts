@@ -43,3 +43,25 @@ export interface CanvasUpdateNodeRequest {
   content?: string
   meta?: Record<string, JsonValue>
 }
+
+/** One user-uploaded asset to store durably before it becomes a node. */
+export interface CanvasSaveAssetRequest {
+  /** Asset kind, decides image normalization vs verbatim file storage. */
+  kind: 'image' | 'video' | 'audio'
+  /** Display name (the file's leaf name). */
+  name: string
+  /** MIME type — REQUIRED for images (drives `saveImage` normalization); ignored for verbatim files. */
+  mediaType?: string
+  /** Canonical base64 of the file bytes. */
+  dataBase64: string
+}
+
+/** Result of storing one asset: its content-addressed attachment id (+ image size). */
+export interface CanvasSaveAssetValue {
+  /** `sha256:...` attachment id; the client stores this as the node's `url`. */
+  attachmentId: string
+  /** Normalized image width in px (images only). */
+  width?: number
+  /** Normalized image height in px (images only). */
+  height?: number
+}

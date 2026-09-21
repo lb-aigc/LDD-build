@@ -22,7 +22,20 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 import { addEdge, addNode, emptyCanvas, removeNode, updateNode } from './model.ts'
 import type { CanvasNode, CanvasState } from './types.ts'
-import type { CanvasAddNodeRequest, CanvasLinkRequest, CanvasUpdateNodeRequest } from './types.ts'
+import type { CanvasAddNodeRequest, CanvasLinkRequest, CanvasSaveAssetRequest, CanvasSaveAssetValue, CanvasUpdateNodeRequest } from './types.ts'
+
+/** Structural face of `ctx.attachments` (dsh-attachment). Shims the two write
+ *  entry points so this package does NOT add a dsh-attachment dependency edge
+ *  (that would re-trigger the pnpm-lockfile git-fetch deadlock). The runtime
+ *  object is the real AttachmentStore, byte-identical. */
+interface AttachmentStoreLike {
+  saveImage(input: { data: Uint8Array; mediaType: string; name?: string }): Promise<{
+    attachmentId: string
+    width: number
+    height: number
+  }>
+  saveFile(input: { data: Uint8Array; name?: string }): Promise<{ attachmentId: string }>
+}
 
 /** Fold the current canvas state out of the session log (last `canvas/state` wins). */
 function foldCanvas(events: readonly SessionEvent[]): CanvasState {
@@ -34,7 +47,7 @@ function foldCanvas(events: readonly SessionEvent[]): CanvasState {
 }
 
 export class CanvasService extends TypertRemoteService {
-  static inject = []
+  static inject = ['attachments']
 
   constructor(ctx: Context) {
     super(ctx, 'canvas')
@@ -121,5 +134,26 @@ export class CanvasService extends TypertRemoteService {
     })
     session.append('canvas/state', { state: next })
     return next
+  }
+
+  /** Store one user-uploaded asset durably (image → normalized via `saveImage`,
+   *  video/audio → verbatim via `saveFile`); returns its content-addressed
+   *  attachment id (+ normalized image size). The client stores the id as the
+   *  node's `url` so `loadImage` can read it back. */
+  @Remote('saveAsset')
+  async saveAsset(sessionId: SessionId, request: CanvasSaveAssetRequest): Promise<CanvasSaveAssetValue> {
+    this.sessionOf(sessionId)
+    const attachments = (this.ctx as unknown as { attachments?: AttachmentStoreLike }).attachments
+    if (attachments === undefined) throw new Error('canvas: 附件存储不可用')
+    const binary = atob(request.dataBase64)
+    const data = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i += 1) data[i] = binary.charCodeAt(i)
+    if (request.kind === 'image') {
+      if (request.mediaType === undefined) throw new Error('canvas: 图片上传缺少媒体类型')
+      const ref = await attachments.saveImage({ data, mediaType: request.mediaType, name: request.name })
+      return { attachmentId: ref.attachmentId, width: ref.width, height: ref.height }
+    }
+    const ref = await attachments.saveFile({ data, name: request.name })
+    return { attachmentId: ref.attachmentId }
   }
 }

@@ -50,7 +50,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 // sidebar.right.pane.tab seat declaration.
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type { CanvasState } from '../model.ts'
-import type { CanvasAddNodeRequest, CanvasLinkRequest, CanvasUpdateNodeRequest } from '../types.ts'
+import type { CanvasAddNodeRequest, CanvasLinkRequest, CanvasSaveAssetRequest, CanvasSaveAssetValue, CanvasUpdateNodeRequest } from '../types.ts'
 import { CanvasView } from './CanvasView.tsx'
 import type { CanvasUploadedAsset } from './CanvasView.tsx'
 import { CanvasPanelButton } from './CanvasPanelButton.tsx'
@@ -89,6 +89,7 @@ interface CanvasRemoteNamespaceLike {
   moveNode(sessionId: string, nodeId: string, x: number, y: number): Promise<CanvasRemoteResult<CanvasState>>
   link(sessionId: string, request: CanvasLinkRequest): Promise<CanvasRemoteResult<CanvasState>>
   inspect(sessionId: string): Promise<CanvasRemoteResult<CanvasState>>
+  saveAsset(sessionId: string, request: CanvasSaveAssetRequest): Promise<CanvasRemoteResult<CanvasSaveAssetValue>>
 }
 
 /** The Remote carrier as this package reaches it (mount + the canvas namespace). */
@@ -134,8 +135,44 @@ function mediaKindOf(fileName: string): 'image' | 'video' | 'music' | undefined 
   return undefined
 }
 
+/** Image MIME types the attachment store's `saveImage` accepts (its mediaTypes
+ *  whitelist is exactly png/jpeg/webp/gif). `.bmp` is NOT normalizable, so it
+ *  maps to undefined and the upload is skipped. */
+const IMAGE_MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+}
+
+/** Map one image file name to its accepted MIME type, or undefined when not. */
+function imageMediaTypeOf(fileName: string): string | undefined {
+  const dot = fileName.lastIndexOf('.')
+  const ext = dot === -1 ? '' : fileName.slice(dot).toLowerCase()
+  return IMAGE_MIME[ext]
+}
+
+/** Read one File into a canonical base64 string (data-URL prefix stripped). */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') {
+        reject(new Error('canvas: 文件读取失败'))
+        return
+      }
+      const comma = result.indexOf(',')
+      resolve(comma === -1 ? result : result.slice(comma + 1))
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('canvas: 文件读取失败'))
+    reader.readAsDataURL(file)
+  })
+}
+
 /** Open the native file picker and resolve the chosen files (empty on cancel). */
-function pickFiles(): Promise<File[]> {
+function openFilePicker(): Promise<File[]> {
   return new Promise((resolve) => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -227,25 +264,43 @@ function createCanvasFace(ctx: ClientContext) {
         unwrap(await remoteOf().moveNode(sessionId, nodeId, x, y), 'moveNode'),
       link: async (request: CanvasLinkRequest): Promise<CanvasState> =>
         unwrap(await remoteOf().link(sessionId, request), 'link'),
-      pickFilesAndUpload: async (): Promise<CanvasUploadedAsset[]> => {
-        const files = await pickFiles()
+      pickFiles: async (): Promise<File[]> => openFilePicker(),
+      uploadFiles: async (files: File[]): Promise<CanvasUploadedAsset[]> => {
         if (files.length === 0) return []
+        // Resolve the session workspace cwd once (needed for verbatim video/audio
+        // import so the agent's tools can read them by path).
+        let cwd: string | undefined
         const remote = ctx.get('remote') as CanvasRemoteLike | undefined
         const listed = await remote?.session?.list({})
-        const cwd = listed?.ok === true
+        cwd = listed?.ok === true
           ? listed.value.items.find((item) => item.sessionId === sessionId)?.cwd
           : undefined
-        if (cwd === undefined) throw new Error('canvas: 当前会话无工作区目录，无法上传文件')
-        const ldd = window.ldd
-        if (ldd === undefined) throw new Error('canvas: 当前环境不支持文件上传')
         const assets: CanvasUploadedAsset[] = []
         for (const file of files) {
           const kind = mediaKindOf(file.name)
           if (kind === undefined) continue
+          if (kind === 'image') {
+            // Image → durable normalized attachment (renders on the card).
+            const mediaType = imageMediaTypeOf(file.name)
+            if (mediaType === undefined) continue
+            const dataBase64 = await fileToBase64(file)
+            const saved = unwrap(await remoteOf().saveAsset(sessionId, {
+              kind: 'image', name: file.name, mediaType, dataBase64,
+            }), 'saveAsset')
+            assets.push({
+              name: file.name, kind, attachmentId: saved.attachmentId,
+              ...(saved.width === undefined ? {} : { width: saved.width }),
+              ...(saved.height === undefined ? {} : { height: saved.height }),
+            })
+            continue
+          }
+          // video/audio → verbatim workspace file (agent tools read the path).
+          const ldd = window.ldd
+          if (ldd === undefined) throw new Error('canvas: 当前环境不支持文件上传')
+          if (cwd === undefined) throw new Error('canvas: 当前会话无工作区目录，无法上传文件')
           const data = await file.arrayBuffer()
           const res = await ldd.importFile(data, file.name, cwd)
-          if (!res.imported) continue
-          assets.push({ name: file.name, kind })
+          if (res.imported) assets.push({ name: file.name, kind })
         }
         return assets
       },

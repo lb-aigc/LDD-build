@@ -129,7 +129,7 @@
 }
 
 /* Kind accent strip (left border). */
-.ldd-canvas-node[data-kind='image'] { border-left: 3px solid #6366f1; }
+.ldd-canvas-node[data-kind='image'] { border-left: 3px solid #6366f1; max-width: 360px; }
 .ldd-canvas-node[data-kind='video'] { border-left: 3px solid #f59e0b; }
 .ldd-canvas-node[data-kind='music'] { border-left: 3px solid #10b981; }
 .ldd-canvas-node[data-kind='text'] { border-left: 3px solid #3b82f6; }
@@ -170,11 +170,11 @@
 }
 
 /* ---- image body ---- */
+/* Size comes from the inline style (aspect-ratio computed in the card); the
+   `object-fit: cover` is safe because the box already matches the ratio. */
 .ldd-canvas-node-image {
-  width: 100%;
-  max-height: 150px;
-  object-fit: cover;
   display: block;
+  object-fit: cover;
 }
 
 .ldd-canvas-image-placeholder {

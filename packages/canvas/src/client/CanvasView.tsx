@@ -22,7 +22,7 @@
  * with local feedback; the projection's refresh is the authoritative reconcile.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { DragEvent as ReactDragEvent, ReactNode } from 'react'
 import {
   Background,
   Controls,
@@ -58,15 +58,23 @@ export interface CanvasWriteback {
 export interface CanvasViewInjected extends CanvasWriteback {
   loadImage: (attachmentId: string) => Promise<string>
   ask: (text: string) => Promise<void>
-  /** Pick local media files, upload them into the session workspace, and return
-   *  the ones that map to a canvas asset kind (image/video/music). */
-  pickFilesAndUpload: () => Promise<CanvasUploadedAsset[]>
+  /** Open the native file picker (menu-bar upload). */
+  pickFiles: () => Promise<File[]>
+  /** Store the given files (image → attachment, video/audio → workspace) and
+   *  return the ones that map to a canvas asset kind. */
+  uploadFiles: (files: File[]) => Promise<CanvasUploadedAsset[]>
 }
 
 /** One media file that was uploaded and can become a canvas node. */
 export interface CanvasUploadedAsset {
   name: string
   kind: 'image' | 'video' | 'music'
+  /** Content-addressed attachment id (images only; the node's `url`). */
+  attachmentId?: string
+  /** Normalized image width in px (images only). */
+  width?: number
+  /** Normalized image height in px (images only). */
+  height?: number
 }
 
 /**
@@ -84,8 +92,10 @@ export interface CanvasViewProps {
   loadImage: CanvasViewInjected['loadImage']
   /** Injected one-shot agent prompt (ask about a selected node). */
   ask: CanvasViewInjected['ask']
-  /** Injected file upload (pick local media → workspace → asset list). */
-  pickFilesAndUpload: CanvasViewInjected['pickFilesAndUpload']
+  /** Injected file picker (menu-bar upload). */
+  pickFiles: CanvasViewInjected['pickFiles']
+  /** Injected file store (image → attachment, video/audio → workspace). */
+  uploadFiles: CanvasViewInjected['uploadFiles']
   /** Injected write-back verbs (user edits land as durable canvas/state events). */
   addNode: CanvasWriteback['addNode']
   removeNode: CanvasWriteback['removeNode']
@@ -239,6 +249,22 @@ function CanvasNodeCard({ id, data }: { id: string; data: CanvasNodeData }) {
 
   const hasTextBody = data.kind === 'text' || data.kind === 'note'
 
+  // Image cards size to the picture's aspect ratio (short edge 200px, long edge
+  // capped at 360px) so the image is fully shown — no `object-fit: cover` crop.
+  const metaWidth = data.meta?.['width']
+  const metaHeight = data.meta?.['height']
+  const imageW = typeof metaWidth === 'number' && metaWidth > 0 ? metaWidth : undefined
+  const imageH = typeof metaHeight === 'number' && metaHeight > 0 ? metaHeight : undefined
+  let displayW = 240
+  let displayH = 180
+  if (imageW !== undefined && imageH !== undefined) {
+    const ratio = imageW / imageH
+    const short = 200
+    const long = Math.min(360, short * Math.max(ratio, 1 / ratio))
+    if (ratio >= 1) { displayW = long; displayH = long / ratio }
+    else { displayW = long * ratio; displayH = long }
+  }
+
   return (
     <div className="ldd-canvas-node" data-kind={data.kind}>
       {/* Handles give React Flow endpoints for edges; connectable so the user can
@@ -268,7 +294,7 @@ function CanvasNodeCard({ id, data }: { id: string; data: CanvasNodeData }) {
 
       {data.kind === 'image' && (
         src !== null
-          ? <img className="ldd-canvas-node-image" src={src} alt={data.label} />
+          ? <img className="ldd-canvas-node-image" src={src} alt={data.label} style={{ width: displayW, height: displayH }} />
           : <div className="ldd-canvas-node-image ldd-canvas-image-placeholder">{kindIcon('image')}图片</div>
       )}
 
@@ -334,7 +360,8 @@ function toFlowEdges(state: CanvasState): Edge[] {
     id: e.id,
     source: e.source,
     target: e.target,
-    type: 'smoothstep',
+    // 'default' = bezier (smooth curve); 'smoothstep' was the angular fold.
+    type: 'default',
     ...(e.label === undefined || e.label === '' ? {} : { label: e.label }),
   }))
 }
@@ -347,7 +374,7 @@ interface SelectedNode {
   content?: string
 }
 
-export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, addNode, removeNode, updateNode, moveNode, link }: CanvasViewProps) {
+export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFiles, addNode, removeNode, updateNode, moveNode, link }: CanvasViewProps) {
   const canvas = useProjection('canvas')
 
   // Local, RESPONSIVE flow state: the projection is the authoritative mirror,
@@ -406,7 +433,7 @@ export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, 
       id: GHOST_EDGE_ID,
       source: menu.sourceNodeId,
       target: GHOST_NODE_ID,
-      type: 'smoothstep',
+      type: 'default',
       animated: true,
       style: { strokeDasharray: '6 6' },
     }
@@ -513,26 +540,56 @@ export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, 
     setMenu(null)
   }
 
-  // Upload local media files, then place a card for each landed asset. On a
-  // drag-to-create, the first asset wires to the source (the rest just land).
-  // Each node is awaited so the first node exists before its link is written.
-  const uploadAssets = async (): Promise<void> => {
-    if (menu === null) return
-    const { flowX, flowY, sourceNodeId } = menu
-    const assets = await pickFilesAndUpload().catch(() => [])
+  // Place a card for each stored asset at (flowX, flowY), grid-laid. Images
+  // carry their attachment id (+ size) so the card renders the picture; on a
+  // drag-to-create, the first asset wires to the source.
+  const placeAssets = async (assets: CanvasUploadedAsset[], flowX: number, flowY: number, sourceNodeId?: string): Promise<void> => {
     for (let index = 0; index < assets.length; index += 1) {
       const asset = assets[index]!
       const col = index % 3
       const row = Math.floor(index / 3)
       const id = newId()
+      const meta = asset.width !== undefined && asset.height !== undefined
+        ? { width: asset.width, height: asset.height }
+        : undefined
       try {
-        await addNode({ id, kind: asset.kind, label: asset.name, x: flowX + col * 40, y: flowY + row * 40 })
+        await addNode({
+          id, kind: asset.kind, label: asset.name, x: flowX + col * 40, y: flowY + row * 40,
+          ...(asset.attachmentId === undefined ? {} : { url: asset.attachmentId }),
+          ...(meta === undefined ? {} : { meta }),
+        })
         if (sourceNodeId !== undefined && index === 0) await link({ source: sourceNodeId, target: id })
       } catch (error) {
         console.error('[ldd-canvas] upload node failed:', error)
       }
     }
+  }
+
+  // Menu-bar upload: open the picker, store the files, place the cards.
+  const uploadAssets = async (): Promise<void> => {
+    if (menu === null) return
+    const { flowX, flowY, sourceNodeId } = menu
+    const files = await pickFiles()
+    if (files.length === 0) { setMenu(null); return }
+    const assets = await uploadFiles(files).catch(() => [])
+    await placeAssets(assets, flowX, flowY, sourceNodeId)
     setMenu(null)
+  }
+
+  // Drag-and-drop upload: files dropped on the canvas become cards at the drop
+  // spot (images store + render; video/audio write to the workspace).
+  const onCanvasDrop = async (event: ReactDragEvent<HTMLDivElement>): Promise<void> => {
+    event.preventDefault()
+    const files = Array.from(event.dataTransfer?.files ?? [])
+    if (files.length === 0) return
+    const flow = rfRef.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+    const assets = await uploadFiles(files).catch(() => [])
+    await placeAssets(assets, flow?.x ?? 0, flow?.y ?? 0)
+  }
+
+  const onCanvasDragOver = (event: ReactDragEvent<HTMLDivElement>): void => {
+    event.preventDefault()
+    if (event.dataTransfer !== null) event.dataTransfer.dropEffect = 'copy'
   }
 
   const saveEdit = (): void => {
@@ -571,7 +628,11 @@ export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, 
   return (
     <LoadImageContext.Provider value={loadImage}>
       <CanvasActionsContext.Provider value={actions}>
-        <div className="ldd-canvas-root">
+        <div
+          className="ldd-canvas-root"
+          onDragOver={onCanvasDragOver}
+          onDrop={(event) => { void onCanvasDrop(event) }}
+        >
           <ReactFlow
             nodes={displayNodes}
             edges={displayEdges}
@@ -583,6 +644,8 @@ export function CanvasView({ useProjection, loadImage, ask, pickFilesAndUpload, 
             onConnect={onConnect}
             onConnectStart={onConnectStart}
             onConnectEnd={onConnectEnd}
+            // Left/middle/right all pan the empty canvas (right-drag = pan).
+            panOnDrag={[0, 1, 2]}
             onNodeClick={(_, node) => {
               const data = node.data as unknown as CanvasNodeData
               setSelected({
