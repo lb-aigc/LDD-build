@@ -580,15 +580,28 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
   // spot (images store + render; video/audio write to the workspace).
   const onCanvasDrop = async (event: ReactDragEvent<HTMLDivElement>): Promise<void> => {
     event.preventDefault()
+    // stopPropagation is REQUIRED: the composer (conversation input) registers
+    // document-level dragenter/dragover/drop listeners that would otherwise also
+    // consume the same drop and add the files to the input attachment rail
+    // instead of the canvas. Keeping the drop from bubbling to document means
+    // the canvas owns files dropped over it.
+    event.stopPropagation()
     const files = Array.from(event.dataTransfer?.files ?? [])
     if (files.length === 0) return
     const flow = rfRef.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY })
-    const assets = await uploadFiles(files).catch(() => [])
+    const assets = await uploadFiles(files).catch((error: unknown) => {
+      console.error('[ldd-canvas] upload failed:', error)
+      return []
+    })
     await placeAssets(assets, flow?.x ?? 0, flow?.y ?? 0)
   }
 
   const onCanvasDragOver = (event: ReactDragEvent<HTMLDivElement>): void => {
     event.preventDefault()
+    // Same reason as onDrop: don't let the composer's document-level dragover
+    // (which flips its dropEffect and shows the global drop overlay) override
+    // the canvas's own handling.
+    event.stopPropagation()
     if (event.dataTransfer !== null) event.dataTransfer.dropEffect = 'copy'
   }
 
