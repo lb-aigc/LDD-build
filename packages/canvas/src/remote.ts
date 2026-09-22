@@ -47,7 +47,7 @@ function foldCanvas(events: readonly SessionEvent[]): CanvasState {
 }
 
 export class CanvasService extends TypertRemoteService {
-  static inject = ['attachments']
+  static inject = ['attachments', 'sessions']
 
   constructor(ctx: Context) {
     super(ctx, 'canvas')

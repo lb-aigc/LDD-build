@@ -25,7 +25,7 @@ import { registerCanvasSessionEvent } from './session-compat.ts'
 import { CanvasService } from './remote.ts'
 
 export const name = 'ldd-canvas'
-export const inject = ['tools']
+export const inject = ['tools', 'sessions', 'attachments']
 
 // Register the out-of-repo `canvas/state` event type into the harness's runtime
 // persistence vocabulary BEFORE any session opens, so canvas-bearing logs read
