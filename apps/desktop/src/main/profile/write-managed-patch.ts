@@ -1,7 +1,12 @@
-import { lstat, mkdir } from 'node:fs/promises'
+import { lstat, mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { writeAtomicText } from '@ldd/runtime-kit/atomic-json'
 import { renderManagedImagePatch, type ImageMode } from './image-mode.ts'
+
+/** The web profile's package name for the canvas bundle (the npm package name,
+ *  not the `ldd-canvas` bundle id). */
+const CANVAS_BUNDLE = '@ldd/dsh-canvas'
+const WEB_PROFILE = 'web'
 
 export async function writeManagedImagePatch(
   dshHome: string,
@@ -11,8 +16,27 @@ export async function writeManagedImagePatch(
   const managedRoot = join(dshHome, 'ldd-managed')
   await ensurePrivateDirectory(managedRoot)
   const patchPath = join(managedRoot, 'cordis.patch.yml')
-  await writeAtomicText(patchPath, renderManagedImagePatch(mode))
+  // Dual-track: if the web profile installs the canvas as a bundle (via the
+  // plugin market), the built-in insert must be omitted so the plugin is not
+  // loaded twice (which would double-register its tools / slots / events). On
+  // a fresh profile (no manifest yet) this falls back to the built-in canvas.
+  const skipCanvas = await hasCanvasBundle(dshHome)
+  await writeAtomicText(patchPath, renderManagedImagePatch(mode, { skipCanvas }))
   return patchPath
+}
+
+/** Whether the web profile already lists @ldd/dsh-canvas in its bundles. */
+async function hasCanvasBundle(dshHome: string): Promise<boolean> {
+  const manifestPath = join(dshHome, 'profiles', WEB_PROFILE, 'package.json')
+  try {
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as {
+      dsh?: { profile?: { bundles?: unknown } }
+    }
+    const bundles = manifest.dsh?.profile?.bundles
+    return Array.isArray(bundles) && bundles.includes(CANVAS_BUNDLE)
+  } catch {
+    return false
+  }
 }
 
 async function ensurePrivateDirectory(path: string): Promise<void> {
