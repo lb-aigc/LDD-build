@@ -605,6 +605,25 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
     if (event.dataTransfer !== null) event.dataTransfer.dropEffect = 'copy'
   }
 
+  // dragenter/dragleave MUST also stopPropagation. The composer (conversation
+  // input) tracks a document-level dragenter/dragleave depth to show its
+  // full-screen DropOverlay. Without these, dragging a file over the canvas
+  // fires the composer's dragenter (overlay pops up), then onCanvasDrop's
+  // stopPropagation swallows the composer's drop — so its depth never resets,
+  // the drop source is the external file manager (no dragend in this window),
+  // and the overlay sticks forever, blocking the canvas. Stopping the enter/
+  // leave here keeps the canvas an isolated drop zone: the overlay only ever
+  // appears when files are dragged over the composer area itself.
+  const onCanvasDragEnter = (event: ReactDragEvent<HTMLDivElement>): void => {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  const onCanvasDragLeave = (event: ReactDragEvent<HTMLDivElement>): void => {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
   const saveEdit = (): void => {
     if (selected === null) return
     const patch: CanvasUpdateNodeRequest = {}
@@ -643,7 +662,9 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
       <CanvasActionsContext.Provider value={actions}>
         <div
           className="ldd-canvas-root"
+          onDragEnter={onCanvasDragEnter}
           onDragOver={onCanvasDragOver}
+          onDragLeave={onCanvasDragLeave}
           onDrop={(event) => { void onCanvasDrop(event) }}
         >
           <ReactFlow
