@@ -387,6 +387,9 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
   const [draftLabel, setDraftLabel] = useState('')
   const [draftContent, setDraftContent] = useState('')
   const [question, setQuestion] = useState('')
+  // Last write-back failure, surfaced in a dismissible banner (the user has no
+  // DevTools, so console-only errors were invisible). Cleared on any success.
+  const [writebackError, setWritebackError] = useState<string | null>(null)
 
   // The React Flow instance, captured on init so a pane double-click can map a
   // viewport (screen) coordinate into flow-space for placing a new node.
@@ -458,8 +461,12 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
 
   // Fire-and-forget write-back: log (not throw) so a transient failure never
   // takes the React tree down; the projection refresh is the reconcile.
-  const run = useCallback((p: Promise<unknown>) => {
-    void p.catch((error: unknown) => { console.error('[ldd-canvas] write-back failed:', error) })
+  const run = useCallback((op: string, p: Promise<unknown>) => {
+    void p.then(() => { setWritebackError(null) }).catch((error: unknown) => {
+      const msg = error instanceof Error ? error.message : String(error)
+      console.error(`[ldd-canvas] ${op} failed:`, error)
+      setWritebackError(`${op}: ${msg}`)
+    })
   }, [])
 
   if (canvas === undefined) {
@@ -467,14 +474,14 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
   }
 
   const onDragStop = (_: unknown, node: Node): void => {
-    run(moveNode(node.id, node.position.x, node.position.y))
+    run('moveNode', moveNode(node.id, node.position.x, node.position.y))
   }
 
   const onConnect: OnConnect = (connection) => {
     const source = connection.source
     const target = connection.target
     if (source === null || target === null) return
-    run(link({ source, target }))
+    run('link', link({ source, target }))
   }
 
   // Start of a dragged connection: remember the source node, so a release on
@@ -536,6 +543,7 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
       if (sourceNodeId !== undefined) await link({ source: sourceNodeId, target: id })
     } catch (error) {
       console.error('[ldd-canvas] add-node (drag-to-create) failed:', error)
+      setWritebackError(`新增节点失败: ${error instanceof Error ? error.message : String(error)}`)
     }
     setMenu(null)
   }
@@ -561,6 +569,7 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
         if (sourceNodeId !== undefined && index === 0) await link({ source: sourceNodeId, target: id })
       } catch (error) {
         console.error('[ldd-canvas] upload node failed:', error)
+        setWritebackError(`节点落图失败: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
   }
@@ -571,7 +580,12 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
     const { flowX, flowY, sourceNodeId } = menu
     const files = await pickFiles()
     if (files.length === 0) { setMenu(null); return }
-    const assets = await uploadFiles(files).catch(() => [])
+    const assets = await uploadFiles(files).catch((error: unknown) => {
+      const msg = error instanceof Error ? error.message : String(error)
+      console.error('[ldd-canvas] upload failed:', error)
+      setWritebackError(`上传失败: ${msg}`)
+      return []
+    })
     await placeAssets(assets, flowX, flowY, sourceNodeId)
     setMenu(null)
   }
@@ -591,6 +605,7 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
     const flow = rfRef.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY })
     const assets = await uploadFiles(files).catch((error: unknown) => {
       console.error('[ldd-canvas] upload failed:', error)
+      setWritebackError(`上传失败: ${error instanceof Error ? error.message : String(error)}`)
       return []
     })
     await placeAssets(assets, flow?.x ?? 0, flow?.y ?? 0)
@@ -632,13 +647,13 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
     if ((selected.kind === 'text' || selected.kind === 'note') && draftContent !== selected.content) {
       patch.content = draftContent
     }
-    if (Object.keys(patch).length > 0) run(updateNode(selected.id, patch))
+    if (Object.keys(patch).length > 0) run('updateNode', updateNode(selected.id, patch))
     setSelected(null)
   }
 
   const deleteSelected = (): void => {
     if (selected === null) return
-    run(removeNode(selected.id))
+    run('removeNode', removeNode(selected.id))
     setSelected(null)
   }
 
@@ -652,7 +667,7 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
 
   const actions = useMemo(() => ({
     removeNode: (nodeId: string) => {
-      run(removeNode(nodeId))
+      run('removeNode', removeNode(nodeId))
       setSelected((sel) => (sel !== null && sel.id === nodeId ? null : sel))
     },
   }), [removeNode, run])
@@ -699,6 +714,28 @@ export function CanvasView({ useProjection, loadImage, ask, pickFiles, uploadFil
             <Controls />
             <Background />
           </ReactFlow>
+
+          {writebackError !== null && (
+            <div
+              className="ldd-canvas-error"
+              style={{
+                position: 'absolute', top: 8, left: 8, right: 8, zIndex: 20,
+                background: '#b3261e', color: '#fff', borderRadius: 8,
+                padding: '8px 12px', fontSize: 12, lineHeight: 1.4,
+                display: 'flex', alignItems: 'center', gap: 8,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+              }}
+            >
+              <span style={{ flex: 1, wordBreak: 'break-all' }}>画布写回失败：{writebackError}</span>
+              <button
+                type="button"
+                onClick={() => setWritebackError(null)}
+                style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+          )}
 
           {canvas.nodes.length === 0 && (
             <div className="ldd-canvas-empty-hint">

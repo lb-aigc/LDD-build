@@ -216,6 +216,10 @@ const CANVAS_ID = '@ldd/dsh-canvas'
 
 export const inject = ['slots', 'sessions']
 
+/** Last `$mount` failure (or null), surfaced so the canvas can explain a missing
+ *  `remote.canvas` namespace instead of throwing a bare `TypeError`. */
+let mountFailure: string | null = null
+
 /**
  * The per-session canvas face both seats share: the image loader, the
  * one-shot "ask the agent about a node" prompt, and the write-back verbs.
@@ -235,8 +239,12 @@ function createCanvasFace(ctx: ClientContext) {
     }
     const remoteOf = (): CanvasRemoteNamespaceLike => {
       const remote = ctx.get('remote') as CanvasRemoteLike | undefined
-      if (remote === undefined) throw new Error('canvas: 写回通道不可用')
-      return remote.canvas
+      if (remote === undefined) throw new Error('canvas: 写回通道不可用（remote 服务未挂载）')
+      const canvas = remote.canvas
+      if (canvas === undefined) {
+        throw new Error(`canvas: 写回通道不可用（remote.canvas 命名空间未挂载${mountFailure === null ? '' : `，mount 失败：${mountFailure}`}）`)
+      }
+      return canvas
     }
     const unwrap = <T>(result: CanvasRemoteResult<T>, verb: string): T => {
       if (!result.ok) throw new Error(result.error?.message ?? `canvas: ${verb} 失败`)
@@ -325,9 +333,14 @@ export function apply(ctx: ClientContext): void {
   ctx.inject(['remote'], (remoteCtx) => {
     const remote = remoteCtx.get('remote') as CanvasRemoteLike | undefined
     if (remote !== undefined) {
-      void remote.$mount(canvasRemote).catch((error: unknown) => {
+      void remote.$mount(canvasRemote).then(() => {
+        mountFailure = null
+      }).catch((error: unknown) => {
+        mountFailure = error instanceof Error ? error.message : String(error)
         console.error('[ldd-canvas] Remote mount failed:', error)
       })
+    } else {
+      mountFailure = 'remote 服务未就绪（api-gateway client 未装配）'
     }
   })
 
