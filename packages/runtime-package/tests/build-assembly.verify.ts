@@ -80,7 +80,6 @@ test('two complete runtime assemblies contain stable relative locks and archived
       )
       assert.match(packageManifest, /node-addon-system/)
       assert.deepEqual(observedRuntimeNodeCommands, [
-        'source:--input-type=module -e typert-generator',
         'esbuild:install.js',
         'koffi:./cnoke.cjs -P . -D src/koffi --prebuild --release',
         'node-pty:scripts/prebuild.js',
