@@ -28,9 +28,8 @@ test('standard and large image modes retain every upstream safety bound', async 
   assert.match(renderManagedImagePatch('large'), /maxImageBytes: 67108864/)
   assert.match(renderManagedImagePatch('standard'), /@ldd\/dsh-video-frame-analyzer/)
   assert.match(renderManagedImagePatch('standard'), /@ldd\/dsh-generate/)
-  assert.match(renderManagedImagePatch('standard'), /@ldd\/dsh-canvas/)
+  assert.doesNotMatch(renderManagedImagePatch('standard'), /@ldd\/dsh-canvas/)
   assert.match(renderManagedImagePatch('standard'), /createRequire\(baseUrl\).*package\.json/)
-  assert.doesNotMatch(renderManagedImagePatch('standard', { skipCanvas: true }), /@ldd\/dsh-canvas/)
 })
 
 test('managed patch and settings never overwrite the user patch', async () => {

@@ -14,7 +14,6 @@ const repositoryRoot = resolve(import.meta.dirname, '..', '..', '..')
 const sourceRoot = join(repositoryRoot, 'upstream', 'deepseek-harness')
 const videoPluginRoot = join(repositoryRoot, 'packages', 'video-frame-analyzer')
 const generatePluginRoot = join(repositoryRoot, 'packages', 'generate')
-const canvasPluginRoot = join(repositoryRoot, 'packages', 'canvas')
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.5-rc.1')
 const observedRuntimeNodeCommands: string[] = []
 
@@ -27,13 +26,13 @@ test('two complete runtime assemblies contain stable relative locks and archived
       const runtimeRoot = join(parent, `runtime-${sequence}`)
       const built = await buildRuntime(sourceRoot, runtimeRoot, {
         sourceArchiveSha256: approvedHarnessSourceArchiveSha256,
-        pluginRoots: [videoPluginRoot, generatePluginRoot, canvasPluginRoot],
+        pluginRoots: [videoPluginRoot, generatePluginRoot],
         upstreamPatchRoot: patchRoot,
         createdAt: '2026-08-22T00:00:00.000Z',
         requireHostPlatform: false,
         verificationCommands: [],
       }, fakeBuildRunner)
-      const pluginNames = ['@ldd/dsh-canvas', '@ldd/dsh-generate', '@ldd/dsh-video-frame-analyzer']
+      const pluginNames = ['@ldd/dsh-generate', '@ldd/dsh-video-frame-analyzer']
       assert.deepEqual(
         built.manifest.plugins.map((item) => item.name),
         pluginNames,
@@ -77,10 +76,6 @@ test('two complete runtime assemblies contain stable relative locks and archived
       )
       assert.equal(
         installedDshManifest.dependencies?.['@ldd/dsh-generate'],
-        '0.2.0',
-      )
-      assert.equal(
-        installedDshManifest.dependencies?.['@ldd/dsh-canvas'],
         '0.2.0',
       )
       assert.match(packageManifest, /node-addon-system/)
@@ -192,13 +187,6 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
         '@ldd/dsh-generate',
         '0.2.0',
       )
-    } else if (workspaceName === 'canvas') {
-      await writePackageTarball(
-        destination,
-        'ldd-dsh-canvas-0.2.0.tgz',
-        '@ldd/dsh-canvas',
-        '0.2.0',
-      )
     } else {
       await writePackageTarball(
         destination,
@@ -244,7 +232,6 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
     }, ['scripts/ensure-spawn-helper.mjs'])
     await writeInstalledPackage(options.cwd, '@ldd/dsh-video-frame-analyzer', {}, [])
     await writeInstalledPackage(options.cwd, '@ldd/dsh-generate', {}, [])
-    await writeInstalledPackage(options.cwd, '@ldd/dsh-canvas', {}, [])
     await writeFile(join(options.cwd, 'pnpm-lock.yaml'), [
       'lockfileVersion: 9.0',
       'packages:',
@@ -254,7 +241,6 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
       "  '@deepseek-ai/node-addon-system@file:packages/deepseek-ai-node-addon-system-0.1.2.tgz': {}",
       "  '@ldd/dsh-video-frame-analyzer@file:packages/ldd-dsh-video-frame-analyzer-0.2.0.tgz': {}",
       "  '@ldd/dsh-generate@file:packages/ldd-dsh-generate-0.2.0.tgz': {}",
-      "  '@ldd/dsh-canvas@file:packages/ldd-dsh-canvas-0.2.0.tgz': {}",
       '',
     ].join('\n'))
   }

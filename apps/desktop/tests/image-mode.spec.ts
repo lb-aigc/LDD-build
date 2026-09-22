@@ -32,7 +32,7 @@ describe('LDD image modes', () => {
     expect(first).toBe(second)
     expect(first).toContain('@ldd/dsh-video-frame-analyzer')
     expect(first).toContain('@ldd/dsh-generate')
-    expect(first).toContain('@ldd/dsh-canvas')
+    expect(first).not.toContain('@ldd/dsh-canvas')
     // KIE image generation is async (34s–90s+); the tool timeout must match the
     // provider's 600s polling ceiling, not the 60s that used to abort it early.
     expect(first).toContain('timeoutMs: 600000')
@@ -43,16 +43,6 @@ describe('LDD image modes', () => {
     expect(first).toContain('normalizedImageMaxDimension: 4096')
     expect(first).toContain('normalizedImageMaxBytes: 20971520')
     expect(first).not.toMatch(/(api[_-]?key|password|authorization|access[_-]?token|secret)\s*[:=]/i)
-  })
-
-  it('omits the built-in canvas insert when the profile installs it as a bundle', () => {
-    expect(renderManagedImagePatch('standard')).toContain('@ldd/dsh-canvas')
-    expect(renderManagedImagePatch('standard', { skipCanvas: true })).not.toContain('@ldd/dsh-canvas')
-    // Everything else must stay intact.
-    const skipped = renderManagedImagePatch('standard', { skipCanvas: true })
-    expect(skipped).toContain('@ldd/dsh-video-frame-analyzer')
-    expect(skipped).toContain('@ldd/dsh-generate')
-    expect(skipped).toContain('maxImageBytes: 20971520')
   })
 
   it('writes only the LDD-managed patch and atomically persists settings', async () => {
@@ -72,23 +62,5 @@ describe('LDD image modes', () => {
     expect(await readLddSettings(fixture.path('missing.json'))).toEqual(
       createDefaultLddSettings(),
     )
-  })
-
-  it('skips the built-in canvas when the web profile already bundles it', async () => {
-    await using fixture = await createFixtureDirectory('ldd-canvas-bundle-')
-    const dshHome = fixture.path('harness')
-    const profileDir = fixture.path('harness', 'profiles', 'web')
-    await mkdir(profileDir, { recursive: true })
-    await writeFile(
-      fixture.path('harness', 'profiles', 'web', 'package.json'),
-      JSON.stringify({ dsh: { profile: { bundles: ['@ldd/dsh-canvas'] } } }),
-    )
-
-    const managedPath = await writeManagedImagePatch(dshHome, 'standard')
-    const content = await readFile(managedPath, 'utf8')
-
-    expect(content).not.toContain('@ldd/dsh-canvas')
-    expect(content).toContain('@ldd/dsh-generate')
-    expect(content).toContain('@ldd/dsh-video-frame-analyzer')
   })
 })

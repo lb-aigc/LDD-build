@@ -30,7 +30,6 @@ const defaults = {
   plugins: [
     join(repositoryRoot, 'packages', 'video-frame-analyzer'),
     join(repositoryRoot, 'packages', 'generate'),
-    join(repositoryRoot, 'packages', 'canvas'),
   ],
   patches: join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.5-rc.1'),
   outputRoot: join(repositoryRoot, 'dist', 'runtime', '0.1.5-rc.1'),
