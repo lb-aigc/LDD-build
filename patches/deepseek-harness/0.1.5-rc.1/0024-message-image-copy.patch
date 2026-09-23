@@ -1,0 +1,137 @@
+--- a/packages/client/ui-attachment/src/MessageImage.tsx
++++ b/packages/client/ui-attachment/src/MessageImage.tsx
+@@ -1,4 +1,5 @@
+ import { useCallback, useEffect, useMemo, useState } from 'react'
++import type { MouseEvent as ReactMouseEvent } from 'react'
+ import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+ import { ImageLightbox } from './ImageLightbox.tsx'
+ import type { ImageLightboxLabels } from './ImageLightbox.tsx'
+@@ -35,6 +36,8 @@
+   loadFailed: string
+   /** Lightbox strings forwarded to the opened preview. */
+   lightbox: ImageLightboxLabels
++  /** Right-click context-menu label: copy the image to the clipboard. */
++  copy: string
+ }
+ 
+ /** Display box for a lone image (DeepSeek Chat rule): long edge 240px with
+@@ -106,6 +109,7 @@
+     attachment === undefined ? null : (load.peek?.(attachment) ?? null))
+   const [error, setError] = useState(false)
+   const [open, setOpen] = useState(false)
++  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+   // Retry re-arms the one load effect below, so every attempt — first load or
+   // retry — runs under the same liveness guard and the same reset.
+   const [attempt, setAttempt] = useState(0)
+@@ -135,6 +139,25 @@
+ 
+   const src = preview?.url ?? loaded
+   const label = (preview?.name ?? attachment?.name) ?? labels.image
++  // Right-click copy: read the rendered blob back and write it to the system
++  // clipboard so it can be pasted into any other input box / app.
++  const copyImage = useCallback(async (): Promise<void> => {
++    setMenu(null)
++    if (src === null) return
++    try {
++      const response = await fetch(src)
++      const blob = await response.blob()
++      const mediaType = blob.type !== '' ? blob.type : 'image/png'
++      await navigator.clipboard.write([new ClipboardItem({ [mediaType]: blob })])
++    } catch {
++      // Clipboard refused or fetch failed — nothing to surface.
++    }
++  }, [src])
++  const onContextMenu = useCallback((event: ReactMouseEvent): void => {
++    if (src === null) return
++    event.preventDefault()
++    setMenu({ x: event.clientX, y: event.clientY })
++  }, [src])
+   if (error) return <button type="button" className={css.error} data-variant={variant} onClick={request}>{labels.loadFailed}</button>
+   return (
+     <>
+@@ -145,6 +168,7 @@
+         style={fit === undefined ? undefined : { width: fit.width, height: fit.height }}
+         title={labels.open}
+         aria-label={labels.openNamed(label)}
++        onContextMenu={onContextMenu}
+         onClick={() => { if (src !== null) setOpen(true) }}
+       >
+         {src === null
+@@ -152,6 +176,11 @@
+           : <img src={src} alt={label} style={fit === undefined ? undefined : { objectPosition: fit.objectPosition }} />}
+       </button>
+       {open && src !== null && <ImageLightbox src={src} alt={label} downloadName={downloadNameFor(image)} labels={labels.lightbox} onClose={close} />}
++      {menu !== null && (
++        <div className={css.copyMenu} style={{ left: menu.x, top: menu.y }} role="menu">
++          <button type="button" role="menuitem" onClick={() => { void copyImage() }}>{labels.copy}</button>
++        </div>
++      )}
+     </>
+   )
+ }
+--- a/packages/client/ui-attachment/src/MessageImage.module.css
++++ b/packages/client/ui-attachment/src/MessageImage.module.css
+@@ -67,3 +67,35 @@
+   overflow: hidden;
+   border-radius: 16px;
+ }
++
++/* Right-click copy context menu (fixed to the pointer, above the lightbox). */
++.copyMenu {
++  position: fixed;
++  z-index: 1001;
++  display: flex;
++  flex-direction: column;
++  gap: 2px;
++  min-width: 96px;
++  padding: 4px;
++  background: var(--dsw-specific-input-major);
++  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
++  border-radius: 8px;
++  box-shadow: var(--dsw-shadow-lv3);
++}
++
++.copyMenu button {
++  display: flex;
++  align-items: center;
++  padding: 6px 10px;
++  font-size: 13px;
++  text-align: left;
++  border: none;
++  border-radius: 5px;
++  background: transparent;
++  color: var(--dsw-alias-label-primary);
++  cursor: pointer;
++}
++
++.copyMenu button:hover {
++  background: var(--dsw-alias-interactive-bg-hover);
++}
+--- a/packages/client/ui-attachment/src/client/labels.ts
++++ b/packages/client/ui-attachment/src/client/labels.ts
+@@ -27,6 +27,7 @@
+     loading: t('image.loading'),
+     loadFailed: t('image.loadFailed'),
+     lightbox: lightboxLabels(t),
++    copy: t('image.copy'),
+   }
+ }
+ 
+--- a/packages/client/ui-conversation/src/client/locales.ts
++++ b/packages/client/ui-conversation/src/client/locales.ts
+@@ -42,6 +42,7 @@
+   'image.preview': '原图预览',
+   'image.closePreview': '关闭原图预览',
+   'image.download': '下载图片',
++  'image.copy': '复制图片',
+   'image.unsupportedType': '仅支持 PNG、JPG、WebP、GIF 格式的图片',
+   'image.tooMany': '一条消息最多添加 {count} 张图片',
+   'image.fileTooLarge': '单张图片不能超过 {size}',
+@@ -209,6 +210,7 @@
+   'image.preview': 'Original image preview',
+   'image.closePreview': 'Close original image preview',
+   'image.download': 'Download image',
++  'image.copy': 'Copy image',
+   'image.unsupportedType': 'Only PNG, JPG, WebP, and GIF images are supported',
+   'image.tooMany': 'A message can include up to {count} images',
+   'image.fileTooLarge': 'Each image must be smaller than {size}',

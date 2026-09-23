@@ -36,7 +36,7 @@ import type { SessionsLike } from './file-import.ts'
 import { en, zh } from './locales.ts'
 import { GenerateModelPicker } from './model-picker.tsx'
 import { ModelPickerController } from './model-picker-controller.ts'
-import type { CommandableSessions } from './model-picker-controller.ts'
+import type { CommandableSessions, GenerationKind } from './model-picker-controller.ts'
 import { GenerateToolView } from './GenerateToolView.tsx'
 
 /** Namespace strings the Host half registers (must match src/settings.ts). */
@@ -133,6 +133,18 @@ export function apply(ctx: ClientContext): void {
     },
     sessionsService as CommandableSessions | undefined,
   )
+  // Fold external model switches (the canvas composer's own dropdown, which
+  // issues the same `/generate-model` command and broadcasts this event) into
+  // this picker's override mirror, so the two pickers stay in sync.
+  ctx.effect(() => {
+    const handler = (event: Event): void => {
+      const detail = (event as CustomEvent<{ sessionId: string; kind: GenerationKind; key: string }>).detail
+      if (detail === undefined || typeof detail.sessionId !== 'string') return
+      pickerController.syncOverride(detail.sessionId, detail.kind, detail.key)
+    }
+    window.addEventListener('dsh:generate-model-changed', handler)
+    return () => window.removeEventListener('dsh:generate-model-changed', handler)
+  }, 'generate: model-change sync')
   ctx.slots.inject('conversation.input.generate-model', function* () {
     yield ctx.slots.register({
       name: 'conversation.input.generate-model',

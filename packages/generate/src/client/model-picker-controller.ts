@@ -110,11 +110,30 @@ export class ModelPickerController {
       hooks: { modelPicker: this.store },
       select: (kind, key) => {
         if (sessionId === undefined || this.sessions === undefined) return
-        const current = this.overrides.get(sessionId) ?? {}
-        this.overrides.set(sessionId, { ...current, [kind]: key })
-        this.store.set(this.projection())
+        this.applyOverride(sessionId, kind, key)
         void this.sessions.binding(sessionId)?.session.command(`/generate-model ${kind} ${key}`)
       },
     }
+  }
+
+  /** Update this picker's override mirror AND broadcast the switch, so the
+   *  canvas composer's own dropdown (and any other consumer) stays in sync. */
+  applyOverride(sessionId: string, kind: GenerationKind, key: string): void {
+    const current = this.overrides.get(sessionId) ?? {}
+    this.overrides.set(sessionId, { ...current, [kind]: key })
+    this.store.set(this.projection())
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('dsh:generate-model-changed', {
+        detail: { sessionId, kind, key },
+      }))
+    }
+  }
+
+  /** Fold an EXTERNAL switch (e.g. the canvas composer's dropdown) into this
+   *  picker's override mirror WITHOUT re-broadcasting (the source already did). */
+  syncOverride(sessionId: string, kind: GenerationKind, key: string): void {
+    const current = this.overrides.get(sessionId) ?? {}
+    this.overrides.set(sessionId, { ...current, [kind]: key })
+    this.store.set(this.projection())
   }
 }
