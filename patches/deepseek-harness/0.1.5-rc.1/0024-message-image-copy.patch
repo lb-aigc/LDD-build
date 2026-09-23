@@ -135,3 +135,13 @@
    'image.unsupportedType': 'Only PNG, JPG, WebP, and GIF images are supported',
    'image.tooMany': 'A message can include up to {count} images',
    'image.fileTooLarge': 'Each image must be smaller than {size}',
+--- a/packages/client/ui-attachment/tests/message-image.client.spec.tsx
++++ b/packages/client/ui-attachment/tests/message-image.client.spec.tsx
+@@ -23,6 +23,7 @@
+   loading: '图片加载中…',
+   loadFailed: '图片加载失败，点击重试',
+   lightbox: { dialog: '原图预览', close: '关闭原图预览' },
++  copy: '复制图片',
+ }
+ 
+ const attachment = {

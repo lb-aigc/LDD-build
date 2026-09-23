@@ -27,6 +27,7 @@ const officialMessageImage = join(repositoryRoot, 'upstream', 'deepseek-harness'
 const officialImageLightboxCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css')
 const officialMessageImageCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.module.css')
 const officialAttachmentLabels = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts')
+const officialMessageImageSpec = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'tests', 'message-image.client.spec.tsx')
 const officialCodeBlock = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx')
 const officialCodeBlockCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css')
 const officialMarkdownText = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx')
@@ -55,6 +56,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedImageLightboxCss = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css')
     const copiedMessageImageCss = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.module.css')
     const copiedAttachmentLabels = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts')
+    const copiedMessageImageSpec = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'tests', 'message-image.client.spec.tsx')
     const copiedCodeBlock = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx')
     const copiedCodeBlockCss = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css')
     const copiedMarkdownText = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx')
@@ -65,7 +67,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       copiedEmptyHero, copiedHeroShell, copiedClientBuildEnvironment, copiedImageLightbox,
       copiedMessageImage, copiedImageLightboxCss, copiedMessageImageCss, copiedAttachmentLabels, copiedCodeBlock,
       copiedCodeBlockCss, copiedMarkdownText, copiedStream, copiedSidebarRoot,
-      copiedSlots, copiedApply, copiedInputBar, copiedChatSettings]) {
+      copiedSlots, copiedApply, copiedInputBar, copiedChatSettings, copiedMessageImageSpec]) {
       await mkdir(dirname(copied), { recursive: true })
     }
     await writeFile(copiedCatalog, await readFile(officialCatalog))
@@ -89,6 +91,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedApply, await readFile(officialApply))
     await writeFile(copiedInputBar, await readFile(officialInputBar))
     await writeFile(copiedChatSettings, await readFile(officialChatSettings))
+    await writeFile(copiedMessageImageSpec, await readFile(officialMessageImageSpec))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
 
@@ -182,6 +185,8 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(messageImageCss, /\.copyMenu \{/u)
     assert.match(attachmentLabels, /copy: t\('image\.copy'\)/u)
     assert.match(locales, /'image\.copy': '复制图片'/u)
+    const messageImageSpec = await readFile(copiedMessageImageSpec, 'utf8')
+    assert.match(messageImageSpec, /copy: '复制图片'/u)
 
     // 0015/0016: long code blocks collapse (line- and char-count gated).
     const codeBlock = await readFile(copiedCodeBlock, 'utf8')
