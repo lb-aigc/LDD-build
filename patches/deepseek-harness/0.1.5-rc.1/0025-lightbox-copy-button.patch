@@ -1,0 +1,91 @@
+--- a/packages/client/ui-attachment/src/ImageLightbox.tsx
++++ b/packages/client/ui-attachment/src/ImageLightbox.tsx
+@@ -1,6 +1,6 @@
+ import { useEffect, useRef } from 'react'
+ import { createPortal } from 'react-dom'
+-import { IconCloseOutline16, IconDownloadOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
++import { IconCloseOutline16, IconCopyOutline16, IconDownloadOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+ import css from './ImageLightbox.module.css'
+ 
+ /** Lightbox strings the owner resolves from its own locale namespace. */
+@@ -12,6 +12,9 @@
+   /** Accessible label of the download (save-to-disk) control. Optional: when
+    *  absent, the download control is not rendered (plain-browser fixtures). */
+   download?: string
++  /** Accessible label of the copy-to-clipboard control. Optional: when
++   *  absent, the copy control is not rendered (plain-browser fixtures). */
++  copy?: string
+ }
+ 
+ /**
+@@ -55,6 +58,22 @@
+     })()
+   }
+ 
++  // Copy the image bytes to the system clipboard so they can be pasted
++  // into any other input box or app. The renderer needs the resolved Blob:
++  // fetch the blob URL first, then write it. No-op on refusal.
++  const copyImage = (): void => {
++    void (async () => {
++      try {
++        const response = await fetch(src)
++        const blob = await response.blob()
++        const mediaType = blob.type !== '' ? blob.type : 'image/png'
++        await navigator.clipboard.write([new ClipboardItem({ [mediaType]: blob })])
++      } catch {
++        // Clipboard refused or fetch failed — nothing to surface.
++      }
++    })()
++  }
++
+   useEffect(() => {
+     restoreRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+     closeRef.current?.focus()
+@@ -85,6 +104,13 @@
+             </button>
+           )
+           : null}
++        {labels.copy !== undefined
++          ? (
++            <button type="button" className={css.action} title={labels.copy} aria-label={labels.copy} onClick={copyImage}>
++              <IconCopyOutline16 size={16} />
++            </button>
++          )
++          : null}
+         <button ref={closeRef} type="button" className={css.action} aria-label={labels.close} onClick={onClose}>
+           <IconCloseOutline16 size={16} />
+         </button>
+--- a/packages/client/ui-attachment/src/client/labels.ts
++++ b/packages/client/ui-attachment/src/client/labels.ts
+@@ -11,7 +11,7 @@
+  * @returns translated lightbox labels.
+  */
+ export function lightboxLabels(t: TranslateNS<'conversation'>): ImageLightboxLabels {
+-  return { dialog: t('image.preview'), close: t('image.closePreview'), download: t('image.download') }
++  return { dialog: t('image.preview'), close: t('image.closePreview'), download: t('image.download'), copy: t('image.copy') }
+ }
+ 
+ /**
+--- a/packages/client/ui-attachment/src/MessageImage.tsx
++++ b/packages/client/ui-attachment/src/MessageImage.tsx
+@@ -1,5 +1,6 @@
+ import { useCallback, useEffect, useMemo, useState } from 'react'
+ import type { MouseEvent as ReactMouseEvent } from 'react'
++import { createPortal } from 'react-dom'
+ import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+ import { ImageLightbox } from './ImageLightbox.tsx'
+ import type { ImageLightboxLabels } from './ImageLightbox.tsx'
+@@ -176,10 +177,11 @@
+           : <img src={src} alt={label} style={fit === undefined ? undefined : { objectPosition: fit.objectPosition }} />}
+       </button>
+       {open && src !== null && <ImageLightbox src={src} alt={label} downloadName={downloadNameFor(image)} labels={labels.lightbox} onClose={close} />}
+-      {menu !== null && (
++      {menu !== null && createPortal(
+         <div className={css.copyMenu} style={{ left: menu.x, top: menu.y }} role="menu">
+           <button type="button" role="menuitem" onClick={() => { void copyImage() }}>{labels.copy}</button>
+-        </div>
++        </div>,
++        document.body,
+       )}
+     </>
+   )

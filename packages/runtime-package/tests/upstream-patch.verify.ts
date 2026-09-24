@@ -107,6 +107,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0022-kie-llm-finish-reason.patch',
       '0023-transcript-default-normal.patch',
       '0024-message-image-copy.patch',
+      '0025-lightbox-copy-button.patch',
     ])
 
     // 0001: the video analysis event name is registered in the known-type set.
@@ -187,6 +188,14 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(locales, /'image\.copy': '复制图片'/u)
     const messageImageSpec = await readFile(copiedMessageImageSpec, 'utf8')
     assert.match(messageImageSpec, /copy: '复制图片'/u)
+
+    // 0025: the preview lightbox gains a copy-to-clipboard control and the
+    // thumbnail context menu is portaled to body (transform-ancestor defence).
+    assert.match(imageLightbox, /IconCopyOutline16/u)
+    assert.match(imageLightbox, /const copyImage = \(\): void/u)
+    assert.match(imageLightbox, /labels\.copy !== undefined/u)
+    assert.match(attachmentLabels, /copy: t\('image\.copy'\)/u)
+    assert.match(messageImage, /createPortal/u)
 
     // 0015/0016: long code blocks collapse (line- and char-count gated).
     const codeBlock = await readFile(copiedCodeBlock, 'utf8')
