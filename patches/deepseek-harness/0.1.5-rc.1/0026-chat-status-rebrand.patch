@@ -1,0 +1,40 @@
+--- a/packages/client/ui-chat/src/client/locale.ts
++++ b/packages/client/ui-chat/src/client/locale.ts
+@@ -22,7 +22,7 @@
+   'chat.loadError': '历史加载失败：{message}（{code}）',
+   'chat.loadOlder': '加载更早',
+   'chat.toBottom': '回到底部',
+-  'chat.deepDiving': '深度求索中...',
++  'chat.deepDiving': 'LDD搬砖中...',
+   'chat.turnNavigation.label': '轮次导航',
+   'chat.turnNavigation.jump': '跳转到第 {turn} 轮',
+   'chat.turnNavigation.jumpLoad': '加载并跳转到第 {turn} 轮',
+--- a/packages/client/ui-chat/tests/chat-view.client.spec.tsx
++++ b/packages/client/ui-chat/tests/chat-view.client.spec.tsx
+@@ -2089,7 +2089,7 @@
+     const view = render(<h.ChatView {...h.props} />)
+     expect(view.getByTestId('tool-seat-r1')).toBeTruthy()
+     expect(h.toolOwners[0]?.block).toMatchObject({ callId: 'r1', argsRaw: '{"command":"cmd-r1"}' })
+-    expect(view.getByRole('status').textContent).toBe('深度求索中...')
++    expect(view.getByRole('status').textContent).toBe('LDD搬砖中...')
+   })
+ 
+   it('keeps the Tool renderer mounted when a running call settles into log order', () => {
+@@ -2149,7 +2149,7 @@
+     const view = render(<h.ChatView {...h.props} />)
+     // Freshly mounted (as after a reload) yet already past the 15s gate.
+     const status = view.getByRole('status')
+-    expect(status.textContent).toMatch(/^深度求索中\.\.\.2分0\d秒$/)
++    expect(status.textContent).toMatch(/^LDD搬砖中\.\.\.2分0\d秒$/)
+     expect(status.querySelector('[aria-hidden="true"]')).not.toBeNull()
+     act(() => {
+       h.setSession({ queue: [{
+@@ -2161,7 +2161,7 @@
+         text: 'also',
+       }] })
+     })
+-    expect(status.textContent).toMatch(/^深度求索中\.\.\.2分0\d秒$/)
++    expect(status.textContent).toMatch(/^LDD搬砖中\.\.\.2分0\d秒$/)
+   })
+ 
+   it('hands each ordered root call to the keyed business-node slot', () => {

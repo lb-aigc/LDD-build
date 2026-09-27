@@ -33,6 +33,8 @@ const officialCodeBlockCss = join(repositoryRoot, 'upstream', 'deepseek-harness'
 const officialMarkdownText = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx')
 const officialStream = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'llm', 'llm-pi-ai', 'src', 'stream.ts')
 const officialChatSettings = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-chat', 'src', 'chat-settings.ts')
+const officialChatLocale = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-chat', 'src', 'client', 'locale.ts')
+const officialChatViewSpec = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-chat', 'tests', 'chat-view.client.spec.tsx')
 
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.5-rc.1')
 
@@ -62,12 +64,14 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedMarkdownText = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx')
     const copiedStream = join(copiedRoot, 'packages', 'llm', 'llm-pi-ai', 'src', 'stream.ts')
     const copiedChatSettings = join(copiedRoot, 'packages', 'client', 'ui-chat', 'src', 'chat-settings.ts')
+    const copiedChatLocale = join(copiedRoot, 'packages', 'client', 'ui-chat', 'src', 'client', 'locale.ts')
+    const copiedChatViewSpec = join(copiedRoot, 'packages', 'client', 'ui-chat', 'tests', 'chat-view.client.spec.tsx')
 
     for (const copied of [copiedCatalog, copiedReleaseProcess, copiedBrand, copiedLocales,
       copiedEmptyHero, copiedHeroShell, copiedClientBuildEnvironment, copiedImageLightbox,
       copiedMessageImage, copiedImageLightboxCss, copiedMessageImageCss, copiedAttachmentLabels, copiedCodeBlock,
       copiedCodeBlockCss, copiedMarkdownText, copiedStream, copiedSidebarRoot,
-      copiedSlots, copiedApply, copiedInputBar, copiedChatSettings, copiedMessageImageSpec]) {
+      copiedSlots, copiedApply, copiedInputBar, copiedChatSettings, copiedMessageImageSpec, copiedChatLocale, copiedChatViewSpec]) {
       await mkdir(dirname(copied), { recursive: true })
     }
     await writeFile(copiedCatalog, await readFile(officialCatalog))
@@ -92,6 +96,8 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedInputBar, await readFile(officialInputBar))
     await writeFile(copiedChatSettings, await readFile(officialChatSettings))
     await writeFile(copiedMessageImageSpec, await readFile(officialMessageImageSpec))
+    await writeFile(copiedChatLocale, await readFile(officialChatLocale))
+    await writeFile(copiedChatViewSpec, await readFile(officialChatViewSpec))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
 
@@ -108,6 +114,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0023-transcript-default-normal.patch',
       '0024-message-image-copy.patch',
       '0025-lightbox-copy-button.patch',
+      '0026-chat-status-rebrand.patch',
     ])
 
     // 0001: the video analysis event name is registered in the known-type set.
@@ -221,6 +228,14 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     // render inline instead of folding behind the turn-process disclosure.
     const chatSettings = await readFile(copiedChatSettings, 'utf8')
     assert.match(chatSettings, /DEFAULT_TRANSCRIPT_VIEW_MODE: TranscriptViewMode = 'normal'/u)
+
+    // 0026: the chat 'deep diving' status line is rebranded to 'LDD搬砖中...'.
+    const chatLocale = await readFile(copiedChatLocale, 'utf8')
+    assert.match(chatLocale, /'chat\.deepDiving': 'LDD搬砖中\.\.\.'/u)
+    assert.doesNotMatch(chatLocale, /深度求索中/u)
+    const chatViewSpec = await readFile(copiedChatViewSpec, 'utf8')
+    assert.match(chatViewSpec, /LDD搬砖中\.\.\./u)
+    assert.doesNotMatch(chatViewSpec, /深度求索中/u)
 
     // Applying the same patches again must fail (idempotence guard).
     await assert.rejects(
