@@ -69,6 +69,11 @@ export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode 
   // component remount); the check mark reads it here instead of component
   // state, so a pick never snaps back to the default between turns.
   const currentKeys = state.overrides.get(props.sessionId) ?? {}
+  // The trigger shows the currently selected model's name instead of the fixed
+  // "切换生成模型" caption once a pick exists. `lastLabel` tracks the most
+  // recent pick (any modality) so the trigger reflects the model the user just
+  // chose; on remount it falls back to the image group's override/default.
+  const [lastLabel, setLastLabel] = useState<string | null>(null)
 
   if (!state.available || state.groups.every((group) => group.models.length === 0)) return null
 
@@ -89,11 +94,20 @@ export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode 
     .filter((group) => group.models.length > 0)
     .map((group) => itemId(group.kind, currentKeys[group.kind] ?? group.defaultKey))
 
+  // Trigger caption: the last-picked model name, else the image group's
+  // selected model, else the static "切换生成模型" label.
+  const imageGroup = state.groups.find((group) => group.kind === 'image')
+  const imageKey = currentKeys.image ?? imageGroup?.defaultKey
+  const imageModel = imageGroup?.models.find((model) => model.key === imageKey)
+  const triggerText = lastLabel ?? imageModel?.label ?? props.t('modelPicker.trigger')
+
   const onSelect = (id: string): void => {
     const sep = id.indexOf(SEP)
     if (sep < 0) return
     const kind = id.slice(0, sep) as GenerationKind
     const key = id.slice(sep + SEP.length)
+    const model = state.groups.find((group) => group.kind === kind)?.models.find((m) => m.key === key)
+    setLastLabel(model?.label ?? key)
     props.select(kind, key)
   }
 
@@ -117,7 +131,7 @@ export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode 
           onClick={() => { setOpen(!open) }}
         >
           <span className={css.triggerIcon} aria-hidden>{imageGlyph()}</span>
-          <span className={css.triggerLabel}>{props.t('modelPicker.trigger')}</span>
+          <span className={css.triggerLabel}>{triggerText}</span>
           <span className={clsx(css.chevron, open && css.chevronOpen)} aria-hidden>
             <IconChevronDownOutline14 />
           </span>

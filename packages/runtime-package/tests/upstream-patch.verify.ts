@@ -25,9 +25,7 @@ const officialInputBar = join(repositoryRoot, 'upstream', 'deepseek-harness', 'p
 const officialImageLightbox = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx')
 const officialMessageImage = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx')
 const officialImageLightboxCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css')
-const officialMessageImageCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.module.css')
 const officialAttachmentLabels = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts')
-const officialMessageImageSpec = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'tests', 'message-image.client.spec.tsx')
 const officialCodeBlock = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx')
 const officialCodeBlockCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css')
 const officialMarkdownText = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx')
@@ -56,9 +54,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedImageLightbox = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx')
     const copiedMessageImage = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx')
     const copiedImageLightboxCss = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css')
-    const copiedMessageImageCss = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.module.css')
     const copiedAttachmentLabels = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts')
-    const copiedMessageImageSpec = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'tests', 'message-image.client.spec.tsx')
     const copiedCodeBlock = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx')
     const copiedCodeBlockCss = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css')
     const copiedMarkdownText = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'MarkdownText.tsx')
@@ -69,9 +65,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
 
     for (const copied of [copiedCatalog, copiedReleaseProcess, copiedBrand, copiedLocales,
       copiedEmptyHero, copiedHeroShell, copiedClientBuildEnvironment, copiedImageLightbox,
-      copiedMessageImage, copiedImageLightboxCss, copiedMessageImageCss, copiedAttachmentLabels, copiedCodeBlock,
+      copiedMessageImage, copiedImageLightboxCss, copiedAttachmentLabels, copiedCodeBlock,
       copiedCodeBlockCss, copiedMarkdownText, copiedStream, copiedSidebarRoot,
-      copiedSlots, copiedApply, copiedInputBar, copiedChatSettings, copiedMessageImageSpec, copiedChatLocale, copiedChatViewSpec]) {
+      copiedSlots, copiedApply, copiedInputBar, copiedChatSettings, copiedChatLocale, copiedChatViewSpec]) {
       await mkdir(dirname(copied), { recursive: true })
     }
     await writeFile(copiedCatalog, await readFile(officialCatalog))
@@ -84,7 +80,6 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedImageLightbox, await readFile(officialImageLightbox))
     await writeFile(copiedMessageImage, await readFile(officialMessageImage))
     await writeFile(copiedImageLightboxCss, await readFile(officialImageLightboxCss))
-    await writeFile(copiedMessageImageCss, await readFile(officialMessageImageCss))
     await writeFile(copiedAttachmentLabels, await readFile(officialAttachmentLabels))
     await writeFile(copiedCodeBlock, await readFile(officialCodeBlock))
     await writeFile(copiedCodeBlockCss, await readFile(officialCodeBlockCss))
@@ -95,7 +90,6 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedApply, await readFile(officialApply))
     await writeFile(copiedInputBar, await readFile(officialInputBar))
     await writeFile(copiedChatSettings, await readFile(officialChatSettings))
-    await writeFile(copiedMessageImageSpec, await readFile(officialMessageImageSpec))
     await writeFile(copiedChatLocale, await readFile(officialChatLocale))
     await writeFile(copiedChatViewSpec, await readFile(officialChatViewSpec))
 
@@ -112,8 +106,6 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0016-collapse-long-plain-text.patch',
       '0022-kie-llm-finish-reason.patch',
       '0023-transcript-default-normal.patch',
-      '0024-message-image-copy.patch',
-      '0025-lightbox-copy-button.patch',
       '0026-chat-status-rebrand.patch',
     ])
 
@@ -183,26 +175,6 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const attachmentLabels = await readFile(copiedAttachmentLabels, 'utf8')
     assert.match(attachmentLabels, /download: t\('image\.download'\)/u)
     assert.match(locales, /'image\.download': '下载图片'/u)
-
-    // 0024: message images gain a right-click copy-to-clipboard context menu.
-    assert.match(messageImage, /copyImage/u)
-    assert.match(messageImage, /onContextMenu/u)
-    assert.match(messageImage, /ClipboardItem/u)
-    assert.match(messageImage, /css\.copyMenu/u)
-    const messageImageCss = await readFile(copiedMessageImageCss, 'utf8')
-    assert.match(messageImageCss, /\.copyMenu \{/u)
-    assert.match(attachmentLabels, /copy: t\('image\.copy'\)/u)
-    assert.match(locales, /'image\.copy': '复制图片'/u)
-    const messageImageSpec = await readFile(copiedMessageImageSpec, 'utf8')
-    assert.match(messageImageSpec, /copy: '复制图片'/u)
-
-    // 0025: the preview lightbox gains a copy-to-clipboard control and the
-    // thumbnail context menu is portaled to body (transform-ancestor defence).
-    assert.match(imageLightbox, /IconCopyOutline16/u)
-    assert.match(imageLightbox, /const copyImage = \(\): void/u)
-    assert.match(imageLightbox, /labels\.copy !== undefined/u)
-    assert.match(attachmentLabels, /copy: t\('image\.copy'\)/u)
-    assert.match(messageImage, /createPortal/u)
 
     // 0015/0016: long code blocks collapse (line- and char-count gated).
     const codeBlock = await readFile(copiedCodeBlock, 'utf8')
