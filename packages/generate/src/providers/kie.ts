@@ -1,7 +1,7 @@
-import type { GenerateImageRequest, GenerateImageResult, GenerateVideoRequest, GenerateVideoResult } from '../types.ts'
+import type { AsyncImageTask, AsyncVideoTask, GenerateImageRequest, GenerateImageResult, GenerateVideoRequest, GenerateVideoResult } from '../types.ts'
 import type { ImageSize, ImageResolution } from '../config.ts'
 import { resolutionAspectPixels } from '../provider.ts'
-import type { GenerationProvider, ProviderOptions } from '../provider.ts'
+import type { AsyncGenerationProvider, GenerationProvider, ProviderOptions } from '../provider.ts'
 import { parseDataUri } from '../attach.ts'
 
 const POLL_INTERVAL_MS = 3000
@@ -211,7 +211,7 @@ export function kieClampResolution(requested: ImageResolution, aspectRatio: stri
  * `input` carries `input_urls` (public URLs, NOT data URIs), `aspect_ratio`,
  * and `resolution` per the KIE i2i protocol.
  */
-export class KieProvider implements GenerationProvider {
+export class KieProvider implements GenerationProvider, AsyncGenerationProvider {
   readonly id = 'kie'
 
   private readonly options: ProviderOptions
@@ -221,6 +221,14 @@ export class KieProvider implements GenerationProvider {
   }
 
   async generateImage(request: GenerateImageRequest, signal: AbortSignal): Promise<GenerateImageResult> {
+    const task = await this.submitImage(request, signal)
+    const urls = await this.resolveDownloadUrls(await this.poll(signal, task.taskId), signal)
+    return this.buildImageResult(task, urls)
+  }
+
+  /** Submit an image task and return its handle immediately (no poll). The
+   *  background scheduler finishes it via {@link pollImage}. */
+  async submitImage(request: GenerateImageRequest, signal: AbortSignal): Promise<AsyncImageTask> {
     const { model } = this.requireCredentials()
     const references = request.inputImages ?? []
     const isImageToImage = references.length > 0
@@ -246,16 +254,34 @@ export class KieProvider implements GenerationProvider {
     } else {
       taskId = await this.submit(signal, model, this.textInput(model, request.prompt, aspectRatio, resolution))
     }
-    const urls = await this.resolveDownloadUrls(await this.poll(signal, taskId), signal)
-    const { width, height } = resolutionAspectPixels(resolution, aspectRatio)
+    return { taskId, model: usedModel, aspectRatio, resolution, prompt: request.prompt }
+  }
+
+  /** One non-blocking image state check (scheduler). `undefined` = still running. */
+  async pollImageOnce(task: AsyncImageTask, signal: AbortSignal): Promise<GenerateImageResult | undefined> {
+    const urls = await this.pollOnce(signal, task.taskId)
+    if (urls === undefined) return undefined
+    return this.buildImageResult(task, await this.resolveDownloadUrls(urls, signal))
+  }
+
+  /** Build an image result from a completed task + its download URLs. */
+  private buildImageResult(task: AsyncImageTask, urls: string[]): GenerateImageResult {
+    const { width, height } = resolutionAspectPixels(task.resolution, task.aspectRatio)
     return {
-      images: urls.map((url, index) => ({ index, url, width, height, prompt: request.prompt })),
+      images: urls.map((url, index) => ({ index, url, width, height, prompt: task.prompt })),
       provider: this.id,
-      model: usedModel,
+      model: task.model,
     }
   }
 
   async generateVideo(request: GenerateVideoRequest, signal: AbortSignal): Promise<GenerateVideoResult> {
+    const task = await this.submitVideo(request, signal)
+    const urls = await this.resolveDownloadUrls(await this.poll(signal, task.taskId), signal)
+    return this.buildVideoResult(task, urls)
+  }
+
+  /** Submit a video task and return its handle immediately (no poll). */
+  async submitVideo(request: GenerateVideoRequest, signal: AbortSignal): Promise<AsyncVideoTask> {
     const { model } = this.requireCredentials()
     const duration = Math.min(MAX_VIDEO_DURATION, Math.max(MIN_VIDEO_DURATION, Math.round(request.durationSeconds)))
     const taskId = await this.submit(signal, model, {
@@ -264,18 +290,29 @@ export class KieProvider implements GenerationProvider {
       resolution: request.resolution,
       aspect_ratio: request.aspectRatio,
     })
-    const urls = await this.resolveDownloadUrls(await this.poll(signal, taskId), signal)
+    return { taskId, model, durationSeconds: duration, resolution: request.resolution, aspectRatio: request.aspectRatio, prompt: request.prompt }
+  }
+
+  /** One non-blocking video state check (scheduler). `undefined` = still running. */
+  async pollVideoOnce(task: AsyncVideoTask, signal: AbortSignal): Promise<GenerateVideoResult | undefined> {
+    const urls = await this.pollOnce(signal, task.taskId)
+    if (urls === undefined) return undefined
+    return this.buildVideoResult(task, await this.resolveDownloadUrls(urls, signal))
+  }
+
+  /** Build a video result from a completed task + its download URLs. */
+  private buildVideoResult(task: AsyncVideoTask, urls: string[]): GenerateVideoResult {
     return {
       videos: urls.map((url, index) => ({
         index,
         url,
-        durationSeconds: duration,
-        resolution: request.resolution,
-        aspectRatio: request.aspectRatio,
-        prompt: request.prompt,
+        durationSeconds: task.durationSeconds,
+        resolution: task.resolution,
+        aspectRatio: task.aspectRatio,
+        prompt: task.prompt,
       })),
       provider: this.id,
-      model,
+      model: task.model,
     }
   }
 
@@ -508,38 +545,47 @@ export class KieProvider implements GenerationProvider {
     }
   }
 
-  /** Poll the task until success (returns resultUrls) or failure. */
-  private async poll(signal: AbortSignal, taskId: string): Promise<string[]> {
+  /** One non-blocking state query. Returns resultUrls on success, `undefined`
+   *  while still running, throws on failure/error. The scheduler calls this once
+   *  per tick so many tasks can poll in parallel. */
+  private async pollOnce(signal: AbortSignal, taskId: string): Promise<string[] | undefined> {
     const { baseURL, apiKey } = this.options
     const headers = { Authorization: `Bearer ${apiKey}` }
+    const response = await fetchWithRetry(`${trimSlash(baseURL)}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
+      headers,
+    }, signal)
+    if (!response.ok) {
+      const body = await response.text().catch(() => '')
+      throw new Error(`${this.id} recordInfo 轮询失败 ${response.status}${body ? `: ${body}` : ''}`)
+    }
+    const payload = (await response.json()) as {
+      code?: number
+      msg?: string
+      data?: { state?: string; resultJson?: string; failCode?: string }
+    }
+    if (payload.code !== 200) {
+      throw new Error(`${this.id} recordInfo 返回错误 ${payload.code ?? '?'}: ${payload.msg ?? ''}`)
+    }
+    const data = payload.data
+    if (data?.state === 'fail') {
+      throw new Error(`${this.id}: 任务失败${data.failCode !== undefined && data.failCode !== '' ? ` (${data.failCode})` : ''}`)
+    }
+    if (data?.state === 'success') {
+      const result = JSON.parse(data.resultJson ?? '{}') as { resultUrls?: string[] }
+      if (result.resultUrls !== undefined && result.resultUrls.length > 0) {
+        return result.resultUrls
+      }
+      throw new Error(`${this.id}: 任务成功但 resultUrls 为空`)
+    }
+    return undefined
+  }
+
+  /** Poll the task until success (returns resultUrls) or failure (blocking loop). */
+  private async poll(signal: AbortSignal, taskId: string): Promise<string[]> {
     for (let attempt = 0; attempt < MAX_POLLS; attempt++) {
       signal.throwIfAborted()
-      const response = await fetchWithRetry(`${trimSlash(baseURL)}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
-        headers,
-      }, signal)
-      if (!response.ok) {
-        const body = await response.text().catch(() => '')
-        throw new Error(`${this.id} recordInfo 轮询失败 ${response.status}${body ? `: ${body}` : ''}`)
-      }
-      const payload = (await response.json()) as {
-        code?: number
-        msg?: string
-        data?: { state?: string; resultJson?: string; failCode?: string }
-      }
-      if (payload.code !== 200) {
-        throw new Error(`${this.id} recordInfo 返回错误 ${payload.code ?? '?'}: ${payload.msg ?? ''}`)
-      }
-      const data = payload.data
-      if (data?.state === 'fail') {
-        throw new Error(`${this.id}: 任务失败${data.failCode !== undefined && data.failCode !== '' ? ` (${data.failCode})` : ''}`)
-      }
-      if (data?.state === 'success') {
-        const result = JSON.parse(data.resultJson ?? '{}') as { resultUrls?: string[] }
-        if (result.resultUrls !== undefined && result.resultUrls.length > 0) {
-          return result.resultUrls
-        }
-        throw new Error(`${this.id}: 任务成功但 resultUrls 为空`)
-      }
+      const urls = await this.pollOnce(signal, taskId)
+      if (urls !== undefined) return urls
       await sleep(POLL_INTERVAL_MS, signal)
     }
     throw new Error(`${this.id}: 轮询超时（超过 ${MAX_POLLS} 次）`)

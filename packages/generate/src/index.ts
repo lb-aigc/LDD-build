@@ -9,9 +9,12 @@ import { credentialsServiceResolver, environmentSecretResolver } from './credent
 import type { SecretResolver } from './credentials.ts'
 import { attachImageFromUrl, imageBlockOf, mediaTypeFromUrl } from './attach.ts'
 import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
-import { aspectRatioToImageSize } from './provider.ts'
+import { aspectRatioToImageSize, isAsyncProvider } from './provider.ts'
 import { collectUploadedImages } from './uploaded-images.ts'
 import type { UploadedAgentLike } from './uploaded-images.ts'
+import { GenerationScheduler } from './scheduler.ts'
+import { addNode, foldCanvas, updateNode } from './canvas-bridge.ts'
+import type { SessionLike, SessionStoreLike } from './canvas-bridge.ts'
 import { IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS, MUSIC_PROVIDER_PRESETS } from './presets.ts'
 import {
   buildProvider,
@@ -33,7 +36,7 @@ import {
 } from './settings.ts'
 
 export const name = 'ldd-generate'
-export const inject = ['tools', 'commands']
+export const inject = ['tools', 'commands', 'sessions']
 
 export interface Config extends GenerationConfig {}
 
@@ -74,6 +77,8 @@ const imageResultSchema = {
     },
     provider: { type: 'string', required: true },
     model: { type: 'string', required: true },
+    submitted: { type: 'boolean' },
+    taskId: { type: 'string' },
   },
 } as const
 
@@ -186,12 +191,18 @@ async function resolveReferenceImages(
   return [...resolved, ...uploaded]
 }
 
+/** 当前工具调用所属的会话（结构化 face，避免 import dsh-session 的 Session）。 */
+function sessionOf(exec: unknown): SessionLike | undefined {
+  return (exec as { agent?: { session?: SessionLike } }).agent?.session
+}
+
 function defineImageTool(
   resolved: ResolvedModels,
   config: Config,
   secret: { resolve: SecretResolver },
   attachments: { current?: AttachmentStoreLike },
   sessionOverrides: { get(key: string): string | undefined },
+  scheduler: GenerationScheduler,
 ) {
   const providerKeys = resolved.entries.map((entry) => entry.key)
   return defineTool({
@@ -213,6 +224,13 @@ function defineImageTool(
     output: {
       schema: imageResultSchema,
       render: (_args, value) => {
+        // Async submit path: the task is running in the background scheduler.
+        // Report the submission (not the image) so the agent ends its turn and
+        // the user can submit the next request while generation continues.
+        if (value.submitted === true) {
+          const taskId = (value as { taskId?: string }).taskId ?? ''
+          return [{ type: 'text', text: `已提交生图任务（taskId=${taskId}），正在后台生成，完成后图片会自动出现在画布。` }] as any
+        }
         // Emit each image BOTH as an `image` block (the frontend renders it
         // inline via the attachment slot) AND as a text line carrying the URL
         // (the model reads the URL to describe the result). The harness
@@ -224,9 +242,18 @@ function defineImageTool(
         const blocks: Array<{ type: 'text'; text: string } | { type: 'image'; attachment: ImageMeta }> = []
         for (const image of value.images) {
           if (image.attachment !== undefined) {
-            blocks.push(imageBlockOf(image.attachment as ImageMeta))
-            blocks.push({ type: 'text', text: `图片 ${image.index}（${image.width}x${image.height}）：${image.url}` })
+            const meta = image.attachment as ImageMeta
+            blocks.push(imageBlockOf(meta))
+            // The image block already renders the picture inline. The text line
+            // is for the MODEL to reference the result — but the provider URL is
+            // a TEMPORARY presigned R2 link (X-Amz-Expires=1200, 20 min), so it
+            // would be dead by the time the model or a later turn reads it. Emit
+            // the PERMANENT content-addressed attachment id instead, which the
+            // model can resolve via read_image / the attachment RPC forever.
+            blocks.push({ type: 'text', text: `图片 ${image.index}（${image.width}x${image.height}）：${meta.attachmentId}` })
           } else {
+            // Download failed / placeholder scheme — no durable attachment, so
+            // keep the URL as the only reference (degrades to text, never throws).
             blocks.push({ type: 'text', text: `图片 ${image.index}（${image.width}x${image.height}）：${image.url}` })
           }
         }
@@ -271,6 +298,41 @@ function defineImageTool(
         ...(references.length > 0 ? { inputImages: references } : {}),
       }
       const taskSignal = AbortSignal.any([exec.signal, AbortSignal.timeout(config.timeoutMs)])
+
+      // 异步路径：provider 支持 submit/poll 分离（KIE）→ 提交即返回，后台调度器
+      // 轮询。agent 的 turn 立即结束、恢复空闲，可以继续接收下一个生成请求
+      // （并发提交、互不阻塞）——这是「并发生图」的根。
+      if (isAsyncProvider(provider)) {
+        const asyncTask = await provider.submitImage(request, taskSignal)
+        const session = sessionOf(exec)
+        if (session !== undefined) {
+          try {
+            const before = foldCanvas(session.snapshotEvents())
+            // 复用 canvas Phase 1（参考图 user/message）刚挂的「无 taskId 的 pending
+            // 占位」——图生图场景 Phase 1 已为参考图挂好占位（含手动连线复用的 blank
+            // 节点），补上 taskId 后调度器即可按 taskId 填充它，避免双占位。找不到才
+            // 新挂（文生图 / @uploaded 引用等无 Phase 1 占位的场景）。
+            const reuse = before.nodes.find((n) => n.meta?.pending === true && n.meta.taskId === undefined)
+            const meta = { pending: true, taskId: asyncTask.taskId, provider: provider.id, model: asyncTask.model, prompt: request.prompt }
+            const next = reuse !== undefined
+              ? updateNode(before, reuse.id, { label: '生成中…', meta: { ...(reuse.meta ?? {}), ...meta } })
+              : addNode(before, {
+                  kind: 'image',
+                  label: '生成中…',
+                  x: (before.nodes.length % 4) * 220,
+                  y: Math.floor(before.nodes.length / 4) * 180,
+                  meta,
+                }).state
+            session.append('canvas/state', { state: next })
+          } catch (error) {
+            console.error('[ldd-generate] 挂占位节点失败:', error)
+          }
+        }
+        scheduler.submit(sessionId ?? '', provider, asyncTask)
+        return { images: [], provider: provider.id, model: asyncTask.model, submitted: true, taskId: asyncTask.taskId }
+      }
+
+      // 同步路径（Legnext / mock / openai-compatible 等 per-account 串行或一次性协议）。
       const result = await provider.generateImage(request, taskSignal)
       const store = attachments.current
       const images = []
@@ -287,7 +349,7 @@ function defineImageTool(
           ...(meta !== undefined ? { attachment: meta } : {}),
         })
       }
-      return { images, provider: result.provider, model: result.model }
+      return { images, provider: result.provider, model: result.model, submitted: false }
     },
   })
 }
@@ -591,6 +653,21 @@ export function apply(ctx: Context, config: Config): void {
     attachments.current = (attCtx as unknown as { attachments: AttachmentStoreLike }).attachments
   })
 
+  // Sessions store: the background scheduler resolves the live Session by id so
+  // it can write a finished image back onto the canvas (`canvas/state` event).
+  // Read via a structural cast on `ctx.inject` — the generate package's single
+  // tsconfig compiles host + client halves together, so a direct `ctx.sessions`
+  // property access would surface the SessionStore/ISessions declaration split.
+  let sessions: SessionStoreLike | undefined
+  ctx.inject(['sessions'], (sessCtx) => {
+    sessions = (sessCtx as unknown as { sessions: SessionStoreLike }).sessions
+  })
+
+  // Background generation scheduler: polls in-flight async tasks and fills the
+  // canvas placeholder on completion. Disposed when the plugin unmounts.
+  const scheduler = new GenerationScheduler(() => sessions, () => attachments.current)
+  ctx.effect(() => () => scheduler.dispose(), 'generate: dispose scheduler')
+
   // The composer button's slash command: `/<provider-key>` temporarily routes
   // the current session's generation to that model; `default`/`clear` restores
   // the settings default. Optional (headless hosts have no command registry).
@@ -628,7 +705,7 @@ export function apply(ctx: Context, config: Config): void {
     disposeVideo?.()
     disposeMusic?.()
     disposeSwitch?.()
-    disposeImage = ctx.tools.register(defineImageTool(state.image, config, secret, attachments, sessionOverrides.image))
+    disposeImage = ctx.tools.register(defineImageTool(state.image, config, secret, attachments, sessionOverrides.image, scheduler))
     disposeVideo = ctx.tools.register(defineVideoTool(state.video, config, secret, sessionOverrides.video))
     disposeMusic = ctx.tools.register(defineMusicTool(state.music, config, secret, attachments, sessionOverrides.music))
     disposeSwitch = ctx.tools.register(defineSwitchModelTool(state, sessionOverrides))

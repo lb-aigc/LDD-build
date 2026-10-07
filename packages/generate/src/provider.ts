@@ -1,4 +1,6 @@
 import type {
+  AsyncImageTask,
+  AsyncVideoTask,
   GeneratedImage,
   GeneratedMusic,
   GeneratedVideo,
@@ -27,6 +29,35 @@ export interface GenerationProvider {
   generateImage(request: GenerateImageRequest, signal: AbortSignal): Promise<GenerateImageResult>
   generateVideo(request: GenerateVideoRequest, signal: AbortSignal): Promise<GenerateVideoResult>
   generateMusic(request: GenerateMusicRequest, signal: AbortSignal): Promise<GenerateMusicResult>
+}
+
+/**
+ * Optional async capability a provider can advertise on top of
+ * {@link GenerationProvider}. A provider with this surface can SUBMIT a task
+ * and return a handle immediately (`submitImage`/`submitVideo` → no poll), then
+ * a background scheduler finishes it later via `pollImageOnce`/`pollVideoOnce`
+ * (NON-BLOCKING single state checks). This is the seam that lets one session
+ * submit a second generation while the first is still running — instead of
+ * every `generate_*` call blocking on a `for(;;) { await poll }` loop.
+ *
+ * Only genuinely-concurrent protocols implement it (KIE: `createTask` returns a
+ * `taskId` immediately). Per-account-serial relays (Legnext/MJ BYOK) and
+ * one-shot protocols stay on the synchronous `generateImage`/`generateVideo`.
+ */
+export interface AsyncGenerationProvider {
+  submitImage(request: GenerateImageRequest, signal: AbortSignal): Promise<AsyncImageTask>
+  submitVideo(request: GenerateVideoRequest, signal: AbortSignal): Promise<AsyncVideoTask>
+  /** One non-blocking state check: returns the result when done, `undefined`
+   *  while still running, throws on terminal failure. The scheduler calls this
+   *  once per tick so many tasks can poll in parallel. */
+  pollImageOnce(task: AsyncImageTask, signal: AbortSignal): Promise<GenerateImageResult | undefined>
+  pollVideoOnce(task: AsyncVideoTask, signal: AbortSignal): Promise<GenerateVideoResult | undefined>
+}
+
+/** Whether a provider offers the async submit/poll surface. Duck-typed so the
+ *  scheduler can branch without importing the concrete adapter. */
+export function isAsyncProvider(provider: GenerationProvider): provider is GenerationProvider & AsyncGenerationProvider {
+  return typeof (provider as Partial<AsyncGenerationProvider>).submitImage === 'function'
 }
 
 /** Resolved inputs every wire-protocol adapter needs (see `src/providers/`). */

@@ -112,7 +112,12 @@ function GeneratedThumb({ attachment, loadImage, variant, t }: {
       >
         {url === null
           ? <span className={css.loading}>{t('toolview.loading')}</span>
-          : <img src={url} alt={label} style={fit === undefined ? undefined : { objectPosition: fit.objectPosition }} />}
+          : <img
+              src={url}
+              alt={label}
+              style={fit === undefined ? undefined : { objectPosition: fit.objectPosition }}
+              onError={() => setError(true)}
+            />}
       </button>
       {open && url !== null && (
         <GenerateLightbox

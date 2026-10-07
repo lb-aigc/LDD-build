@@ -106,3 +106,32 @@ export interface GenerateMusicResult {
   readonly provider: string
   readonly model: string
 }
+
+/** A submitted-but-unfinished image generation. An async-capable provider
+ *  (KIE) returns this IMMEDIATELY from `submitImage` (no poll), and a
+ *  background scheduler calls `pollImage` with it later — this is what lets
+ *  the agent end its turn and take the next request while generation runs. */
+export interface AsyncImageTask {
+  /** Provider-side task id (KIE `taskId`). */
+  readonly taskId: string
+  /** The capability id actually submitted (may differ from the configured
+   *  model when image-to-image routed to a distinct i2i capability). */
+  readonly model: string
+  /** Aspect ratio actually sent (post provider clamp). */
+  readonly aspectRatio: string
+  /** Resolution tier actually sent (post provider clamp). */
+  readonly resolution: ImageResolution
+  /** The prompt. */
+  readonly prompt: string
+}
+
+/** A submitted-but-unfinished video generation (same async contract). */
+export interface AsyncVideoTask {
+  readonly taskId: string
+  readonly model: string
+  readonly durationSeconds: number
+  readonly resolution: VideoResolution
+  readonly aspectRatio: VideoAspectRatio
+  readonly prompt: string
+}
+
