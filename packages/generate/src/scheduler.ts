@@ -15,9 +15,9 @@
  * still recoverable server-side; not persisted in the MVP).
  */
 import type { AsyncGenerationProvider } from './provider.ts'
-import type { AsyncImageTask, GenerateImageResult } from './types.ts'
+import type { AsyncImageTask, GeneratedImage, GenerateImageResult } from './types.ts'
 import { attachImageFromUrl } from './attach.ts'
-import type { AttachmentStoreLike } from './attach.ts'
+import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
 import { foldCanvas, findPendingNodeByTaskId, updateNode } from './canvas-bridge.ts'
 import type { SessionStoreLike } from './canvas-bridge.ts'
 
@@ -109,23 +109,34 @@ export class GenerationScheduler {
       const store = this.attachments()
       const first = result.images[0]
       if (first === undefined) return
-      const primary = store !== undefined
-        ? await attachImageFromUrl(first.url, store, AbortSignal.timeout(ATTACH_TIMEOUT_MS))
-        : undefined
-      // Extra images (count > 1) become variants of the same node. The primary
-      // variant mirrors the first stored attachment.
-      const variants = result.images.map((img, index) => ({
-        attachmentId: index === 0 ? (primary?.attachmentId ?? img.url) : img.url,
-        ...(img.width === undefined ? {} : { width: img.width }),
-        ...(img.height === undefined ? {} : { height: img.height }),
+      // Download & store EVERY image (not just the first) so each variant carries
+      // a durable attachmentId — otherwise variant i>0 kept the temporary R2 URL
+      // (which expires in ~20 min, the same broken-image class the text-block fix
+      // addressed). The first image is the primary/surface variant.
+      const stored: Array<{ img: GeneratedImage; meta: ImageMeta | undefined }> = []
+      for (const img of result.images) {
+        const meta = store !== undefined
+          ? await attachImageFromUrl(img.url, store, AbortSignal.timeout(ATTACH_TIMEOUT_MS))
+          : undefined
+        stored.push({ img, meta })
+      }
+      const primary = stored[0]
+      if (primary === undefined) return
+      const primaryMeta = primary.meta
+      const variants = stored.map(({ img, meta }) => ({
+        attachmentId: meta?.attachmentId ?? img.url,
+        ...(meta?.mediaType === undefined ? {} : { mediaType: meta.mediaType }),
+        ...(meta?.bytes === undefined ? {} : { bytes: meta.bytes }),
+        ...(meta?.width === undefined ? (img.width === undefined ? {} : { width: img.width }) : { width: meta.width }),
+        ...(meta?.height === undefined ? (img.height === undefined ? {} : { height: img.height }) : { height: meta.height }),
       }))
       const next = updateNode(before, placeholder.id, {
         label: '生成图片',
-        url: primary?.attachmentId ?? first.url,
+        url: primaryMeta?.attachmentId ?? first.url,
         ...(variants.length > 1 ? { variants } : {}),
         meta: {
-          ...(primary !== undefined
-            ? { width: primary.width, height: primary.height, mediaType: primary.mediaType, bytes: primary.bytes }
+          ...(primaryMeta !== undefined
+            ? { width: primaryMeta.width, height: primaryMeta.height, mediaType: primaryMeta.mediaType, bytes: primaryMeta.bytes }
             : { width: first.width, height: first.height }),
         },
       })

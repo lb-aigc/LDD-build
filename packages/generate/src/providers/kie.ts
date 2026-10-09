@@ -222,12 +222,19 @@ export class KieProvider implements GenerationProvider, AsyncGenerationProvider 
 
   async generateImage(request: GenerateImageRequest, signal: AbortSignal): Promise<GenerateImageResult> {
     const task = await this.submitImage(request, signal)
-    const urls = await this.resolveDownloadUrls(await this.poll(signal, task.taskId), signal)
-    return this.buildImageResult(task, urls)
+    // Synchronous path: block-poll EVERY submitted task id (count variants),
+    // then merge — keeps the sync contract symmetric with the async path.
+    const urls: string[] = []
+    for (const id of task.taskIds) {
+      urls.push(...await this.poll(signal, id))
+    }
+    return this.buildImageResult(task, await this.resolveDownloadUrls(urls, signal))
   }
 
   /** Submit an image task and return its handle immediately (no poll). The
-   *  background scheduler finishes it via {@link pollImage}. */
+   *  background scheduler finishes it via {@link pollImageOnce}. `count`
+   *  variants are submitted as `count` separate createTask calls (KIE has no
+   *  single-call multi-image field), one task id per image. */
   async submitImage(request: GenerateImageRequest, signal: AbortSignal): Promise<AsyncImageTask> {
     const { model } = this.requireCredentials()
     const references = request.inputImages ?? []
@@ -245,22 +252,28 @@ export class KieProvider implements GenerationProvider, AsyncGenerationProvider 
         : this.resolveAspectRatio(request)
     const requested = this.resolveResolution(request.resolution ?? '4K', aspectRatio)
     const resolution = isSeedream5 && requested === '4K' ? '2K' : requested
-    let taskId: string
+    const count = Math.max(1, request.count)
     let usedModel = model
-    if (isImageToImage) {
-      const submitted = await this.submitImageToImage(signal, references, request.prompt, aspectRatio, resolution, model)
-      taskId = submitted.taskId
-      usedModel = submitted.model
-    } else {
-      taskId = await this.submit(signal, model, this.textInput(model, request.prompt, aspectRatio, resolution))
+    const taskIds: string[] = []
+    for (let i = 0; i < count; i++) {
+      if (isImageToImage) {
+        const submitted = await this.submitImageToImage(signal, references, request.prompt, aspectRatio, resolution, model)
+        taskIds.push(submitted.taskId)
+        usedModel = submitted.model
+      } else {
+        taskIds.push(await this.submit(signal, model, this.textInput(model, request.prompt, aspectRatio, resolution)))
+      }
     }
-    return { taskId, model: usedModel, aspectRatio, resolution, prompt: request.prompt }
+    const groupId = taskIds[0]!
+    return { taskId: groupId, taskIds, model: usedModel, aspectRatio, resolution, prompt: request.prompt }
   }
 
-  /** One non-blocking image state check (scheduler). `undefined` = still running. */
+  /** One non-blocking image state check (scheduler). `undefined` = at least one
+   *  variant still running; a result = EVERY submitted task id finished. */
   async pollImageOnce(task: AsyncImageTask, signal: AbortSignal): Promise<GenerateImageResult | undefined> {
-    const urls = await this.pollOnce(signal, task.taskId)
-    if (urls === undefined) return undefined
+    const results = await Promise.all(task.taskIds.map((id) => this.pollOnce(signal, id)))
+    if (results.some((urls) => urls === undefined)) return undefined
+    const urls = results.flatMap((urls) => urls ?? [])
     return this.buildImageResult(task, await this.resolveDownloadUrls(urls, signal))
   }
 

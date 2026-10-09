@@ -109,11 +109,19 @@ export interface GenerateMusicResult {
 
 /** A submitted-but-unfinished image generation. An async-capable provider
  *  (KIE) returns this IMMEDIATELY from `submitImage` (no poll), and a
- *  background scheduler calls `pollImage` with it later — this is what lets
- *  the agent end its turn and take the next request while generation runs. */
+ *  background scheduler calls `pollImageOnce` with it later — this is what lets
+ *  the agent end its turn and take the next request while generation runs.
+ *
+ *  `count` variants = `count` createTask submissions, so the task carries the
+ *  FULL id list in `taskIds`; `taskId` is the group key (the first id, used to
+ *  stamp the canvas placeholder and key the scheduler). The scheduler considers
+ *  the group done only when EVERY id has finished, then merges all the images
+ *  into one multi-variant result. */
 export interface AsyncImageTask {
-  /** Provider-side task id (KIE `taskId`). */
+  /** Group key = the first task id (stamps the placeholder, keys the scheduler). */
   readonly taskId: string
+  /** Every submitted task id — `count` of them. One image each. */
+  readonly taskIds: readonly string[]
   /** The capability id actually submitted (may differ from the configured
    *  model when image-to-image routed to a distinct i2i capability). */
   readonly model: string
