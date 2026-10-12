@@ -22,6 +22,9 @@
     "lib/**/*.d.ts",
     "cordis.patch.yml",
     "skills/generate/SKILL.md",
+    "skills/video-director/SKILL.md",
+    "skills/video-single-shot/SKILL.md",
+    "skills/green-screen-ad/SKILL.md",
     "README.md"
   ],
   "dsh": {
