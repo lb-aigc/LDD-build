@@ -28,7 +28,8 @@ export class HarnessSupervisor {
     validateStartOptions(options)
     const port = await selectLoopbackPort(options.preferredPort)
     const nonce = randomBytes(32).toString('hex')
-    const environment = createHarnessEnvironment(runtime, options, nonce)
+    const proxyEnvironment = await resolveProxyEnvironment()
+    const environment = createHarnessEnvironment(runtime, options, nonce, proxyEnvironment)
     const child = spawn(
       runtime.nodePath,
       createHarnessArgs(runtime.dshEntryPath, options.managedPatchPath, port),
@@ -272,6 +273,7 @@ function createHarnessEnvironment(
   runtime: HarnessRuntime,
   options: HarnessStartOptions,
   nonce: string,
+  proxyEnvironment: Readonly<Record<string, string>>,
 ): NodeJS.ProcessEnv {
   const controlledPath = [
     dirname(runtime.nodePath),
@@ -281,6 +283,7 @@ function createHarnessEnvironment(
   ].filter((entry, index, values) => entry.length > 0 && values.indexOf(entry) === index)
   const environment: NodeJS.ProcessEnv = {
     ...process.env,
+    ...proxyEnvironment,
     ...options.environment,
     DSH_HOME: options.dshHome,
     LDD_RUNTIME_VERSION: runtime.version,
@@ -292,6 +295,65 @@ function createHarnessEnvironment(
   }
   delete environment.ELECTRON_RUN_AS_NODE
   return environment
+}
+
+/**
+ * 解析 harness 子进程应使用的代理环境变量。
+ *
+ * harness 是独立 node 子进程，Node 24 的 undici `fetch` 默认直连——既不读
+ * Windows 系统代理（`HKCU\...\Internet Settings`），也不读 `HTTPS_PROXY`/`HTTP_PROXY`
+ * 环境变量（除非显式传 `NODE_USE_ENV_PROXY=1`）。而 Electron shell 走系统代理。
+ * 两者分裂导致 harness 直连 `api.deepseek.com` 的流式长连接在 GFW 下不稳
+ * （表现为会话闲置后恢复时的 `TRANSPORT` 中断）。
+ *
+ * 这里在启动 harness 时注入 `NODE_USE_ENV_PROXY=1` + 代理地址，让 undici 走代理。
+ * 代理地址优先取环境变量（用户显式设置），win32 下兜底读系统代理注册表（clash
+ * 系统代理模式，地址不在环境变量里）。
+ */
+async function resolveProxyEnvironment(): Promise<Readonly<Record<string, string>>> {
+  const envHttps = process.env.HTTPS_PROXY ?? process.env.https_proxy
+  if (envHttps !== undefined && envHttps !== '') {
+    const envHttp = process.env.HTTP_PROXY ?? process.env.http_proxy
+    return {
+      NODE_USE_ENV_PROXY: '1',
+      HTTPS_PROXY: envHttps,
+      HTTP_PROXY: envHttp !== undefined && envHttp !== '' ? envHttp : envHttps,
+    }
+  }
+  if (process.platform === 'win32') {
+    const systemProxy = await readWindowsSystemProxy()
+    if (systemProxy !== null) {
+      return {
+        NODE_USE_ENV_PROXY: '1',
+        HTTPS_PROXY: systemProxy,
+        HTTP_PROXY: systemProxy,
+      }
+    }
+  }
+  return {}
+}
+
+async function readWindowsSystemProxy(): Promise<string | null> {
+  const settingsKey = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings'
+  const enabled = await queryRegistryValue(settingsKey, 'ProxyEnable')
+  if (enabled?.trim() !== '0x1') return null
+  const server = await queryRegistryValue(settingsKey, 'ProxyServer')
+  if (server === null || server.trim() === '') return null
+  const trimmed = server.trim()
+  return trimmed.includes('://') ? trimmed : `http://${trimmed}`
+}
+
+function queryRegistryValue(key: string, valueName: string): Promise<string | null> {
+  return new Promise((resolveValue) => {
+    execFile('reg.exe', ['query', key, '/v', valueName], { windowsHide: true }, (error, stdout) => {
+      if (error !== null) {
+        resolveValue(null)
+        return
+      }
+      const match = /REG_(?:SZ|EXPAND_SZ)\s+(.+?)\s*$/mu.exec(stdout)
+      resolveValue(match?.[1] ?? null)
+    })
+  })
 }
 
 function systemPathEntries(): readonly string[] {
