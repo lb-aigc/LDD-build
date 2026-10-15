@@ -22,9 +22,9 @@ const officialSidebarRoot = join(repositoryRoot, 'upstream', 'deepseek-harness',
 const officialSlots = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'contract', 'slots.ts')
 const officialApply = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'apply.ts')
 const officialInputBar = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'InputBar.tsx')
-const officialImageLightbox = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx')
+const officialImageLightbox = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'ImageLightbox.tsx')
 const officialMessageImage = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx')
-const officialImageLightboxCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css')
+const officialImageLightboxCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'ImageLightbox.module.css')
 const officialAttachmentLabels = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts')
 const officialCodeBlock = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx')
 const officialCodeBlockCss = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css')
@@ -51,9 +51,9 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedSlots = join(copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'contract', 'slots.ts')
     const copiedApply = join(copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'apply.ts')
     const copiedInputBar = join(copiedRoot, 'packages', 'client', 'ui-conversation', 'src', 'client', 'skeleton', 'InputBar.tsx')
-    const copiedImageLightbox = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.tsx')
+    const copiedImageLightbox = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'ImageLightbox.tsx')
     const copiedMessageImage = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'MessageImage.tsx')
-    const copiedImageLightboxCss = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'ImageLightbox.module.css')
+    const copiedImageLightboxCss = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'ImageLightbox.module.css')
     const copiedAttachmentLabels = join(copiedRoot, 'packages', 'client', 'ui-attachment', 'src', 'client', 'labels.ts')
     const copiedCodeBlock = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.tsx')
     const copiedCodeBlockCss = join(copiedRoot, 'packages', 'client', 'ui-primitives', 'src', 'markdown', 'CodeBlock.module.css')
@@ -105,7 +105,6 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0015-collapse-long-code-blocks.patch',
       '0016-collapse-long-plain-text.patch',
       '0022-kie-llm-finish-reason.patch',
-      '0023-transcript-default-normal.patch',
       '0026-chat-status-rebrand.patch',
     ])
 
@@ -166,7 +165,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
 
     // 0006: image lightbox gains a save-to-disk download control.
     const imageLightbox = await readFile(copiedImageLightbox, 'utf8')
-    assert.match(imageLightbox, /IconDownloadOutline16/u)
+    assert.match(imageLightbox, /IconDownloadOutlineRegular/u)
     assert.match(imageLightbox, /downloadName\?/u)
     const messageImage = await readFile(copiedMessageImage, 'utf8')
     assert.match(messageImage, /downloadNameFor\(image\)/u)
@@ -196,17 +195,12 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(stream, /stream ended without finish_reason/i)
     assert.match(stream, /block\.type === 'toolCall'/u)
 
-    // 0023: the default transcript mode is normal, so generated media results
-    // render inline instead of folding behind the turn-process disclosure.
-    const chatSettings = await readFile(copiedChatSettings, 'utf8')
-    assert.match(chatSettings, /DEFAULT_TRANSCRIPT_VIEW_MODE: TranscriptViewMode = 'normal'/u)
-
     // 0026: the chat 'deep diving' status line is rebranded to 'LDD搬砖中...'.
     const chatLocale = await readFile(copiedChatLocale, 'utf8')
-    assert.match(chatLocale, /'chat\.deepDiving': 'LDD搬砖中\.\.\.'/u)
+    assert.match(chatLocale, /'chat\.deepDiving': 'LDD搬砖中'/u)
     assert.doesNotMatch(chatLocale, /深度求索中/u)
     const chatViewSpec = await readFile(copiedChatViewSpec, 'utf8')
-    assert.match(chatViewSpec, /LDD搬砖中\.\.\./u)
+    assert.match(chatViewSpec, /LDD搬砖中，用时/u)
     assert.doesNotMatch(chatViewSpec, /深度求索中/u)
 
     // Applying the same patches again must fail (idempotence guard).

@@ -27,7 +27,7 @@ function fixture(): Record<string, unknown> {
     messages: [{
       id: 'message-1',
       role: 'user',
-      source: { kind: 'plugin', plugin: 'ldd-video-frame-analyzer' },
+      source: { kind: 'ldd-video-frame-analyzer' },
       content: [
         { type: 'text', text: JSON.stringify({ goal: 'Summarize', batchIndex: 0, range, timestamps }) },
         { type: 'image', attachment: image },
