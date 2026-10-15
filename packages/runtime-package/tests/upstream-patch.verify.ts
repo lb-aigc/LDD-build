@@ -33,6 +33,7 @@ const officialStream = join(repositoryRoot, 'upstream', 'deepseek-harness', 'pac
 const officialChatSettings = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-chat', 'src', 'chat-settings.ts')
 const officialChatLocale = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-chat', 'src', 'client', 'locale.ts')
 const officialChatViewSpec = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-chat', 'tests', 'chat-view.client.spec.tsx')
+const officialWorkspace = join(repositoryRoot, 'upstream', 'deepseek-harness', 'pnpm-workspace.yaml')
 
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.2.0-rc.2')
 
@@ -62,12 +63,13 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedChatSettings = join(copiedRoot, 'packages', 'client', 'ui-chat', 'src', 'chat-settings.ts')
     const copiedChatLocale = join(copiedRoot, 'packages', 'client', 'ui-chat', 'src', 'client', 'locale.ts')
     const copiedChatViewSpec = join(copiedRoot, 'packages', 'client', 'ui-chat', 'tests', 'chat-view.client.spec.tsx')
+    const copiedWorkspace = join(copiedRoot, 'pnpm-workspace.yaml')
 
     for (const copied of [copiedCatalog, copiedReleaseProcess, copiedBrand, copiedLocales,
       copiedEmptyHero, copiedHeroShell, copiedClientBuildEnvironment, copiedImageLightbox,
       copiedMessageImage, copiedImageLightboxCss, copiedAttachmentLabels, copiedCodeBlock,
       copiedCodeBlockCss, copiedMarkdownText, copiedStream, copiedSidebarRoot,
-      copiedSlots, copiedApply, copiedInputBar, copiedChatSettings, copiedChatLocale, copiedChatViewSpec]) {
+      copiedSlots, copiedApply, copiedInputBar, copiedChatSettings, copiedChatLocale, copiedChatViewSpec, copiedWorkspace]) {
       await mkdir(dirname(copied), { recursive: true })
     }
     await writeFile(copiedCatalog, await readFile(officialCatalog))
@@ -92,6 +94,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedChatSettings, await readFile(officialChatSettings))
     await writeFile(copiedChatLocale, await readFile(officialChatLocale))
     await writeFile(copiedChatViewSpec, await readFile(officialChatViewSpec))
+    await writeFile(copiedWorkspace, await readFile(officialWorkspace))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
 
@@ -104,6 +107,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0006-image-download-button.patch',
       '0015-collapse-long-code-blocks.patch',
       '0016-collapse-long-plain-text.patch',
+      '0017-link-workspace-packages.patch',
       '0022-kie-llm-finish-reason.patch',
       '0026-chat-status-rebrand.patch',
     ])
@@ -188,6 +192,11 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     assert.match(markdownText, /isCollapsiblePlainText/u)
     assert.match(markdownText, /node\.type === 'paragraph'/u)
     assert.match(markdownText, /<CodeBlock/u)
+
+    // 0017: workspace linking is re-enabled so LDD plugin peer deps resolve to
+    // the vendored packages (not the registry) during the runtime build.
+    const workspace = await readFile(copiedWorkspace, 'utf8')
+    assert.match(workspace, /linkWorkspacePackages: true/u)
 
     // 0022: a KIE-style gateway that omits finish_reason but completed its
     // content is a normal stop (or tool-calls), not a TRANSPORT error.
