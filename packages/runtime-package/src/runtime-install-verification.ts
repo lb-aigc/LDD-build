@@ -5,21 +5,28 @@ import type { BuildCommandRunner } from './build-runtime.ts'
 import { compactLifecycleEnvironment } from './runtime-lifecycle.ts'
 
 /**
- * Registry-backed platform prebuilds declared as `optionalDependencies` by the
- * native system entry package (`@deepseek-ai/node-addon-system`). These are
- * `@deepseek-ai/`-scoped by design but are NOT local runtime archives: each is
- * a prebuilt binary published to the npm registry (Linux Landlock launcher and
- * POSIX flock, plus the macOS prebuilds), resolved only as a launcher file path
- * (never imported as JavaScript), and deliberately left registry-only because
- * LDD assembles the Windows x64 runtime — on hosts without a matching binary
- * the entry probe fails closed. They must therefore not trip the
+ * Registry-backed platform packages declared as `optionalDependencies` (or a
+ * regular dependency, for the office-kit dispatcher) by a packed product
+ * package. These are `@deepseek-ai/`-scoped by design but are NOT local
+ * runtime archives: each is a prebuilt binary published to the npm registry
+ * (Linux Landlock launcher and POSIX flock, plus the macOS prebuilds, and the
+ * LibreOffice office engines), resolved only as a launcher file path (never
+ * imported as JavaScript), and deliberately left registry-only because LDD
+ * assembles the Windows x64 runtime — on hosts without a matching binary the
+ * entry probe fails closed. They must therefore not trip the
  * unapproved-internal-package check.
  */
-const REGISTRY_BACKED_LANDLOCK_PREBUILDS = new Set([
+const REGISTRY_BACKED_PLATFORM_PACKAGES = new Set([
   '@deepseek-ai/node-addon-system-darwin-arm64',
   '@deepseek-ai/node-addon-system-darwin-x64',
   '@deepseek-ai/node-addon-system-linux-arm64',
   '@deepseek-ai/node-addon-system-linux-x64',
+  '@deepseek-ai/libreoffice-kit',
+  '@deepseek-ai/libreoffice-kit-darwin-arm64',
+  '@deepseek-ai/libreoffice-kit-darwin-x64',
+  '@deepseek-ai/libreoffice-kit-win32-arm64',
+  '@deepseek-ai/libreoffice-kit-win32-x64',
+  '@deepseek-ai/libreoffice-kit-wasm',
 ])
 
 export async function verifyInstalledRuntime(
@@ -90,7 +97,7 @@ export function verifyInternalPackageSnapshots(
     if (
       name !== undefined &&
       !approvedInternalPackages.has(name) &&
-      !REGISTRY_BACKED_LANDLOCK_PREBUILDS.has(name)
+      !REGISTRY_BACKED_PLATFORM_PACKAGES.has(name)
     ) {
       throw new Error(`unapproved internal runtime package detected in lockfile: ${name}`)
     }

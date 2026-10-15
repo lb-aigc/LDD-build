@@ -70,6 +70,19 @@ describe('installed runtime verification', () => {
     await expect(verifyInstalledRuntime(root, dependencies, realRunner, {})).resolves.toBeUndefined()
   })
 
+  it('accepts registry-backed libreoffice-kit engines and platform prebuilds', async () => {
+    const root = await fixtureRuntime([
+      localLockfile(),
+      "  '@deepseek-ai/libreoffice-kit@0.1.1': {}",
+      "  '@deepseek-ai/libreoffice-kit-darwin-arm64@0.1.1': {}",
+      "  '@deepseek-ai/libreoffice-kit-win32-x64@0.1.1': {}",
+      "  '@deepseek-ai/libreoffice-kit-wasm@0.1.1': {}",
+      '',
+    ].join('\n'))
+
+    await expect(verifyInstalledRuntime(root, dependencies, realRunner, {})).resolves.toBeUndefined()
+  })
+
   it('rejects a symbolic link anywhere in the installed runtime', async () => {
     const root = await fixtureRuntime(localLockfile())
     await symlink(

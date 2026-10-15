@@ -20,11 +20,10 @@
    & InjectFace<ComposerBarInjected>
 --- a/packages/client/ui-conversation/src/client/apply.ts
 +++ b/packages/client/ui-conversation/src/client/apply.ts
-@@ -428,6 +428,8 @@
+@@ -428,6 +428,7 @@
        'conversation.input.plan': { kind: 'single', scope: 'session' },
        'conversation.input.right': { kind: 'list', scope: 'session' },
        'conversation.input.model': { kind: 'single', scope: 'session' },
-+'conversation.input.model': { kind: 'single', scope: 'session' },
 +      'conversation.input.generate-model': { kind: 'single', scope: 'session' },
        'conversation.input.activity': { kind: 'single', scope: 'session' },
        'conversation.composer.dock': { kind: 'list', scope: 'session' },
