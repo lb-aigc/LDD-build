@@ -34,7 +34,7 @@ const officialChatSettings = join(repositoryRoot, 'upstream', 'deepseek-harness'
 const officialChatLocale = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-chat', 'src', 'client', 'locale.ts')
 const officialChatViewSpec = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-chat', 'tests', 'chat-view.client.spec.tsx')
 
-const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.5-rc.1')
+const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.2.0-rc.2')
 
 test('tracked Harness patches add LDD compatibility changes and apply exactly once', async () => {
   const parent = await mkdtemp(join(tmpdir(), 'ldd-upstream-patch-'))

@@ -14,7 +14,7 @@ const repositoryRoot = resolve(import.meta.dirname, '..', '..', '..')
 const sourceRoot = join(repositoryRoot, 'upstream', 'deepseek-harness')
 const videoPluginRoot = join(repositoryRoot, 'packages', 'video-frame-analyzer')
 const generatePluginRoot = join(repositoryRoot, 'packages', 'generate')
-const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.1.5-rc.1')
+const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.2.0-rc.2')
 const observedRuntimeNodeCommands: string[] = []
 
 test('two complete runtime assemblies contain stable relative locks and archived plugin bytes', async () => {
@@ -148,12 +148,12 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
     if (family === 'vendor') {
       await writePackageTarball(output, 'deepseek-ai-cordis-4.0.1.tgz', '@deepseek-ai/cordis', '4.0.1')
     } else if (family === 'dsh') {
-      await writePackageTarball(output, 'deepseek-ai-dsh-0.1.5-rc.1.tgz', '@deepseek-ai/dsh', '0.1.5-rc.1')
+      await writePackageTarball(output, 'deepseek-ai-dsh-0.2.0-rc.2.tgz', '@deepseek-ai/dsh', '0.2.0-rc.2')
       await writePackageTarball(
         output,
-        'deepseek-ai-dsh-subprocess-local-0.1.5-rc.1.tgz',
+        'deepseek-ai-dsh-subprocess-local-0.2.0-rc.2.tgz',
         '@deepseek-ai/dsh-subprocess-local',
-        '0.1.5-rc.1',
+        '0.2.0-rc.2',
       )
     }
     return ''
@@ -213,7 +213,7 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
     await writeFile(join(options.cwd, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js'), '#!/usr/bin/env node\n')
     await writeFile(join(options.cwd, 'node_modules', '@deepseek-ai', 'dsh', 'package.json'), `${JSON.stringify({
       name: '@deepseek-ai/dsh',
-      version: '0.1.5-rc.1',
+      version: '0.2.0-rc.2',
       dependencies: {},
     }, null, 2)}\n`)
     await writeInstalledPackage(options.cwd, 'esbuild', {
@@ -235,8 +235,8 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
       'lockfileVersion: 9.0',
       'packages:',
       "  '@deepseek-ai/cordis@file:packages/deepseek-ai-cordis-4.0.1.tgz': {}",
-      "  '@deepseek-ai/dsh@file:packages/deepseek-ai-dsh-0.1.5-rc.1.tgz': {}",
-      "  '@deepseek-ai/dsh-subprocess-local@file:packages/deepseek-ai-dsh-subprocess-local-0.1.5-rc.1.tgz': {}",
+      "  '@deepseek-ai/dsh@file:packages/deepseek-ai-dsh-0.2.0-rc.2.tgz': {}",
+      "  '@deepseek-ai/dsh-subprocess-local@file:packages/deepseek-ai-dsh-subprocess-local-0.2.0-rc.2.tgz': {}",
       "  '@deepseek-ai/node-addon-system@file:packages/deepseek-ai-node-addon-system-0.1.2.tgz': {}",
       "  '@ldd/dsh-video-frame-analyzer@file:packages/ldd-dsh-video-frame-analyzer-0.2.0.tgz': {}",
       "  '@ldd/dsh-generate@file:packages/ldd-dsh-generate-0.2.0.tgz': {}",
