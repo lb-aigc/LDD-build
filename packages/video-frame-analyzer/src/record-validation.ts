@@ -56,7 +56,7 @@ export function validateVideoAnalysisInputRecord(
   nonEmptyString(message.id, 'messages[0].id', fail)
   if (message.role !== 'user') fail('video/analysis-input message role must be user')
   const source = recordOf(message.source, 'messages[0].source', fail)
-  if (source.kind !== 'plugin' || source.plugin !== 'ldd-video-frame-analyzer') {
+  if (source.kind !== 'ldd-video-frame-analyzer') {
     fail('video/analysis-input message source is invalid')
   }
   const content = arrayOf(message.content, 'messages[0].content', fail)

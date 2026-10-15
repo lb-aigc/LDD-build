@@ -41,7 +41,7 @@ export const inject = ['tools', 'commands', 'sessions']
 export interface Config extends GenerationConfig {}
 
 export const Config: z<Config> = z.object({
-  timeoutMs: z.natural().min(1).required(),
+  timeoutMs: z.natural().min(1),
 })
 
 const imageResultSchema = {

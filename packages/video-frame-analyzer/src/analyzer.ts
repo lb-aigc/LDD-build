@@ -220,7 +220,7 @@ function createInputRecord(input: CreateRecordInput): VideoAnalysisInputRecord {
       { type: 'text', text: userText },
       ...input.contactSheets.map((attachment) => ({ type: 'image' as const, attachment })),
     ],
-    source: { kind: 'plugin', plugin: 'ldd-video-frame-analyzer' },
+    source: { kind: 'ldd-video-frame-analyzer' },
   }]
   return {
     version: 1,

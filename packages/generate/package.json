@@ -47,7 +47,7 @@
     "bundle": "tsdown"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "3.18.1",
+    "@deepseek-ai/schemastery": "3.18.4",
     "clsx": "^2.0.0"
   },
   "peerDependencies": {

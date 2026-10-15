@@ -16,6 +16,12 @@ import type {} from '@deepseek-ai/dsh-subprocess'
 import type {} from '@deepseek-ai/dsh-fs'
 import type {} from '@deepseek-ai/dsh-session/types'
 
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'ldd-video-frame-analyzer': { kind: 'ldd-video-frame-analyzer' }
+  }
+}
+
 import {
   analyzeVideo,
   type PreparedVideoVisionCall,

@@ -28,7 +28,7 @@ export interface VisionMessage {
   readonly id: string
   readonly role: 'user'
   readonly content: readonly VisionContentBlock[]
-  readonly source: { readonly kind: 'plugin'; readonly plugin: 'ldd-video-frame-analyzer' }
+  readonly source: { readonly kind: 'ldd-video-frame-analyzer' }
 }
 
 export interface VideoAnalysisInputRecord {
