@@ -1,6 +1,6 @@
 --- a/scripts/release/process.ts
 +++ b/scripts/release/process.ts
-@@ -21,6 +21,24 @@
+@@ -22,6 +22,24 @@
    readonly stderr: string
  }
  
@@ -25,7 +25,7 @@
  /**
   * Run a command and capture its output without judging the exit status.
   * @param command - executable name.
-@@ -29,7 +47,8 @@
+@@ -30,7 +48,8 @@
   * @returns The exit status and captured streams.
   */
  export function attempt(command: string, args: readonly string[], options: RunOptions = {}): CommandResult {
@@ -35,7 +35,7 @@
    if (result.error !== undefined) throw result.error
    return { status: result.status, stdout: result.stdout, stderr: result.stderr }
  }
-@@ -43,7 +62,8 @@
+@@ -44,7 +63,8 @@
   * @returns The exit status and captured streams.
   */
  export function attemptEchoed(command: string, args: readonly string[], options: RunOptions = {}): CommandResult {
@@ -45,7 +45,7 @@
      cwd: options.cwd,
      env: options.env,
      encoding: 'utf8',
-@@ -81,7 +101,8 @@
+@@ -82,7 +102,8 @@
   */
  export function runConcurrent(command: string, args: readonly string[], options: RunOptions = {}): Promise<void> {
    return new Promise((resolveRun, rejectRun) => {
