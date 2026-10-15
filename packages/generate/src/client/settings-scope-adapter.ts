@@ -6,14 +6,46 @@
  * on the forwarded `settings/document-updated` event, so the two controllers
  * (card + model picker) keep their `getSnapshot / subscribe / set / unset`
  * contract without depending on the deleted service.
+ *
+ * The generate plugin does NOT declare `dsh-api-gateway` /
+ * `dsh-api-settings-controller` as deps, so importing their remote types from
+ * `dsh-api-remotes/client` collapses to `any` (that is the whole reason the
+ * previous direct import failed `noImplicitAny`). We declare the wire shape
+ * locally and reach `ctx.remote` through a structural cast instead.
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-// Type-only: pulls the `ctx.remote.settings` / `ctx.remote.$on` merge and the
-// settings wire vocabulary into this program.
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+
+/** One redacted namespace row of a `settings.describe` answer. */
+interface SettingsNamespaceRow {
+  ns: string
+  value: unknown
+}
+
+/** Shape of the 0.2.0 `ctx.remote.settings.describe()` RpcResponse. */
+interface SettingsDescribeResult {
+  ok: boolean
+  value?: {
+    writable: boolean
+    namespaces: SettingsNamespaceRow[]
+  }
+  error?: { message: string }
+}
+
+/** Shape of the 0.2.0 `ctx.remote.settings.mutate()` RpcResponse. */
+interface SettingsMutateResult {
+  ok: boolean
+  error?: { message: string }
+}
+
+/** Structural face of the 0.2.0 client `ctx.remote` we consume. */
+interface SettingsRemoteFace {
+  settings: {
+    describe(): Promise<SettingsDescribeResult>
+    mutate(ns: string, ops: unknown[], revision: number | undefined): Promise<SettingsMutateResult>
+  }
+  $on(event: string, listener: (...args: unknown[]) => void): () => void
+}
 
 /** Per-namespace snapshot, mirroring the 0.1.5 `SettingsScopeSnapshot` shape
  *  the controllers already consume (status / value / writable). */
@@ -56,7 +88,7 @@ export class RemoteSettingsScope<T> implements SettingsScope<T> {
   ) {
     void this.refresh()
     ctx.effect(() => {
-      const off = ctx.remote.$on('settings/document-updated', (changedNs: unknown) => {
+      const off = this.remote().$on('settings/document-updated', (changedNs: unknown) => {
         if (String(changedNs) !== this.ns) return
         void this.refresh()
       })
@@ -65,6 +97,11 @@ export class RemoteSettingsScope<T> implements SettingsScope<T> {
         off()
       }
     })
+  }
+
+  /** Structural cast to the client `ctx.remote` namespace this adapter reads. */
+  private remote(): SettingsRemoteFace {
+    return (this.ctx as unknown as { remote: SettingsRemoteFace }).remote
   }
 
   getSnapshot(): SettingsScopeSnapshot<T> {
@@ -77,17 +114,17 @@ export class RemoteSettingsScope<T> implements SettingsScope<T> {
   }
 
   async set(field: string, value: unknown): Promise<void> {
-    await this.mutate([{ op: 'set', path: [field], value: value as JsonValue }])
+    await this.mutate([{ op: 'set', path: [field], value }])
   }
 
   async unset(field: string): Promise<void> {
     await this.mutate([{ op: 'unset', path: [field] }])
   }
 
-  private async mutate(ops: SettingsPathOpView[]): Promise<void> {
-    const response = await this.ctx.remote.settings.mutate(this.ns, ops, undefined)
+  private async mutate(ops: unknown[]): Promise<void> {
+    const response = await this.remote().settings.mutate(this.ns, ops, undefined)
     if (!response.ok) {
-      throw new Error(`settings.mutate(${this.ns}) refused: ${response.error.message}`)
+      throw new Error(`settings.mutate(${this.ns}) refused: ${response.error?.message ?? 'unknown'}`)
     }
     void this.refresh()
   }
@@ -95,8 +132,8 @@ export class RemoteSettingsScope<T> implements SettingsScope<T> {
   private async refresh(): Promise<void> {
     if (this.disposed) return
     try {
-      const response = await this.ctx.remote.settings.describe()
-      if (!response.ok) {
+      const response = await this.remote().settings.describe()
+      if (!response.ok || !response.value) {
         this.snapshot = { status: 'unavailable', value: undefined, writable: false }
       } else {
         const view = response.value.namespaces.find((row) => row.ns === this.ns)
