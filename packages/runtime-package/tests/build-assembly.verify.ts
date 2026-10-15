@@ -57,7 +57,7 @@ test('two complete runtime assemblies contain stable relative locks and archived
       assert.match(runtimeWorkspace, /'@deepseek-ai\/dsh-subprocess-local': true/u)
       assert.match(
         runtimeWorkspace,
-        /'@deepseek-ai\/dsh-subprocess-local@file:packages\/deepseek-ai-dsh-subprocess-local-0\.1\.5-rc\.1\.tgz': true/u,
+        /'@deepseek-ai\/dsh-subprocess-local@file:packages\/deepseek-ai-dsh-subprocess-local-0\.2\.0-rc\.2\.tgz': true/u,
       )
       assert.match(runtimeWorkspace, /'@google\/genai': false/u)
       const runtimeNpmrc = await readFile(join(runtimeRoot, '.npmrc'), 'utf8')
