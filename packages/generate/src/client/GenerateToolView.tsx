@@ -19,7 +19,7 @@
  * the tool row's untransformed ancestry does not trap).
  */
 import { useEffect, useState } from 'react'
-import { IconCloseOutline16, IconDownloadOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseOutlineRegular, IconDownloadOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ImageMeta } from '../attach.ts'
 import type { ToolCallViewOwnerProps } from './slot-contract.ts'
@@ -169,10 +169,10 @@ function GenerateLightbox({ src, alt, downloadName, t, onClose }: {
       <img className={css.lightboxImage} src={src} alt={alt} />
       <div className={css.actions}>
         <button type="button" className={css.action} title={t('toolview.download')} aria-label={t('toolview.download')} onClick={saveImage}>
-          <IconDownloadOutline16 size={16} />
+          <IconDownloadOutlineRegular size={16} />
         </button>
         <button type="button" className={css.action} aria-label={t('toolview.close')} onClick={onClose}>
-          <IconCloseOutline16 size={16} />
+          <IconCloseOutlineRegular size={16} />
         </button>
       </div>
     </div>

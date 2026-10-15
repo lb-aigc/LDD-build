@@ -9,7 +9,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
-import { IconChevronDownOutline14, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineRegular, Menu } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelPickerFace, GenerationKind } from './model-picker-controller.ts'
@@ -133,7 +133,7 @@ export function GenerateModelPicker(props: GenerateModelPickerProps): ReactNode 
           <span className={css.triggerIcon} aria-hidden>{imageGlyph()}</span>
           <span className={css.triggerLabel}>{triggerText}</span>
           <span className={clsx(css.chevron, open && css.chevronOpen)} aria-hidden>
-            <IconChevronDownOutline14 />
+            <IconChevronDownOutlineRegular />
           </span>
         </button>
       }

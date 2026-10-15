@@ -7,7 +7,7 @@
  * harness packages.
  */
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { SettingsScope } from './settings-scope-adapter.ts'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { GenerationCardSettings } from './controller.ts'

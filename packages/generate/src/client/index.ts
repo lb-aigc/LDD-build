@@ -16,8 +16,9 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-// Type-only: pulls the settings shell's Context merge (ctx.settingsScope).
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+// 0.2.0 removed the settings shell's `ctx.settingsScope` service; the generate
+// plugin now rebuilds that per-namespace scope from the Remote settings seam
+// (see settings-scope-adapter.ts), so no dsh-client-ui-settings merge is pulled.
 // Type-only: pulls the command UI's Context merge (ctx.commandUi) + contribution types.
 import type {} from '@deepseek-ai/dsh-client-ui-commands/client'
 import type { CommandUiContract } from '@deepseek-ai/dsh-client-ui-commands/client'
@@ -36,6 +37,7 @@ import type { SessionsLike } from './file-import.ts'
 import { en, zh } from './locales.ts'
 import { GenerateModelPicker } from './model-picker.tsx'
 import { ModelPickerController } from './model-picker-controller.ts'
+import { RemoteSettingsScope } from './settings-scope-adapter.ts'
 import type { CommandableSessions, GenerationKind } from './model-picker-controller.ts'
 import { GenerateToolView } from './GenerateToolView.tsx'
 
@@ -46,24 +48,24 @@ export const MUSIC_NS = 'generate-music'
 
 const NS = 'generate'
 
-export const inject = ['slots', 'locale', 'remote', 'remote.credentials', 'settingsScope', 'commandUi', 'sessions']
+export const inject = ['slots', 'locale', 'remote', 'remote.credentials', 'commandUi', 'sessions']
 
 export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'generate: card dictionaries')
 
   const image = new GenerateSettingsController(
-    ctx.settingsScope.bind({ namespace: IMAGE_NS }),
+    new RemoteSettingsScope(ctx, IMAGE_NS),
     ctx,
     'image',
   )
   const video = new GenerateSettingsController(
-    ctx.settingsScope.bind({ namespace: VIDEO_NS }),
+    new RemoteSettingsScope(ctx, VIDEO_NS),
     ctx,
     'video',
   )
   const music = new GenerateSettingsController(
-    ctx.settingsScope.bind({ namespace: MUSIC_NS }),
+    new RemoteSettingsScope(ctx, MUSIC_NS),
     ctx,
     'music',
   )
@@ -127,9 +129,9 @@ export function apply(ctx: ClientContext): void {
   // just no-ops.
   const pickerController = new ModelPickerController(
     {
-      image: ctx.settingsScope.bind({ namespace: IMAGE_NS }),
-      video: ctx.settingsScope.bind({ namespace: VIDEO_NS }),
-      music: ctx.settingsScope.bind({ namespace: MUSIC_NS }),
+      image: new RemoteSettingsScope(ctx, IMAGE_NS),
+      video: new RemoteSettingsScope(ctx, VIDEO_NS),
+      music: new RemoteSettingsScope(ctx, MUSIC_NS),
     },
     sessionsService as CommandableSessions | undefined,
   )
