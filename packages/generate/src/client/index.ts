@@ -1,5 +1,5 @@
 /**
- * Browser half of @ldd/dsh-generate: three settings cards (生图模型 / 生视频
+ * Browser half of @ldd/dsh-generate: three settings tabs (生图模型 / 生视频
  * 模型 / 生音乐模型) on the Plugins settings page, one per generation namespace,
  * plus the composer generation-model picker seat and the file-upload command.
  *
@@ -70,22 +70,28 @@ export function apply(ctx: ClientContext): void {
     'music',
   )
 
-  ctx.slots.inject('settings.plugin.item', function* () {
+  ctx.slots.inject('settings.plugins.tab', function* () {
     yield ctx.slots.register({
-      name: 'settings.plugin.item',
-      key: IMAGE_NS,
+      name: 'settings.plugins.tab',
+      id: IMAGE_NS,
+      order: 10,
+      label: () => t('imageTitle'),
       locale: NS,
       inject: () => image.inject(),
     }, GenerateSettingsCard)
     yield ctx.slots.register({
-      name: 'settings.plugin.item',
-      key: VIDEO_NS,
+      name: 'settings.plugins.tab',
+      id: VIDEO_NS,
+      order: 20,
+      label: () => t('videoTitle'),
       locale: NS,
       inject: () => video.inject(),
     }, GenerateSettingsCard)
     yield ctx.slots.register({
-      name: 'settings.plugin.item',
-      key: MUSIC_NS,
+      name: 'settings.plugins.tab',
+      id: MUSIC_NS,
+      order: 30,
+      label: () => t('musicTitle'),
       locale: NS,
       inject: () => music.inject(),
     }, GenerateSettingsCard)

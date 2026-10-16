@@ -12,7 +12,7 @@ import type { GenerationCardFace } from './controller.ts'
 import type { GenerateLocaleKey } from './locales.ts'
 
 export type GenerationCardProps =
-  PropsRuntime<'settings.plugin.item'>
+  PropsRuntime<'settings.plugins.tab'>
   & PropsLocale<'generate'>
   & InjectFace<GenerationCardFace>
 
@@ -90,7 +90,7 @@ export function GenerateSettingsCard(props: GenerationCardProps): ReactElement |
   const canSave = state.dirty && !state.saving && state.writable
 
   return (
-    <li style={{ listStyle: 'none', border: '1px solid var(--dsh-border, #e4e7ec)', borderRadius: '8px', marginBottom: '8px', background: 'var(--dsh-bg-card, #fff)' }}>
+    <div style={{ border: '1px solid var(--dsh-border, #e4e7ec)', borderRadius: '8px', marginBottom: '8px', background: 'var(--dsh-bg-card, #fff)' }}>
       <button
         type="button"
         onClick={() => { setOpen(!open) }}
@@ -134,6 +134,6 @@ export function GenerateSettingsCard(props: GenerationCardProps): ReactElement |
           </div>
         )
         : null}
-    </li>
+    </div>
   )
 }
