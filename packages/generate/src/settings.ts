@@ -1,20 +1,13 @@
 import z from '@deepseek-ai/schemastery'
 
 /**
- * Settings namespaces for the image- and video-generation halves. Kept
- * separate so the two capabilities configure independently: a user may route
- * images to a local model while videos go to a hosted provider.
- *
- * The namespace strings are spelled here rather than imported from
- * `@deepseek-ai/dsh-settings` so this plugin adds no host dependency edge: the
- * settings service is provided by the Harness plugin tree at runtime, and the
- * strings plus the type shim below are all the plugin needs to register. This
- * keeps the LDD lockfile free of a `@deepseek-ai/dsh-settings` resolution that
- * would otherwise force a re-resolution of the electron-builder git dependency.
+ * Generation settings schema. 0.2.0 derives the settings namespace from the
+ * plugin entry id (`ldd-generate`, see cordis.patch.yml) — there is no manual
+ * `settings.register(ns, schema)` call (removed in 0.2.0). The three
+ * generation halves are volatile Config fields (`image`/`video`/`music`), so
+ * the browser edits them through `remote.settings` path ops and the Host reads
+ * them via `config.image.get()` + `loader/volatile-update`.
  */
-export const IMAGE_SETTINGS_NS = 'generate-image'
-export const VIDEO_SETTINGS_NS = 'generate-video'
-export const MUSIC_SETTINGS_NS = 'generate-music'
 
 /**
  * One configured generation model. `provider` is the preset id (or `custom`)
@@ -65,22 +58,22 @@ export type VideoGenerationSettings = GenerationSettings
 export type MusicGenerationSettings = GenerationSettings
 
 const modelEntrySchema = z.object({
-  provider: z.string(),
-  protocol: z.string(),
-  model: z.string(),
-  baseURL: z.string(),
-  apiKeyEnv: z.string(),
-  imageToImageModel: z.string(),
+  provider: z.string().default(''),
+  protocol: z.string().default(''),
+  model: z.string().default(''),
+  baseURL: z.string().default(''),
+  apiKeyEnv: z.string().default(''),
+  imageToImageModel: z.string().default(''),
 })
 
 const generationSettingsSchema = z.object({
-  default: z.string(),
-  models: z.array(modelEntrySchema),
-  provider: z.string(),
-  protocol: z.string(),
-  model: z.string(),
-  baseURL: z.string(),
-  apiKeyEnv: z.string(),
+  default: z.string().default(''),
+  models: z.array(modelEntrySchema).default([]),
+  provider: z.string().default(''),
+  protocol: z.string().default(''),
+  model: z.string().default(''),
+  baseURL: z.string().default(''),
+  apiKeyEnv: z.string().default(''),
 })
 
 export const ImageGenerationSettingsSchema: z<ImageGenerationSettings> = generationSettingsSchema
@@ -93,29 +86,20 @@ export const DEFAULT_IMAGE_MODEL = 'mock-image'
 export const DEFAULT_VIDEO_MODEL = 'mock-video'
 
 /**
- * Minimal type surface of the user-settings service this plugin consumes. It
- * mirrors the shapes of `@deepseek-ai/dsh-settings` (`SettingsScope` /
- * `SettingsProvider.register`) without importing that package, so the plugin
- * compiles against the Harness's runtime service while the lockfile stays
- * untouched. Upgrade to the real import when the build environment can run a
- * full resolution.
+ * Settings namespace: 0.2.0 derives the settings namespace from the plugin
+ * entry id (`ldd-generate`, see cordis.patch.yml), NOT from a manual
+ * `settings.register(ns, schema)` call (that API was removed in 0.2.0). The
+ * three generation halves live as volatile Config fields (`image`/`video`/
+ * `music`) so the browser edits them through `remote.settings` path ops.
  */
-export interface GenerationSettingsScope<T> {
-  get(): T
-  watch(callback: (next: T, prev: T) => void | Promise<void>): () => void
-}
-
-export interface GenerationSettingsProvider {
-  register<T>(
-    ns: string,
-    schema: z<T>,
-    options?: { readonly base?: Partial<T> },
-  ): GenerationSettingsScope<T>
-}
+export const GENERATE_SETTINGS_NS = 'ldd-generate'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
-    settings: GenerationSettingsProvider
+    /** 0.2.0 settings presentation policy (structural: no dsh-settings import). */
+    settings: {
+      configure(presentation: { auto?: boolean }, owner?: unknown): () => void
+    }
     credentials: import('./credentials.ts').CredentialsResolveLike
     /**
      * Structural face of @deepseek-ai/dsh-commands (kept local so this plugin

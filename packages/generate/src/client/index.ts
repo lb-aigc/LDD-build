@@ -41,10 +41,12 @@ import { RemoteSettingsScope } from './settings-scope-adapter.ts'
 import type { CommandableSessions, GenerationKind } from './model-picker-controller.ts'
 import { GenerateToolView } from './GenerateToolView.tsx'
 
-/** Namespace strings the Host half registers (must match src/settings.ts). */
-export const IMAGE_NS = 'generate-image'
-export const VIDEO_NS = 'generate-video'
-export const MUSIC_NS = 'generate-music'
+/** 0.2.0 settings namespace = plugin entry id (see src/settings.ts). */
+export const GENERATE_NS = 'ldd-generate'
+/** Per-kind field prefix inside `ldd-generate` (also the Plugins tab id). */
+export const IMAGE_KIND = 'image'
+export const VIDEO_KIND = 'video'
+export const MUSIC_KIND = 'music'
 
 const NS = 'generate'
 
@@ -55,17 +57,17 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'generate: card dictionaries')
 
   const image = new GenerateSettingsController(
-    new RemoteSettingsScope(ctx, IMAGE_NS),
+    new RemoteSettingsScope(ctx, GENERATE_NS, IMAGE_KIND),
     ctx,
     'image',
   )
   const video = new GenerateSettingsController(
-    new RemoteSettingsScope(ctx, VIDEO_NS),
+    new RemoteSettingsScope(ctx, GENERATE_NS, VIDEO_KIND),
     ctx,
     'video',
   )
   const music = new GenerateSettingsController(
-    new RemoteSettingsScope(ctx, MUSIC_NS),
+    new RemoteSettingsScope(ctx, GENERATE_NS, MUSIC_KIND),
     ctx,
     'music',
   )
@@ -73,7 +75,7 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('settings.plugins.tab', function* () {
     yield ctx.slots.register({
       name: 'settings.plugins.tab',
-      id: IMAGE_NS,
+      id: IMAGE_KIND,
       order: 10,
       label: () => t('imageTitle'),
       locale: NS,
@@ -81,7 +83,7 @@ export function apply(ctx: ClientContext): void {
     }, GenerateSettingsCard)
     yield ctx.slots.register({
       name: 'settings.plugins.tab',
-      id: VIDEO_NS,
+      id: VIDEO_KIND,
       order: 20,
       label: () => t('videoTitle'),
       locale: NS,
@@ -89,7 +91,7 @@ export function apply(ctx: ClientContext): void {
     }, GenerateSettingsCard)
     yield ctx.slots.register({
       name: 'settings.plugins.tab',
-      id: MUSIC_NS,
+      id: MUSIC_KIND,
       order: 30,
       label: () => t('musicTitle'),
       locale: NS,
@@ -135,9 +137,9 @@ export function apply(ctx: ClientContext): void {
   // just no-ops.
   const pickerController = new ModelPickerController(
     {
-      image: new RemoteSettingsScope(ctx, IMAGE_NS),
-      video: new RemoteSettingsScope(ctx, VIDEO_NS),
-      music: new RemoteSettingsScope(ctx, MUSIC_NS),
+      image: new RemoteSettingsScope(ctx, GENERATE_NS, IMAGE_KIND),
+      video: new RemoteSettingsScope(ctx, GENERATE_NS, VIDEO_KIND),
+      music: new RemoteSettingsScope(ctx, GENERATE_NS, MUSIC_KIND),
     },
     sessionsService as CommandableSessions | undefined,
   )

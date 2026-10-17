@@ -1,4 +1,5 @@
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/cordis-plugin-loader'
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { readFile } from 'node:fs/promises'
@@ -27,21 +28,37 @@ import {
 } from './routing.ts'
 import type { ResolvedModels } from './routing.ts'
 import {
-  IMAGE_SETTINGS_NS,
-  VIDEO_SETTINGS_NS,
-  MUSIC_SETTINGS_NS,
   ImageGenerationSettingsSchema,
   VideoGenerationSettingsSchema,
   MusicGenerationSettingsSchema,
 } from './settings.ts'
+import type { ImageGenerationSettings, VideoGenerationSettings, MusicGenerationSettings } from './settings.ts'
 
 export const name = 'ldd-generate'
 export const inject = ['tools', 'commands', 'sessions']
 
-export interface Config extends GenerationConfig {}
+export interface Config extends GenerationConfig {
+  /** Image-generation settings (volatile: edited live from the browser). */
+  image: Volatile<ImageGenerationSettings | undefined>
+  /** Video-generation settings (volatile: edited live from the browser). */
+  video: Volatile<VideoGenerationSettings | undefined>
+  /** Music-generation settings (volatile: edited live from the browser). */
+  music: Volatile<MusicGenerationSettings | undefined>
+}
 
-export const Config: z<Config> = z.object({
+/** Raw input accepted by the Config schema (volatile fields are unwrapped). */
+interface ConfigInput {
+  timeoutMs?: number | null
+  image?: ImageGenerationSettings | null
+  video?: VideoGenerationSettings | null
+  music?: MusicGenerationSettings | null
+}
+
+export const Config: z<ConfigInput, Config> = z.object({
   timeoutMs: z.natural().min(1),
+  image: ImageGenerationSettingsSchema.volatile(),
+  video: VideoGenerationSettingsSchema.volatile(),
+  music: MusicGenerationSettingsSchema.volatile(),
 })
 
 const imageResultSchema = {
@@ -579,9 +596,9 @@ export function apply(ctx: Context, config: Config): void {
   // every settings change. `registerTools` disposes and re-registers the two
   // tools so the model-facing `provider` enum and catalog track the list.
   const state = {
-    image: resolveModels(undefined, IMAGE_PROVIDER_PRESETS),
-    video: resolveModels(undefined, VIDEO_PROVIDER_PRESETS),
-    music: resolveModels(undefined, MUSIC_PROVIDER_PRESETS),
+    image: resolveModels(config.image.get() as unknown as ImageGenerationSettings | undefined, IMAGE_PROVIDER_PRESETS),
+    video: resolveModels(config.video.get() as unknown as VideoGenerationSettings | undefined, VIDEO_PROVIDER_PRESETS),
+    music: resolveModels(config.music.get() as unknown as MusicGenerationSettings | undefined, MUSIC_PROVIDER_PRESETS),
   }
   let disposeImage: (() => void) | undefined
   let disposeVideo: (() => void) | undefined
@@ -712,31 +729,21 @@ export function apply(ctx: Context, config: Config): void {
   }
   registerTools()
 
-  // Best-effort settings registration: without a settings provider (headless
-  // boot) the tools keep their mock defaults. When present, every edit
-  // re-resolves the routing view and re-registers the tools live.
-  ctx.inject(['settings'], (settingsCtx) => {
-    const imageScope = settingsCtx.settings.register(
-      IMAGE_SETTINGS_NS,
-      ImageGenerationSettingsSchema,
-    )
-    const videoScope = settingsCtx.settings.register(
-      VIDEO_SETTINGS_NS,
-      VideoGenerationSettingsSchema,
-    )
-    const musicScope = settingsCtx.settings.register(
-      MUSIC_SETTINGS_NS,
-      MusicGenerationSettingsSchema,
-    )
-    const sync = () => {
-      state.image = resolveModels(imageScope.get(), IMAGE_PROVIDER_PRESETS)
-      state.video = resolveModels(videoScope.get(), VIDEO_PROVIDER_PRESETS)
-      state.music = resolveModels(musicScope.get(), MUSIC_PROVIDER_PRESETS)
-      registerTools()
-    }
-    sync()
-    imageScope.watch(sync)
-    videoScope.watch(sync)
-    musicScope.watch(sync)
+  // 0.2.0 settings: the namespace is derived from the plugin entry id and the
+  // three generation halves are volatile Config fields. Re-resolve the routing
+  // view and re-register the tools live on every volatile update (the browser
+  // writes through `remote.settings.mutate`, which lands here).
+  const syncFromConfig = (): void => {
+    state.image = resolveModels(config.image.get() as unknown as ImageGenerationSettings | undefined, IMAGE_PROVIDER_PRESETS)
+    state.video = resolveModels(config.video.get() as unknown as VideoGenerationSettings | undefined, VIDEO_PROVIDER_PRESETS)
+    state.music = resolveModels(config.music.get() as unknown as MusicGenerationSettings | undefined, MUSIC_PROVIDER_PRESETS)
+    registerTools()
+  }
+  ctx.on('loader/volatile-update', syncFromConfig)
+  // Keep the settings page from auto-generating a redundant form (the generate
+  // plugin ships its own three-tab UI); the namespace still appears in
+  // `settings.describe` so the browser can read/edit it.
+  ctx.inject(['settings'], (child) => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
   })
 }

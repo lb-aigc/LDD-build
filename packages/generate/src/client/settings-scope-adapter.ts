@@ -85,6 +85,7 @@ export class RemoteSettingsScope<T> implements SettingsScope<T> {
   constructor(
     private readonly ctx: ClientContext,
     private readonly ns: string,
+    private readonly prefix: string,
   ) {
     void this.refresh()
     ctx.effect(() => {
@@ -114,11 +115,11 @@ export class RemoteSettingsScope<T> implements SettingsScope<T> {
   }
 
   async set(field: string, value: unknown): Promise<void> {
-    await this.mutate([{ op: 'set', path: [field], value }])
+    await this.mutate([{ op: 'set', path: [this.prefix, field], value }])
   }
 
   async unset(field: string): Promise<void> {
-    await this.mutate([{ op: 'unset', path: [field] }])
+    await this.mutate([{ op: 'unset', path: [this.prefix, field] }])
   }
 
   private async mutate(ops: unknown[]): Promise<void> {
@@ -137,9 +138,10 @@ export class RemoteSettingsScope<T> implements SettingsScope<T> {
         this.snapshot = { status: 'unavailable', value: undefined, writable: false }
       } else {
         const view = response.value.namespaces.find((row) => row.ns === this.ns)
+        const raw = view?.value as Record<string, unknown> | undefined
         this.snapshot = {
           status: 'ready',
-          value: view?.value as T | undefined,
+          value: raw?.[this.prefix] as T | undefined,
           writable: response.value.writable,
         }
       }
