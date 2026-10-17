@@ -16,7 +16,7 @@
  */
 import type { AsyncGenerationProvider } from './provider.ts'
 import type { AsyncImageTask, GeneratedImage, GenerateImageResult } from './types.ts'
-import { attachImageFromUrl } from './attach.ts'
+import { attachImageFromUrl, imageBlockOf } from './attach.ts'
 import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
 import { foldCanvas, findPendingNodeByTaskId, updateNode } from './canvas-bridge.ts'
 import type { SessionStoreLike } from './canvas-bridge.ts'
@@ -141,6 +141,24 @@ export class GenerationScheduler {
         },
       })
       session.append('canvas/state', { state: next })
+
+      // 同时把图片追加到会话框：一条 notice 形式的 user 消息，携带图片。
+      // user/message 不受 open-step 约束（可跨 turn 追加）、不唤醒 agent，且
+      // notice form 会被前端渲染为可见的上下文消息（图片 block 在 user 消息中
+      // 内联渲染）。这样生成图既落在画布上，也出现在会话框里。
+      const imageBlocks = stored
+        .map(({ meta }) => meta)
+        .filter((m): m is ImageMeta => m !== undefined)
+        .map(imageBlockOf)
+      session.append('user/message', {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: [
+          { type: 'text', text: `图片生成完成，共 ${stored.length} 张，已同步到画布。` },
+          ...imageBlocks,
+        ],
+        source: { kind: 'generate', form: 'notice', summary: `图片生成完成（${stored.length} 张）` },
+      })
     } catch (error) {
       console.error('[ldd-generate] scheduler complete failed:', error)
     }
