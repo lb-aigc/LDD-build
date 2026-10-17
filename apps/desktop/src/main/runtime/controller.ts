@@ -11,6 +11,7 @@ import type { RuntimeProgressEvent, RuntimeStatusView } from '../ipc/contracts.t
 import type { LddPaths } from '../paths.ts'
 import { writeManagedImagePatch } from '../profile/write-managed-patch.ts'
 import { ensureProfileMarket } from '../profile/ensure-market.ts'
+import { ensureGenerateBundle } from '../profile/ensure-generate.ts'
 import { createVersionBackup } from '../migration/backup.ts'
 import { copyInventory, inventoryTree, verifyInventory } from '../migration/inventory.ts'
 import { migrateDataDirectory } from '../data-migration.ts'
@@ -262,6 +263,9 @@ export class DesktopRuntimeController implements DesktopRuntimePort {
         this.#options.paths.runtimeHostRoot,
       )
       await ensureProfileMarket(runtime, this.#options.paths.dshHome, (line) => {
+        void this.#log(line)
+      })
+      await ensureGenerateBundle(this.#options.paths.dshHome, (line) => {
         void this.#log(line)
       })
       const handle = await this.#supervisor.start(runtime, await this.#startOptions())

@@ -31,11 +31,11 @@ describe('LDD image modes', () => {
     const second = renderManagedImagePatch('standard')
     expect(first).toBe(second)
     expect(first).toContain('@ldd/dsh-video-frame-analyzer')
-    expect(first).toContain('@ldd/dsh-generate')
+    // generate registers as a profile bundle (not the managed --patch overlay)
+    // so its volatile settings fields are editable through the 0.2.0 settings
+    // document; the overlay would outrank the profile patch config-editor writes.
+    expect(first).not.toContain('@ldd/dsh-generate')
     expect(first).not.toContain('@ldd/dsh-canvas')
-    // KIE image generation is async (34s–90s+); the tool timeout must match the
-    // provider's 600s polling ceiling, not the 60s that used to abort it early.
-    expect(first).toContain('timeoutMs: 600000')
     expect(first).toMatch(/createRequire\(baseUrl\).*package\.json/)
     expect(first).toContain('maxImageBytes: 20971520')
     // Generated 4K images must survive normalization so the user can download
