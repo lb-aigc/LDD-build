@@ -30,6 +30,12 @@ test('standard and large image modes retain every upstream safety bound', async 
   assert.doesNotMatch(renderManagedImagePatch('standard'), /@ldd\/dsh-generate/)
   assert.doesNotMatch(renderManagedImagePatch('standard'), /@ldd\/dsh-canvas/)
   assert.match(renderManagedImagePatch('standard'), /createRequire\(baseUrl\).*package\.json/)
+  // Pin the native directory picker: the adaptive -auto chooser's dynamic
+  // mount races typert-loader and intermittently withdraws
+  // workspace-controller's `directoryPicker/pick` definition.
+  assert.match(renderManagedImagePatch('standard'), /id: directory-picker\n  name: '@deepseek-ai\/dsh-host-directory-picker-auto'\n  disabled: true/)
+  assert.match(renderManagedImagePatch('standard'), /@deepseek-ai\/dsh-host-directory-picker-native/)
+  assert.match(renderManagedImagePatch('standard'), /@deepseek-ai\/dsh-client-ui-directory-picker-native/)
 })
 
 test('managed patch and settings never overwrite the user patch', async () => {

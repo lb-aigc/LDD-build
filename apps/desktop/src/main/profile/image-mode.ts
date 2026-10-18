@@ -81,6 +81,24 @@ export function renderManagedImagePatch(mode: ImageMode): string {
     '        customSkillDirs:',
     `          - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@ldd/dsh-video-frame-analyzer/package.json')), 'skills')"`,
     '        watch: false',
+    // Pin the native directory picker instead of the adaptive `-auto` chooser.
+    // The `-auto` plugin resolves the host situation once at boot and then
+    // mounts its backend + surface as DYNAMIC loader entries; that dynamic
+    // mount races typert-loader's manifest registration and intermittently
+    // withdraws the workspace-controller `directoryPicker/pick` strict
+    // definition ("its strict definition was withdrawn and SRC fallback is
+    // forbidden"). LDD is always a local Windows desktop with the operator at
+    // the screen, so the native chooser is the correct fixed choice. Official
+    // dsh-web-app guidance: "Mount -native or -browse directly in an overlay
+    // to pin the interaction."
+    '- id: directory-picker',
+    "  name: '@deepseek-ai/dsh-host-directory-picker-auto'",
+    '  disabled: true',
+    '- insert:',
+    '    - id: directory-picker-native',
+    "      name: '@deepseek-ai/dsh-host-directory-picker-native'",
+    '    - id: directory-picker-native-surface',
+    "      name: '@deepseek-ai/dsh-client-ui-directory-picker-native'",
     '',
   ].join('\n')
 }

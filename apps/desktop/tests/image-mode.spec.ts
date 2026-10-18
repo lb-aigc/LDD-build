@@ -42,6 +42,12 @@ describe('LDD image modes', () => {
     // the original: long edge up to 4096px, encoded bytes up to 20MiB.
     expect(first).toContain('normalizedImageMaxDimension: 4096')
     expect(first).toContain('normalizedImageMaxBytes: 20971520')
+    // Pin the native directory picker over the adaptive -auto chooser (see
+    // image-mode.ts): the dynamic mount races typert-loader and withdraws
+    // `directoryPicker/pick`, breaking "add workspace".
+    expect(first).toContain('@deepseek-ai/dsh-host-directory-picker-native')
+    expect(first).toContain('@deepseek-ai/dsh-client-ui-directory-picker-native')
+    expect(first).toContain('disabled: true')
     expect(first).not.toMatch(/(api[_-]?key|password|authorization|access[_-]?token|secret)\s*[:=]/i)
   })
 
