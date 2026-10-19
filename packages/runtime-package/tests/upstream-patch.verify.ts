@@ -34,6 +34,7 @@ const officialChatSettings = join(repositoryRoot, 'upstream', 'deepseek-harness'
 const officialChatLocale = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-chat', 'src', 'client', 'locale.ts')
 const officialChatViewSpec = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'client', 'ui-chat', 'tests', 'chat-view.client.spec.tsx')
 const officialWorkspace = join(repositoryRoot, 'upstream', 'deepseek-harness', 'pnpm-workspace.yaml')
+const officialSerialize = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'llm', 'llm-deepseek', 'src', 'serialize.ts')
 
 const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.2.0-rc.2')
 
@@ -64,11 +65,12 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedChatLocale = join(copiedRoot, 'packages', 'client', 'ui-chat', 'src', 'client', 'locale.ts')
     const copiedChatViewSpec = join(copiedRoot, 'packages', 'client', 'ui-chat', 'tests', 'chat-view.client.spec.tsx')
     const copiedWorkspace = join(copiedRoot, 'pnpm-workspace.yaml')
+const copiedSerialize = join(copiedRoot, 'packages', 'llm', 'llm-deepseek', 'src', 'serialize.ts')
 
     for (const copied of [copiedCatalog, copiedReleaseProcess, copiedBrand, copiedLocales,
       copiedEmptyHero, copiedHeroShell, copiedClientBuildEnvironment, copiedImageLightbox,
       copiedMessageImage, copiedImageLightboxCss, copiedAttachmentLabels, copiedCodeBlock,
-      copiedCodeBlockCss, copiedMarkdownText, copiedStream, copiedSidebarRoot,
+      copiedCodeBlockCss, copiedMarkdownText, copiedStream, copiedSerialize, copiedSidebarRoot,
       copiedSlots, copiedApply, copiedInputBar, copiedChatSettings, copiedChatLocale, copiedChatViewSpec, copiedWorkspace]) {
       await mkdir(dirname(copied), { recursive: true })
     }
@@ -95,6 +97,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     await writeFile(copiedChatLocale, await readFile(officialChatLocale))
     await writeFile(copiedChatViewSpec, await readFile(officialChatViewSpec))
     await writeFile(copiedWorkspace, await readFile(officialWorkspace))
+    await writeFile(copiedSerialize, await readFile(officialSerialize))
 
     const applied = await applyTrackedUpstreamPatches(copiedRoot, patchRoot)
 
@@ -110,6 +113,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
       '0017-link-workspace-packages.patch',
       '0022-kie-llm-finish-reason.patch',
       '0026-chat-status-rebrand.patch',
+      '0027-deepseek-skip-audio-block.patch',
     ])
 
     // 0001: the video analysis event name is registered in the known-type set.
@@ -211,6 +215,12 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const chatViewSpec = await readFile(copiedChatViewSpec, 'utf8')
     assert.match(chatViewSpec, /LDD搬砖中，用时/u)
     assert.doesNotMatch(chatViewSpec, /深度求索中/u)
+
+    // 0027: audio content blocks (render-only) are skipped when serializing
+    // DeepSeek Messages history, so a generated track's tool-result no longer
+    // breaks the next agent turn.
+    const serialize = await readFile(copiedSerialize, 'utf8')
+    assert.match(serialize, /block\.type === 'audio'/u)
 
     // Applying the same patches again must fail (idempotence guard).
     await assert.rejects(
