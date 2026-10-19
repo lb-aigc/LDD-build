@@ -220,7 +220,7 @@ const copiedSerialize = join(copiedRoot, 'packages', 'llm', 'llm-deepseek', 'src
     // DeepSeek Messages history, so a generated track's tool-result no longer
     // breaks the next agent turn.
     const serialize = await readFile(copiedSerialize, 'utf8')
-    assert.match(serialize, /block\.type === 'audio'/u)
+    assert.match(serialize, /\(block\.type as string\) === 'audio'/u)
 
     // Applying the same patches again must fail (idempotence guard).
     await assert.rejects(
