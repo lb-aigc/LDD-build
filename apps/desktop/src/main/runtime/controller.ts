@@ -12,6 +12,7 @@ import type { LddPaths } from '../paths.ts'
 import { writeManagedImagePatch } from '../profile/write-managed-patch.ts'
 import { ensureProfileMarket } from '../profile/ensure-market.ts'
 import { ensureGenerateBundle } from '../profile/ensure-generate.ts'
+import { ensurePresetPlugins } from '../plugins/preset-plugin-installer.ts'
 import { createVersionBackup } from '../migration/backup.ts'
 import { copyInventory, inventoryTree, verifyInventory } from '../migration/inventory.ts'
 import { migrateDataDirectory } from '../data-migration.ts'
@@ -266,6 +267,11 @@ export class DesktopRuntimeController implements DesktopRuntimePort {
         void this.#log(line)
       })
       await ensureGenerateBundle(this.#options.paths.dshHome, (line) => {
+        void this.#log(line)
+      })
+      // 首次启动引导：可选插件（含画布）预安装。放在 supervisor.start 之前，
+      // 装完即生效，无需重启。全程 best-effort，绝不因插件安装失败阻塞启动。
+      await ensurePresetPlugins(runtime, this.#options.paths.dshHome, (line) => {
         void this.#log(line)
       })
       const handle = await this.#supervisor.start(runtime, await this.#startOptions())
