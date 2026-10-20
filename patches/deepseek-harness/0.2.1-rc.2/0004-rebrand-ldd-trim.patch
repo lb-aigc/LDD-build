@@ -43,10 +43,11 @@
  /** Public variable carrying the source commit embedded in client artifacts. */
 --- a/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
 +++ b/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
-@@ -38,16 +38,6 @@
+@@ -37,16 +37,6 @@
+  * edge — on the way to the conversation, or around a portalled menu.
   */
  const SCROLLBAR_LINGER_MS = 2000
- 
+-
 -/** Format complete-build metadata for the local brand badge. */
 -function localBuildVersion(): string | undefined {
 -  const version = process.env.DSH_CLIENT_VERSION
@@ -56,11 +57,10 @@
 -    + (commit === undefined ? '' : `-${commit}`)
 -    + (process.env.DSH_CLIENT_GIT_DIRTY === 'true' ? '-dirty' : '')
 -}
--
+ 
  type PanelRowProps =
    Pick<SidebarPanelMetadata, 'id' | 'label'>
-   & Pick<SidebarSectionOwnerProps, 'wide'>
-@@ -159,8 +159,6 @@
+@@ -169,8 +159,6 @@
      }
    }, [pointerInside])
  
@@ -69,7 +69,7 @@
    const darwinDesktop = isDarwinDesktop()
    // Rail resting state is the whale mark; hovering swaps in the panel icon
    // (the expand affordance, figma sidebar-hover flow). Expanded it is a plain
-@@ -212,18 +212,6 @@
+@@ -224,18 +212,6 @@
                <span className={css.brandMark}>
                  {renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
                </span>

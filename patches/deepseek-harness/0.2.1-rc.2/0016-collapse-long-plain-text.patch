@@ -9,7 +9,7 @@
    /** Expand-toggle text while collapsed, given the total line count. */
    expandLabel?: ((total: number) => string) | undefined
    /** Collapse-toggle text while expanded. */
-@@ -52,6 +52,8 @@
+@@ -50,6 +52,8 @@
  
  /** Content lines shown before a long code block collapses to a capped window. */
  export const DEFAULT_CODE_MAX_LINES = 20
@@ -18,7 +18,7 @@
  
  /**
   * The `pre` attributes shiki's HTML arm emits for the css-variables theme,
-@@ -82,7 +82,7 @@
+@@ -78,7 +82,7 @@
  }
  
  export function CodeBlock({
@@ -27,7 +27,7 @@
  }: CodeBlockProps) {
    const trimmed = code.endsWith('\n') ? code.slice(0, -1) : code
    const sourceLines = lineNumbers ? trimmed.split('\n') : undefined
-@@ -190,7 +190,11 @@
+@@ -186,7 +190,11 @@
    // blocks. Infinity (an explicit opt-out) never collapses. Gated on the
    // settled render so a growing streaming fence never jumps.
    const lineCount = useMemo(() => trimmed.split('\n').length, [trimmed])
@@ -42,7 +42,7 @@
    // shiki's HTML output is a static span tree it generated from `code` (no
 --- a/packages/client/ui-primitives/src/markdown/MarkdownText.tsx
 +++ b/packages/client/ui-primitives/src/markdown/MarkdownText.tsx
-@@ -21,11 +21,27 @@
+@@ -21,10 +21,26 @@
    wrapBlockChildren,
  } from './render.tsx'
  import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages, MarkdownRenderContext, ReferenceTargets } from './render.tsx'
@@ -52,7 +52,7 @@
  import css from './MarkdownText.module.css'
  
  export type { MarkdownCodeLabels, MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from './render.tsx'
- 
++
 +/**
 + * A long, structurally-flat reply (a full prompt, a pasted blob) collapses
 + * into a copyable, height-capped code block so it does not flood the chat.
@@ -66,11 +66,10 @@
 +  if (!root.children.every(node => node.type === 'paragraph')) return false
 +  return text.length > DEFAULT_CODE_MAX_CHARS || text.split('\n').length > DEFAULT_CODE_MAX_LINES
 +}
-+
+ 
  /** One settled full render: parse with math, resolve references, append the footnote section. */
  function renderSettled(
-   text: string,
-@@ -50,6 +50,18 @@
+@@ -34,6 +50,18 @@
    pathImages: MarkdownPathImages | undefined,
  ): ReactNode[] {
    const root = parseGfmWithMath(text)

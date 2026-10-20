@@ -1,13 +1,13 @@
 --- a/pnpm-workspace.yaml
 +++ b/pnpm-workspace.yaml
-@@ -14,6 +14,10 @@
+@@ -13,6 +13,10 @@
+   # Deploy root of the single-exe build: a pure dependency manifest whose
    # closure is what the exe bundles and what the Python runtime distributes.
    - python/sdk-runtime
- 
++
 +# Vendored framework packages keep their upstream semver ranges, while local
 +# builds must resolve those matching names to this workspace's pinned sources.
 +linkWorkspacePackages: true
-+
+ 
  overrides:
    'extract-zip>yauzl': '3.4.0'
-   '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'

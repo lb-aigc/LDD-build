@@ -84,7 +84,7 @@
  } from '@deepseek-ai/dsh-client-ui-primitives'
  import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
  import type { ConversationContentProps } from '../contract/slots.ts'
-@@ -70,20 +70,14 @@
+@@ -71,20 +70,14 @@
    children?: ReactNode
  }
  
@@ -113,7 +113,7 @@
  
  /**
   * The hero fish (34px wide), static at rest. Hovering swims the whale in
-@@ -90,56 +90,38 @@
+@@ -97,32 +90,23 @@
   * @param props.hovering - driven by the hitbox parent's pointer state.
   * @returns the fish svg element.
   */
@@ -150,11 +150,11 @@
      </svg>
    )
  }
- 
 +
+ 
  /**
   * Render the hero chrome (headline only; no composer, no workspace row).
-  * @param props - see {@link HeroShellProps}.
+@@ -130,23 +114,14 @@
   * @returns the centered hero element tree.
   */
  export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
@@ -182,14 +182,14 @@
            <span className={css.titleGroup}>
 --- a/packages/client/ui-conversation/src/client/skeleton/HeroShell.module.css
 +++ b/packages/client/ui-conversation/src/client/skeleton/HeroShell.module.css
-@@ -90,35 +90,9 @@
+@@ -90,33 +90,7 @@
  .fish {
    display: block;
    overflow: visible;
 -  transform-origin: 50% 60%;
-   color: var(--dsw-alias-label-primary);
- }
- 
+-  color: var(--dsw-alias-label-primary);
+-}
+-
 -/* Hover swim: a slow continuous sway about the body center — the head
 -   (left) lifts as the whale rises, then settles back with a small
 -   counter-tilt, like treading water. Negative rotation = head up (the head
@@ -213,8 +213,7 @@
 -  .fishHitbox:hover .fish {
 -    animation: hero-fish-swim 1.6s ease-in-out infinite;
 -  }
--}
--
++  color: var(--dsw-alias-label-primary);
+ }
+ 
  /* Workspace row sits 12px above the input card (figma y80 → y112). */
- .body {
-   position: relative;

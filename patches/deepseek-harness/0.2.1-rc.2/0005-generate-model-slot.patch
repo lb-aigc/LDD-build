@@ -9,7 +9,7 @@
    }
  
    interface SlotFactoryMap {
-@@ -503,7 +503,7 @@
+@@ -501,7 +503,7 @@
      | 'conversation.input.attachments' | 'conversation.input.overlay'
      | 'conversation.input.permission'
      | 'conversation.input.left' | 'conversation.input.plan'
