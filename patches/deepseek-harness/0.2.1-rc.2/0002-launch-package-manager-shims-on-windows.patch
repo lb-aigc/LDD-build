@@ -2,8 +2,8 @@
 +++ b/scripts/release/process.ts
 @@ -22,6 +22,24 @@
    readonly stderr: string
-+}
-+
+ }
+ 
 +const WINDOWS_COMMAND_SHIMS = new Set(['npm', 'npx', 'pnpm'])
 +
 +export function resolveSpawnInvocation(
@@ -20,8 +20,8 @@
 +    command: comSpec,
 +    args: ['/d', '/s', '/c', `${command}.cmd`, ...args],
 +  }
- }
- 
++}
++
  /**
   * Run a command and capture its output without judging the exit status.
   * @param command - executable name.

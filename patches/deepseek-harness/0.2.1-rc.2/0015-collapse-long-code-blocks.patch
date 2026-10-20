@@ -42,7 +42,7 @@
 @@ -179,6 +179,16 @@
      })
    }, [copied, trimmed])
-+
+ 
 +  const onToggle = useCallback(() => { setExpanded(value => !value) }, [])
 +
 +  // Collapse decision is line-count based (a long prompt / pasted file), never
@@ -52,7 +52,7 @@
 +  const lineCount = useMemo(() => trimmed.split('\n').length, [trimmed])
 +  const collapsible = !streaming && Number.isFinite(maxLines) && lineCount > maxLines
 +  const collapsed = collapsible && !expanded
- 
++
    // shiki's HTML output is a static span tree it generated from `code` (no
    // user HTML passes through), the sanctioned innerHTML consumption path per
    // shiki's own docs.

@@ -150,8 +150,8 @@
      </svg>
    )
  }
-+
  
++
  /**
   * Render the hero chrome (headline only; no composer, no workspace row).
   * @param props - see {@link HeroShellProps}.
@@ -188,8 +188,8 @@
    overflow: visible;
 -  transform-origin: 50% 60%;
    color: var(--dsw-alias-label-primary);
--}
--
+ }
+ 
 -/* Hover swim: a slow continuous sway about the body center — the head
 -   (left) lifts as the whale rises, then settles back with a small
 -   counter-tilt, like treading water. Negative rotation = head up (the head
@@ -213,8 +213,8 @@
 -  .fishHitbox:hover .fish {
 -    animation: hero-fish-swim 1.6s ease-in-out infinite;
 -  }
- }
- 
+-}
+-
  /* Workspace row sits 12px above the input card (figma y80 → y112). */
  .body {
    position: relative;
