@@ -103,9 +103,9 @@ export class GenerationScheduler {
     try {
       const before = foldCanvas(session.snapshotEvents())
       const placeholder = findPendingNodeByTaskId(before, task.taskId)
-      // The user deleted the placeholder mid-generation — honour that delete
-      // (never resurrect a removed card).
-      if (placeholder === undefined) return
+      // placeholder 缺失只表示「画布上没有可填充的占位卡片」（用户中途删了卡片，
+      // 或根本没装画布插件）——这不该让会话框里的图片一起消失。下载/存储图片与
+      // 会话框追加（见下）与画布解耦、始终执行；仅画布填充被 placeholder 门控。
       const store = this.attachments()
       const first = result.images[0]
       if (first === undefined) return
@@ -130,17 +130,21 @@ export class GenerationScheduler {
         ...(meta?.width === undefined ? (img.width === undefined ? {} : { width: img.width }) : { width: meta.width }),
         ...(meta?.height === undefined ? (img.height === undefined ? {} : { height: img.height }) : { height: meta.height }),
       }))
-      const next = updateNode(before, placeholder.id, {
-        label: '生成图片',
-        url: primaryMeta?.attachmentId ?? first.url,
-        ...(variants.length > 1 ? { variants } : {}),
-        meta: {
-          ...(primaryMeta !== undefined
-            ? { width: primaryMeta.width, height: primaryMeta.height, mediaType: primaryMeta.mediaType, bytes: primaryMeta.bytes }
-            : { width: first.width, height: first.height }),
-        },
-      })
-      session.append('canvas/state', { state: next })
+      // 画布填充：只在 placeholder 存在时执行（用户删了卡片就不复活；没装画布插件
+      // 时 placeholder 本就不存在，跳过即可）。会话框的图片追加不依赖这一步。
+      if (placeholder !== undefined) {
+        const next = updateNode(before, placeholder.id, {
+          label: '生成图片',
+          url: primaryMeta?.attachmentId ?? first.url,
+          ...(variants.length > 1 ? { variants } : {}),
+          meta: {
+            ...(primaryMeta !== undefined
+              ? { width: primaryMeta.width, height: primaryMeta.height, mediaType: primaryMeta.mediaType, bytes: primaryMeta.bytes }
+              : { width: first.width, height: first.height }),
+          },
+        })
+        session.append('canvas/state', { state: next })
+      }
 
       // 同时把图片追加到会话框：一条 notice 形式的 user 消息，携带图片。
       // user/message 不受 open-step 约束（可跨 turn 追加）、不唤醒 agent，且
@@ -154,7 +158,7 @@ export class GenerationScheduler {
         id: crypto.randomUUID(),
         role: 'user',
         content: [
-          { type: 'text', text: `图片生成完成，共 ${stored.length} 张，已同步到画布。` },
+          { type: 'text', text: `图片生成完成，共 ${stored.length} 张。` },
           ...imageBlocks,
         ],
         source: { kind: 'generate', form: 'notice', summary: `图片生成完成（${stored.length} 张）` },
