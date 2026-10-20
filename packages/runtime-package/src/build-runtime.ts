@@ -28,7 +28,7 @@ import { writePortableRuntimePnpmConfig } from './pnpm-runtime-config.ts'
 import { runApprovedRuntimeLifecycles } from './runtime-lifecycle.ts'
 import { verifyInstalledRuntime } from './runtime-install-verification.ts'
 
-const expectedPnpm = 'pnpm@11.7.0'
+const expectedPnpm = 'pnpm@11.28.5'
 const expectedNodeMajor = 24
 const defaultHarnessVersion = '0.2.1-rc.2'
 
@@ -101,8 +101,8 @@ export async function buildRuntime(
       env: environment,
       captureOutput: true,
     })
-    if (pnpmVersion.trim() !== '11.7.0') {
-      throw new Error(`Harness runtime assembly requires pnpm 11.7.0, received ${JSON.stringify(pnpmVersion.trim())}`)
+    if (pnpmVersion.trim() !== '11.28.5') {
+      throw new Error(`Harness runtime assembly requires pnpm 11.28.5, received ${JSON.stringify(pnpmVersion.trim())}`)
     }
     await copyOfficialSource(sourceRoot, copiedSource)
     const sourceManifest = JSON.parse(await readFile(join(copiedSource, 'package.json'), 'utf8')) as {

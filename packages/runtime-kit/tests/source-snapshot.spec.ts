@@ -26,6 +26,6 @@ describe('official Harness source snapshot', () => {
     }
 
     expect(pkg.version).toBe('0.2.1-rc.2')
-    expect(pkg.packageManager).toBe('pnpm@11.7.0')
+    expect(pkg.packageManager).toBe('pnpm@11.28.5')
   })
 })

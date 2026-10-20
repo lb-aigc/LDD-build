@@ -118,7 +118,7 @@ const fakeBuildRunner: BuildCommandRunner = async (_command, args, options) => {
     observedRuntimeNodeCommands.push(`${packageLabel}:${detail}`)
     return packageLabel === 'runtime' ? 'Usage: dsh\n' : ''
   }
-  if (args.length === 1 && args[0] === '--version') return '11.7.0\n'
+  if (args.length === 1 && args[0] === '--version') return '11.28.5\n'
   if (
     args[0] === 'install'
     && args.includes('--no-frozen-lockfile')
