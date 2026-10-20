@@ -5,11 +5,11 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { compareRuntimeNames } from '@ldd/runtime-kit/runtime-manifest'
 
 export const approvedHarnessSourceArchiveSha256 =
-  '6ecddabe3963f6acdafae914fcbd94321324b48b97c0703f3d0d1c1a079a2d2a'
+  '8a096c8f743c2510c04028622bdf48e1a956eaf1bcc3f94bd726360b5e7ca14e'
 
 /** Filled from the approved archive's complete canonical tree, not a mutable build directory. */
 export const approvedHarnessSourceTreeSha256 =
-  'f893614fa190ba63e07ee47f7faebc60d23304b0e443a1112f61b411648ebf0b'
+  'd7724b116444f420069c76499995392c50790eaf3911eb157c5484111cf00891'
 
 export async function hashHarnessSourceTree(sourceRoot: string): Promise<string> {
   if (!isAbsolute(sourceRoot)) throw new TypeError('Harness source root must be absolute')

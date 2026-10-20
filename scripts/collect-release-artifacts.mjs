@@ -5,7 +5,7 @@ import { basename, join, resolve } from 'node:path'
 import { runtimeArchiveFilename } from './runtime-platform.mjs'
 
 const repositoryRoot = resolve(import.meta.dirname, '..')
-const filename = runtimeArchiveFilename('0.2.0-rc.2')
+const filename = runtimeArchiveFilename('0.2.1-rc.2')
 const source = join(repositoryRoot, 'dist', 'runtime', filename)
 const releaseRoot = join(repositoryRoot, 'release')
 const destination = join(releaseRoot, filename)

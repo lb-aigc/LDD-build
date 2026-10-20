@@ -71,7 +71,7 @@ export interface SessionStoreLike {
 }
 
 export interface SessionLike {
-  append(type: string, data: unknown): void
+  append(type: string, data: unknown, opts?: { surfaceOp?: 'append' }): void
   snapshotEvents(): readonly SessionEventLike[]
 }
 

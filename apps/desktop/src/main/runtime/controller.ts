@@ -400,7 +400,7 @@ export class DesktopRuntimeController implements DesktopRuntimePort {
     if (this.#supervisor.current !== null) return this.#supervisor.current.runtimeVersion
     const fallback = await inspectFallback(this.#options.paths.fallbackRoot)
     const state = (await readRuntimeState(this.#options.paths.statePath)).state
-    return state.activeVersion ?? fallback?.version ?? '0.2.0-rc.2'
+    return state.activeVersion ?? fallback?.version ?? '0.2.1-rc.2'
   }
 
   #requireCurrentUrl(): string {
@@ -463,7 +463,7 @@ async function inspectFallback(path: string) {
   } catch (error) {
     return {
       path,
-      version: '0.2.0-rc.2',
+      version: '0.2.1-rc.2',
       valid: false as const,
       reason: error instanceof Error ? error.message : 'Fallback 校验失败',
     }

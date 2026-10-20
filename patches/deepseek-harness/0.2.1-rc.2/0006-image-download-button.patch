@@ -1,0 +1,123 @@
+--- a/packages/client/ui-primitives/src/ImageLightbox.tsx
++++ b/packages/client/ui-primitives/src/ImageLightbox.tsx
+@@ -3,1 +3,1 @@
+-import { IconCloseOutlineRegular } from './icons/index.tsx'
++import { IconCloseOutlineRegular, IconDownloadOutlineRegular } from './icons/index.tsx'
+@@ -10,3 +10,6 @@
+   /** Accessible label of the close control. */
+   close: string
++  /** Accessible label of the download (save-to-disk) control. Optional: when
++   *  absent, the download control is not rendered (plain-browser fixtures). */
++  download?: string
+ }
+@@ -30,6 +30,7 @@
+-export function ImageLightbox({ src, alt, labels, onClose }: {
++export function ImageLightbox({ src, alt, downloadName, labels, onClose }: {
+   src: string
+   alt: string
++  downloadName?: string | undefined
+   labels: ImageLightboxLabels
+   onClose: () => void
+ }) {
+@@ -37,4 +37,21 @@
+   const closeRef = useRef<HTMLButtonElement | null>(null)
+   const restoreRef = useRef<HTMLElement | null>(null)
+ 
++  // Hand the image bytes to the desktop host's native save dialog. The
++  // capability is injected by the Electron shell as `window.ldd.saveImage`;
++  // absent (plain browser), the control is a no-op.
++  const saveImage = (): void => {
++    const saver = (globalThis as { ldd?: { saveImage?: (data: ArrayBuffer, name: string) => Promise<unknown> } }).ldd?.saveImage
++    if (saver === undefined) return
++    void (async () => {
++      try {
++        const response = await fetch(src)
++        const buffer = await response.arrayBuffer()
++        await saver(buffer, downloadName ?? 'image.png')
++      } catch {
++        // Save cancelled or failed — leave the preview open, nothing to surface.
++      }
++    })()
++  }
++
+   useEffect(() => {
+@@ -81,3 +81,12 @@
+-        <button ref={closeRef} type="button" className={css.close} aria-label={labels.close} onClick={onClose}>
+-          <IconCloseOutlineRegular size={16} />
+-        </button>
++        <div className={css.actions}>
++          {labels.download !== undefined
++            ? (
++              <button type="button" className={css.action} title={labels.download} aria-label={labels.download} onClick={saveImage}>
++                <IconDownloadOutlineRegular size={16} />
++              </button>
++            )
++            : null}
++          <button ref={closeRef} type="button" className={css.action} aria-label={labels.close} onClick={onClose}>
++            <IconCloseOutlineRegular size={16} />
++          </button>
++        </div>
+--- a/packages/client/ui-primitives/src/ImageLightbox.module.css
++++ b/packages/client/ui-primitives/src/ImageLightbox.module.css
+@@ -37,9 +37,14 @@
+-.close {
++.actions {
+   position: absolute;
+   top: 20px;
+   right: 20px;
+   z-index: 1;
++  display: flex;
++  gap: 8px;
++}
++
++.action {
+   display: grid;
+   place-items: center;
+   width: 36px;
+   height: 36px;
+@@ -59,1 +59,1 @@
+-.close:focus-visible { outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 3px; }
++.action:focus-visible { outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 3px; }
+--- a/packages/client/ui-attachment/src/MessageImage.tsx
++++ b/packages/client/ui-attachment/src/MessageImage.tsx
+@@ -47,4 +47,21 @@
+   }
+ }
+ 
++const MEDIA_TYPE_EXTENSIONS: Readonly<Record<string, string>> = {
++  'image/png': 'png',
++  'image/jpeg': 'jpg',
++  'image/webp': 'webp',
++  'image/gif': 'gif',
++}
++/** Suggested download filename: `image.<ext>` from the media type, or the
++ * preview's own name (already carries an extension) when present. */
++function downloadNameFor(image: MessageImageSpec): string {
++  if ('attachment' in image) {
++    const extension = MEDIA_TYPE_EXTENSIONS[image.attachment.mediaType] ?? 'png'
++    return `image.${extension}`
++  }
++  const name = image.preview.name
++  return name !== undefined && name !== '' ? name : 'image.png'
++}
++
+ /** Intrinsic dimensions of one gallery entry; a preview's stay unknown until its intake probe resolved. */
+@@ -164,2 +164,2 @@
+       </button>
+-      {open && src !== null && <ImageLightbox src={src} alt={label} labels={labels.lightbox} onClose={close} />}
++      {open && src !== null && <ImageLightbox src={src} alt={label} downloadName={downloadNameFor(image)} labels={labels.lightbox} onClose={close} />}
+--- a/packages/client/ui-attachment/src/client/labels.ts
++++ b/packages/client/ui-attachment/src/client/labels.ts
+@@ -14,1 +14,1 @@
+-  return { dialog: t('image.preview'), close: t('image.closePreview') }
++  return { dialog: t('image.preview'), close: t('image.closePreview'), download: t('image.download') }
+--- a/packages/client/ui-conversation/src/client/locales.ts
++++ b/packages/client/ui-conversation/src/client/locales.ts
+@@ -50,2 +50,3 @@
+   'image.closePreview': '关闭原图预览',
++  'image.download': '下载图片',
+   'image.unsupportedType': '仅支持 PNG、JPG、WebP、GIF 格式的图片',
+@@ -431,2 +431,3 @@
+   'image.closePreview': 'Close original image preview',
++  'image.download': 'Download image',
+   'image.unsupportedType': 'Only PNG, JPG, WebP, and GIF images are supported',

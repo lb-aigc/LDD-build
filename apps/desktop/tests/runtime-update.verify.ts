@@ -11,37 +11,38 @@ test('registry selects an exact higher prerelease and rejects floating metadata'
     new Response(
       JSON.stringify({
         name: '@deepseek-ai/dsh',
-        'dist-tags': { next: '0.2.0-rc.3' },
+        'dist-tags': { next: '0.2.1-rc.3' },
         versions: {
-          '0.2.0-rc.2': version('0.2.0-rc.2'),
-          '0.2.0-rc.3': version('0.2.0-rc.3'),
+          '0.2.1-rc.2': version('0.2.1-rc.2'),
+          '0.2.1-rc.3': version('0.2.1-rc.3'),
           '0.3.0': version('0.3.0'),
         },
       }),
     ),
   )
-  assert.deepEqual(await client.resolve('prerelease', '0.2.0-rc.2'), {
-    version: '0.2.0-rc.3',
-    integrity: version('0.2.0-rc.3').dist.integrity,
-    tarballUrl: version('0.2.0-rc.3').dist.tarball,
+  assert.deepEqual(await client.resolve('prerelease', '0.2.1-rc.2'), {
+    version: '0.2.1-rc.3',
+    integrity: version('0.2.1-rc.3').dist.integrity,
+    tarballUrl: version('0.2.1-rc.3').dist.tarball,
     releaseTag: 'next',
   })
-  assert.equal(await client.resolve('prerelease', '0.2.0-rc.3'), null)
+  assert.equal(await client.resolve('prerelease', '0.2.1-rc.3'), null)
 })
 
 test('registry skips a different minor rc (plugin-incompatible) and alpha/beta', async () => {
-  // dsh@0.2.1-rc.1 cannot be loaded: the LDD plugins' peer ranges
-  // (>=0.2.0-rc.2 <0.3.0) only admit prereleases with the SAME
-  // major.minor.patch tuple, so 0.2.1-rc.1 would make `pnpm install` fail with
-  // ERR_PNPM_NO_MATCHING_VERSION. Alpha/beta are skipped too, leaving null.
+  // dsh@0.2.0-rc.3 cannot be loaded: the LDD plugins' peer ranges
+  // (>=0.2.1-rc.2 <0.3.0) only admit prereleases with the SAME
+  // major.minor.patch tuple (0.2.1), so 0.2.0-rc.3 (a different patch) would
+  // make `pnpm install` fail with ERR_PNPM_NO_MATCHING_VERSION. Alpha/beta
+  // are skipped too, leaving null.
   const client = new RegistryClient(async () =>
     new Response(
       JSON.stringify({
         name: '@deepseek-ai/dsh',
         'dist-tags': { latest: '0.2.1-rc.1', next: '0.2.1-rc.1', alpha: '0.2.1-alpha.2' },
         versions: {
-          '0.2.0-rc.2': version('0.2.0-rc.2'),
-          '0.2.1-rc.1': version('0.2.1-rc.1'),
+          '0.2.1-rc.2': version('0.2.1-rc.2'),
+          '0.2.0-rc.3': version('0.2.0-rc.3'),
           '0.2.1-alpha.2': version('0.2.1-alpha.2'),
           '0.2.0-alpha.1': version('0.2.0-alpha.1'),
           '0.2.1-beta.1': version('0.2.1-beta.1'),
@@ -49,7 +50,7 @@ test('registry skips a different minor rc (plugin-incompatible) and alpha/beta',
       }),
     ),
   )
-  assert.equal(await client.resolve('prerelease', '0.2.0-rc.2'), null)
+  assert.equal(await client.resolve('prerelease', '0.2.1-rc.2'), null)
 })
 
 test('registry selects a higher rc on the SAME minor.patch (plugin-compatible)', async () => {
@@ -57,17 +58,17 @@ test('registry selects a higher rc on the SAME minor.patch (plugin-compatible)',
     new Response(
       JSON.stringify({
         name: '@deepseek-ai/dsh',
-        'dist-tags': { next: '0.2.0-rc.3' },
+        'dist-tags': { next: '0.2.1-rc.3' },
         versions: {
-          '0.2.0-rc.2': version('0.2.0-rc.2'),
+          '0.2.1-rc.2': version('0.2.1-rc.2'),
+          '0.2.1-rc.3': version('0.2.1-rc.3'),
           '0.2.0-rc.3': version('0.2.0-rc.3'),
-          '0.2.1-rc.1': version('0.2.1-rc.1'),
         },
       }),
     ),
   )
-  const resolved = await client.resolve('prerelease', '0.2.0-rc.2')
-  assert.equal(resolved?.version, '0.2.0-rc.3')
+  const resolved = await client.resolve('prerelease', '0.2.1-rc.2')
+  assert.equal(resolved?.version, '0.2.1-rc.3')
 })
 
 test('registry skips alpha/beta even when they are the only higher versions', async () => {
@@ -77,13 +78,13 @@ test('registry skips alpha/beta even when they are the only higher versions', as
         name: '@deepseek-ai/dsh',
         'dist-tags': { alpha: '0.2.1-alpha.1' },
         versions: {
-          '0.2.0-rc.2': version('0.2.0-rc.2'),
+          '0.2.1-rc.2': version('0.2.1-rc.2'),
           '0.2.1-alpha.1': version('0.2.1-alpha.1'),
         },
       }),
     ),
   )
-  assert.equal(await client.resolve('prerelease', '0.2.0-rc.2'), null)
+  assert.equal(await client.resolve('prerelease', '0.2.1-rc.2'), null)
 })
 
 test('automatic registry checks are limited to one attempt in 24 hours', async () => {

@@ -36,7 +36,7 @@ const officialChatViewSpec = join(repositoryRoot, 'upstream', 'deepseek-harness'
 const officialWorkspace = join(repositoryRoot, 'upstream', 'deepseek-harness', 'pnpm-workspace.yaml')
 const officialSerialize = join(repositoryRoot, 'upstream', 'deepseek-harness', 'packages', 'llm', 'llm-deepseek', 'src', 'serialize.ts')
 
-const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.2.0-rc.2')
+const patchRoot = join(repositoryRoot, 'patches', 'deepseek-harness', '0.2.1-rc.2')
 
 test('tracked Harness patches add LDD compatibility changes and apply exactly once', async () => {
   const parent = await mkdtemp(join(tmpdir(), 'ldd-upstream-patch-'))
@@ -65,7 +65,7 @@ test('tracked Harness patches add LDD compatibility changes and apply exactly on
     const copiedChatLocale = join(copiedRoot, 'packages', 'client', 'ui-chat', 'src', 'client', 'locale.ts')
     const copiedChatViewSpec = join(copiedRoot, 'packages', 'client', 'ui-chat', 'tests', 'chat-view.client.spec.tsx')
     const copiedWorkspace = join(copiedRoot, 'pnpm-workspace.yaml')
-const copiedSerialize = join(copiedRoot, 'packages', 'llm', 'llm-deepseek', 'src', 'serialize.ts')
+    const copiedSerialize = join(copiedRoot, 'packages', 'llm', 'llm-deepseek', 'src', 'serialize.ts')
 
     for (const copied of [copiedCatalog, copiedReleaseProcess, copiedBrand, copiedLocales,
       copiedEmptyHero, copiedHeroShell, copiedClientBuildEnvironment, copiedImageLightbox,

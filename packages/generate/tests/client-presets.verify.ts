@@ -38,6 +38,9 @@ test('distinct-i2i KIE models auto-route their i2i counterpart', () => {
   assert.equal(i2iModelOf(kie, 'flux-2/pro-text-to-image'), 'flux-2/pro-image-to-image')
   assert.equal(i2iModelOf(kie, 'flux-2/flex-text-to-image'), 'flux-2/flex-image-to-image')
   assert.equal(i2iModelOf(kie, 'grok-imagine/text-to-image'), 'grok-imagine/image-to-image')
+  assert.equal(i2iModelOf(kie, 'flux-3/klein-text-to-image'), 'flux-3/klein-edit-image')
+  assert.equal(i2iModelOf(kie, 'qwen3/text-to-image'), 'qwen3/image-to-image')
+  assert.equal(i2iModelOf(kie, 'qwen3/pro-text-to-image'), 'qwen3/pro-image-to-image')
 })
 
 test('Z-image is a text-only KIE model (no i2i counterpart)', () => {
@@ -50,6 +53,7 @@ test('same-id i2i KIE models (Nano Banana) need no i2i model', () => {
   assert.equal(i2iModelOf(kie, 'nano-banana-pro'), '')
   assert.equal(i2iModelOf(kie, 'nano-banana-2'), '')
   assert.equal(i2iModelOf(kie, 'nano-banana-2-lite'), '')
+  assert.equal(i2iModelOf(kie, 'nano-banana-2-1'), '')
   // text-only model
   assert.equal(i2iModelOf(kie, 'bytedance/seedream'), '')
   // unknown id

@@ -8,9 +8,9 @@ test('resolvePickerModels expands one KIE entry into every capability', () => {
     models: [{ provider: 'kie', model: 'gpt-image-2-text-to-image' }],
     default: 'kie',
   } as never)
-  // A single KIE key lists ALL its models (13 capabilities), not just the one
+  // A single KIE key lists ALL its models (17 capabilities), not just the one
   // selected in the settings card.
-  assert.equal(models.length, 13)
+  assert.equal(models.length, 17)
   assert.equal(models[0]!.key, 'kie:gpt-image-2-text-to-image')
   assert.match(models[0]!.label, /GPT Image 2/)
   assert.equal(models[1]!.key, 'kie:gpt-image-2-5-flare-text-to-image')

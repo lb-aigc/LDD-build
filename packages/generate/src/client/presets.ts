@@ -86,6 +86,10 @@ export const IMAGE_PRESETS: readonly ClientPreset[] = [
       { id: 'flux-2/flex-text-to-image', label: 'Flux-2', i2iModel: 'flux-2/flex-image-to-image' },
       { id: 'z-image', label: 'Z-image' },
       { id: 'grok-imagine/text-to-image', label: 'Grok Imagine', i2iModel: 'grok-imagine/image-to-image' },
+      { id: 'flux-3/klein-text-to-image', label: 'Flux 3 Klein', i2iModel: 'flux-3/klein-edit-image' },
+      { id: 'nano-banana-2-1', label: 'Nano Banana 2.1' },
+      { id: 'qwen3/text-to-image', label: 'Qwen3', i2iModel: 'qwen3/image-to-image' },
+      { id: 'qwen3/pro-text-to-image', label: 'Qwen3 Pro', i2iModel: 'qwen3/pro-image-to-image' },
     ],
     defaultApiKeyEnv: 'KIE_API_KEY',
   },
@@ -106,7 +110,9 @@ export const VIDEO_PRESETS: readonly ClientPreset[] = [
   {
     id: 'kie',
     label: 'KIE（聚合中转）',
-    suggestedModels: [{ id: 'bytedance/seedance-2-5', label: 'Seedance 2.5' }],
+    suggestedModels: [{ id: 'bytedance/seedance-2-5', label: 'Seedance 2.5' },
+      { id: 'kling-3.0/video', label: 'Kling 3.0' },
+      { id: 'kling/v3-turbo-text-to-video', label: 'Kling V3 Turbo' }],
     defaultApiKeyEnv: 'KIE_API_KEY',
   },
 ]

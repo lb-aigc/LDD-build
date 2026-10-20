@@ -158,7 +158,7 @@ export class GenerationScheduler {
           ...imageBlocks,
         ],
         source: { kind: 'generate', form: 'notice', summary: `图片生成完成（${stored.length} 张）` },
-      })
+      }, { surfaceOp: 'append' })
     } catch (error) {
       console.error('[ldd-generate] scheduler complete failed:', error)
     }
