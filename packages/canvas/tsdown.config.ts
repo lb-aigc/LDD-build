@@ -19,4 +19,4 @@
  */
 import { clientBundle } from '../../client/tsdown.client.ts'
 
-export default clientBundle('@ldd/dsh-canvas', ['lib/index.js'])
+export default clientBundle(import.meta.dirname, ['lib/index.js'])
