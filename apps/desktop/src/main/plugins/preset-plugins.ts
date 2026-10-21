@@ -49,7 +49,7 @@ export const PRESET_PLUGINS: readonly PresetPlugin[] = [
   {
     id: 'canvas',
     label: '画布',
-    spec: 'git+https://github.com/lb-aigc/dsh-canvas.git#b5516fa087a0d80ff9aba0f5616afb3dc5c00473',
+    spec: 'git+https://github.com/lb-aigc/dsh-canvas.git#c2581e88c5404e962a1dd81bb1ff4c697855b822',
     bundleName: '@ldd/dsh-canvas',
   },
 ]
