@@ -119,3 +119,23 @@ The rules below are the COMMON core. The sub-skills add what their scene type ne
 ## Report
 
 Summarize what was generated (count and size/style for images; duration, resolution, aspect ratio for videos), and offer to refine the prompt or regenerate with changes.
+
+### Presenting generated images — the three hard rules
+
+Generated images are rendered AUTOMATICALLY as thumbnails in the conversation
+(with a download button) the moment generation finishes. Do NOT interfere with
+that path. When you report an image result:
+
+1. **NEVER save the images to the workspace** with a file-writing tool (do not
+   create files like `street-mj-A-3x4.jpg`). The images already exist as durable
+   attachments; writing them to disk as files forces the UI to render them as
+   inert "file cards" that lose the download button.
+2. **NEVER mention image files in backticks** (e.g. `` `street-mj-A-3x4.jpg` ``).
+   A backticked filename is rendered as a file link, not the image. Describe the
+   result in plain prose only.
+3. **NEVER cherry-pick images.** Present EVERY generated image to the user. Do
+   not choose a "primary"/"主推" subset and hide the rest — every variant must
+   remain visible.
+
+Describe the result in natural language (how many, what size/style), and offer
+to refine the prompt or regenerate.
