@@ -32,7 +32,8 @@ test('collects the latest user-message images as data URIs', async () => {
   }
   const result = await collectUploadedImages(session as never, store, new AbortController().signal)
   assert.equal(result.length, 1)
-  assert.ok(result[0]!.startsWith(`data:${PNG};base64,`))
+  assert.equal(result[0]!.attachmentId, 'att-1')
+  assert.ok(result[0]!.dataUri.startsWith(`data:${PNG};base64,`))
 })
 
 test('returns empty when no image block exists', async () => {
@@ -65,8 +66,10 @@ test('collects images across multiple user messages (not just the latest)', asyn
   // Both the earlier and the latest image are collected — the old behaviour
   // only returned the single latest message's image and dropped the earlier one.
   assert.equal(result.length, 2)
-  assert.ok(result[0]!.startsWith(`data:${PNG};base64,`))
-  assert.ok(result[1]!.startsWith(`data:${PNG};base64,`))
+  assert.equal(result[0]!.attachmentId, 'old')
+  assert.equal(result[1]!.attachmentId, 'new')
+  assert.ok(result[0]!.dataUri.startsWith(`data:${PNG};base64,`))
+  assert.ok(result[1]!.dataUri.startsWith(`data:${PNG};base64,`))
 })
 
 test('caps at maxImages, keeping the most recent uploads', async () => {
