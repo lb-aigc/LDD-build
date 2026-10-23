@@ -222,12 +222,13 @@ async function resolveReferenceImages(
     // @uploaded[i] / @uploaded[i,j] → indexed selection
     const indexed = entry.match(/^@(?:uploaded|latest)\[([\d,\s]*)\]$/)
     if (indexed !== null) {
-      const indices = indexed[1]
+      const indices = (indexed[1] ?? '')
         .split(',')
         .map((s) => Number.parseInt(s.trim(), 10))
         .filter((n) => !Number.isNaN(n))
       for (const i of indices) {
-        if (i >= 0 && i < uploaded.length) resolved.push(uploaded[i])
+        const u = uploaded[i]
+        if (u !== undefined) resolved.push(u)
       }
       continue
     }
@@ -379,7 +380,7 @@ function defineImageTool(
             const meta = { pending: true, taskId: asyncTask.taskId, provider: provider.id, model: asyncTask.model, prompt: request.prompt }
             let next = before
             if (refNodes.length === 1) {
-              const src = refNodes[0]
+              const src = refNodes[0]!
               const ph = addNode(before, { kind: 'image', label: '生成中…', x: src.x + 340, y: src.y, meta })
               next = ph.state
               next = addEdge(next, { source: src.id, target: ph.node.id }).state
