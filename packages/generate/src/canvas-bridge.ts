@@ -107,6 +107,15 @@ export function updateNode(
   }
 }
 
+/** Add an edge (id auto-minted unless a non-colliding id is supplied). */
+export function addEdge(state: CanvasState, edge: Omit<CanvasEdge, 'id'> & { id?: string }): { state: CanvasState; edge: CanvasEdge } {
+  const id = edge.id !== undefined && edge.id !== '' && !state.edges.some((e) => e.id === edge.id)
+    ? edge.id
+    : crypto.randomUUID()
+  const added: CanvasEdge = { ...edge, id }
+  return { state: { ...state, edges: [...state.edges, added] }, edge: added }
+}
+
 /** Find a pending placeholder node by its `meta.taskId` (the async task it is
  *  waiting on). Returns its id, or undefined when absent (e.g. the user deleted
  *  the placeholder mid-generation — the caller then drops the result). */

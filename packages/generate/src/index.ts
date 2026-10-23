@@ -12,9 +12,9 @@ import { attachImageFromUrl, imageBlockOf, mediaTypeFromUrl } from './attach.ts'
 import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
 import { aspectRatioToImageSize, isAsyncProvider } from './provider.ts'
 import { collectUploadedImages } from './uploaded-images.ts'
-import type { UploadedAgentLike } from './uploaded-images.ts'
+import type { UploadedAgentLike, UploadedImageRef } from './uploaded-images.ts'
 import { GenerationScheduler } from './scheduler.ts'
-import { addNode, foldCanvas, updateNode } from './canvas-bridge.ts'
+import { addEdge, addNode, foldCanvas, updateNode } from './canvas-bridge.ts'
 import type { SessionLike, SessionStoreLike } from './canvas-bridge.ts'
 import { IMAGE_PROVIDER_PRESETS, VIDEO_PROVIDER_PRESETS, MUSIC_PROVIDER_PRESETS } from './presets.ts'
 import {
@@ -180,32 +180,73 @@ async function readLocalImageReference(path: string): Promise<string | undefined
   }
 }
 
-/** Resolve the `inputImages` tool argument, expanding the `@uploaded` sentinel
- *  into the user's most recently uploaded images (data URIs read back from the
- *  attachment store) and reading LOCAL FILE PATHS into data URIs. */
+/** A resolved reference image: its data URI plus an optional durable
+ *  `attachmentId` (present when the entry came from an uploaded attachment or a
+ *  `sha256:` reference; absent for raw URLs / data URIs / local paths). The id
+ *  lets the async submit path correlate a reference with a canvas node whose
+ *  `url` IS that id, so fan-out (one ref per node) vs merge (many refs → one
+ *  node) is driven by the agent's own `inputImages` shape. */
+interface ResolvedRef {
+  dataUri: string
+  attachmentId?: string
+}
+
+/** Resolve the `inputImages` tool argument. Each entry is one of:
+ *   - `@uploaded` / `@latest`       → ALL user-uploaded images (order preserved)
+ *   - `@uploaded[i]` / `@latest[i]` → the i-th uploaded image (0-based; a comma
+ *                                     list like `@uploaded[0,2]` selects several)
+ *   - `sha256:…`                    → the uploaded image whose attachment id matches
+ *   - an http(s) URL / data URI     → passed through as-is
+ *   - a local file path             → read into a data URI */
 async function resolveReferenceImages(
   inputImages: unknown,
   exec: { agent?: UploadedAgentLike; signal: AbortSignal },
   store: AttachmentStoreLike | undefined,
-): Promise<string[]> {
+): Promise<ResolvedRef[]> {
   const raw = Array.isArray(inputImages) ? inputImages.filter((entry): entry is string => typeof entry === 'string') : []
   if (raw.length === 0) return []
-  const wantsUploaded = raw.some((entry) => entry === '@uploaded' || entry === '@latest')
-  const explicit = raw.filter((entry) => entry !== '@uploaded' && entry !== '@latest')
-  const resolved: string[] = []
-  for (const entry of explicit) {
-    if (entry.startsWith('http://') || entry.startsWith('https://') || entry.startsWith('data:')) {
-      resolved.push(entry)
+  const needsUploaded = raw.some((entry) =>
+    entry === '@uploaded' || entry === '@latest'
+    || /^@(?:uploaded|latest)\[[\d,\s]*\]$/.test(entry)
+    || entry.startsWith('sha256:'))
+  const uploaded: UploadedImageRef[] = needsUploaded
+    ? await collectUploadedImages(exec.agent?.session, store, exec.signal)
+    : []
+  const resolved: ResolvedRef[] = []
+  for (const entry of raw) {
+    // @uploaded / @latest → all uploaded images
+    if (entry === '@uploaded' || entry === '@latest') {
+      for (const u of uploaded) resolved.push(u)
       continue
     }
-    // A local file path (absolute or workspace-relative) → data URI, so the
-    // agent references workspace files directly instead of scripting uploads.
+    // @uploaded[i] / @uploaded[i,j] → indexed selection
+    const indexed = entry.match(/^@(?:uploaded|latest)\[([\d,\s]*)\]$/)
+    if (indexed !== null) {
+      const indices = indexed[1]
+        .split(',')
+        .map((s) => Number.parseInt(s.trim(), 10))
+        .filter((n) => !Number.isNaN(n))
+      for (const i of indices) {
+        if (i >= 0 && i < uploaded.length) resolved.push(uploaded[i])
+      }
+      continue
+    }
+    // sha256:… → match by attachment id (the id may already carry the prefix)
+    if (entry.startsWith('sha256:')) {
+      const found = uploaded.find((u) => u.attachmentId === entry || u.attachmentId === entry.slice('sha256:'.length))
+      if (found !== undefined) resolved.push(found)
+      continue
+    }
+    // http(s) URL / data URI → pass through (no durable id)
+    if (entry.startsWith('http://') || entry.startsWith('https://') || entry.startsWith('data:')) {
+      resolved.push({ dataUri: entry })
+      continue
+    }
+    // local file path → data URI (no durable id)
     const dataUri = await readLocalImageReference(entry)
-    if (dataUri !== undefined) resolved.push(dataUri)
+    if (dataUri !== undefined) resolved.push({ dataUri })
   }
-  if (!wantsUploaded) return resolved
-  const uploaded = await collectUploadedImages(exec.agent?.session, store, exec.signal)
-  return [...resolved, ...uploaded]
+  return resolved
 }
 
 /** 当前工具调用所属的会话（结构化 face，避免 import dsh-session 的 Session）。 */
@@ -236,7 +277,7 @@ function defineImageTool(
       aspectRatio: { type: 'string', enum: [...imageAspectRatios], description: 'Target aspect ratio. Choose from the enum to match the composition: 16:9 and 9:16 for horizontal/vertical widescreen, 1:1 square, 4:3 / 3:4 classic photo, 2:1 / 1:2 cinematic, 4:5 / 5:4 portrait/landscape, 21:9 / 9:21 ultra-wide. Omit to default to 16:9.' },
       resolution: { type: 'string', enum: [...imageResolutions], description: 'Output resolution tier: 4K / 2K / 1K. Always request 4K FIRST; the provider automatically degrades to 2K or 1K only when the chosen aspect ratio does not support the higher tier (1:1 caps at 2K; 4:5 / 5:4 / 9:21 cap at 1K). Omit to default to 4K.' },
       style: { type: 'string', description: 'Optional visual style keyword (e.g. photorealistic, anime, watercolor, cyberpunk).' },
-      inputImages: { type: 'array', items: { type: 'string' }, description: 'Reference images for image-to-image editing. Use this for ANY request that modifies an existing image: removing an element (a person, text, watermark, object), fixing/repairing, replacing the background, editing one part, or restyling. Each entry is one of: (a) an http(s) URL, (b) a data URI, (c) a LOCAL FILE PATH to a workspace image (e.g. "D:/file/inputs/ref.jpg" — the tool reads the file itself; do NOT write shell scripts to upload it), or (d) the sentinel "@uploaded" for images the user just attached. Put the edit instruction in `prompt` (e.g. "移除图中人物，保持构图与机位不变"). NEVER write Python/OpenCV/PIL/compositing scripts to mask or erase images by hand — always route through this tool. When several references are given, describe EACH image\'s role in the prompt. Only providers that support i2i accept it — Midjourney and Legnext reject it.' },
+      inputImages: { type: 'array', items: { type: 'string' }, description: 'Reference images for image-to-image editing. Each entry is one of: (a) an http(s) URL, (b) a data URI, (c) a LOCAL FILE PATH to a workspace image (the tool reads the file itself; do NOT write shell scripts to upload it), (d) "@uploaded" for ALL images the user just attached, (e) "@uploaded[i]" (0-based; "@uploaded[0]" = the FIRST uploaded image, "@uploaded[0,2]" = first and third) to reference ONE specific uploaded image, or (f) "sha256:<id>" to reference an uploaded image by attachment id. Put the edit instruction in `prompt`. NEVER write Python/OpenCV/PIL/compositing scripts to mask or erase images by hand — always route through this tool.\n\nMatch the reference count to the user intent: (A) PER-IMAGE output — the user wants a separate result for EACH reference image (e.g. "参考这3张服饰图，每张生成2个角色" = 3 independent groups) → call this tool ONCE PER IMAGE, passing exactly ONE reference each time ("@uploaded[0]", then "@uploaded[1]", then "@uploaded[2]"); (B) FUSED output — the user wants ONE result combining several references as different dimensions (e.g. "用A的款式+B的颜色+C的材质，出一张图") → call ONCE with ALL references together and describe each image\'s role in the prompt. Only providers that support i2i accept it — Midjourney and Legnext reject it.' },
     },
     output: {
       schema: imageResultSchema,
@@ -312,7 +353,7 @@ function defineImageTool(
         aspectRatio,
         resolution,
         ...(args.style === undefined ? {} : { style: args.style }),
-        ...(references.length > 0 ? { inputImages: references } : {}),
+        ...(references.length > 0 ? { inputImages: references.map((r) => r.dataUri) } : {}),
       }
       const taskSignal = AbortSignal.any([exec.signal, AbortSignal.timeout(config.timeoutMs)])
 
@@ -325,21 +366,49 @@ function defineImageTool(
         if (session !== undefined) {
           try {
             const before = foldCanvas(session.snapshotEvents())
-            // 复用 canvas Phase 1（参考图 user/message）刚挂的「无 taskId 的 pending
-            // 占位」——图生图场景 Phase 1 已为参考图挂好占位（含手动连线复用的 blank
-            // 节点），补上 taskId 后调度器即可按 taskId 填充它，避免双占位。找不到才
-            // 新挂（文生图 / @uploaded 引用等无 Phase 1 占位的场景）。
-            const reuse = before.nodes.find((n) => n.meta?.pending === true && n.meta.taskId === undefined)
+            // 拓扑由 agent 的 inputImages 决定（不再依赖画布 Phase 1 的预判）：
+            //   - 传 1 张参考图 → 该图右侧挂独立占位（fan-out，模式A）
+            //   - 传 N 张参考图 → 1 个融合占位，N 张图全连它（merge，模式B）
+            //   - 传 0 张 → 文生图网格占位
+            const refIds = references
+              .map((r) => r.attachmentId)
+              .filter((id): id is string => id !== undefined)
+            const refNodes = refIds
+              .map((id) => before.nodes.find((n) => n.url === id))
+              .filter((n): n is NonNullable<typeof n> => n !== undefined)
             const meta = { pending: true, taskId: asyncTask.taskId, provider: provider.id, model: asyncTask.model, prompt: request.prompt }
-            const next = reuse !== undefined
-              ? updateNode(before, reuse.id, { label: '生成中…', meta: { ...(reuse.meta ?? {}), ...meta } })
-              : addNode(before, {
-                  kind: 'image',
-                  label: '生成中…',
-                  x: (before.nodes.length % 4) * 220,
-                  y: Math.floor(before.nodes.length / 4) * 180,
-                  meta,
-                }).state
+            let next = before
+            if (refNodes.length === 1) {
+              const src = refNodes[0]
+              const ph = addNode(before, { kind: 'image', label: '生成中…', x: src.x + 340, y: src.y, meta })
+              next = ph.state
+              next = addEdge(next, { source: src.id, target: ph.node.id }).state
+            } else if (refNodes.length > 1) {
+              const xs = refNodes.map((n) => n.x)
+              const ys = refNodes.map((n) => n.y)
+              const ph = addNode(before, {
+                kind: 'image',
+                label: '生成中…',
+                x: Math.max(...xs) + 340,
+                y: (Math.min(...ys) + Math.max(...ys)) / 2,
+                meta,
+              })
+              next = ph.state
+              for (const src of refNodes) {
+                next = addEdge(next, { source: src.id, target: ph.node.id }).state
+              }
+            } else {
+              const reuse = before.nodes.find((n) => n.meta?.pending === true && n.meta.taskId === undefined)
+              next = reuse !== undefined
+                ? updateNode(before, reuse.id, { label: '生成中…', meta: { ...(reuse.meta ?? {}), ...meta } })
+                : addNode(before, {
+                    kind: 'image',
+                    label: '生成中…',
+                    x: (before.nodes.length % 4) * 220,
+                    y: Math.floor(before.nodes.length / 4) * 180,
+                    meta,
+                  }).state
+            }
             session.append('canvas/state', { state: next })
           } catch (error) {
             console.error('[ldd-generate] 挂占位节点失败:', error)

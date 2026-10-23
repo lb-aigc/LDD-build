@@ -21,6 +21,13 @@ export interface UploadedContentBlockLike {
   attachment?: ImageMeta
 }
 
+/** A resolved uploaded reference image: its durable attachment id (used to
+ *  correlate with a canvas node whose `url` IS that id) plus its data URI. */
+export interface UploadedImageRef {
+  attachmentId: string
+  dataUri: string
+}
+
 /** One session event; only `user/message` carries a `content` array here. */
 export interface UploadedEventLike {
   type: string
@@ -61,9 +68,9 @@ export async function collectUploadedImages(
   store: AttachmentStoreLike | undefined,
   signal: AbortSignal,
   maxImages = 8,
-): Promise<string[]> {
+): Promise<UploadedImageRef[]> {
   if (session === undefined || store === undefined) return []
-  const collected: string[] = []
+  const collected: UploadedImageRef[] = []
   for (const event of session.events) {
     if (event.type !== 'user/message') continue
     const content = event.data?.content ?? []
@@ -72,7 +79,10 @@ export async function collectUploadedImages(
       signal.throwIfAborted()
       try {
         const stored = await store.readImage(block.attachment)
-        collected.push(dataUriOf(block.attachment.mediaType, stored.data))
+        collected.push({
+          attachmentId: block.attachment.attachmentId,
+          dataUri: dataUriOf(block.attachment.mediaType, stored.data),
+        })
       } catch {
         // An unreadable attachment is skipped; the rest still resolve.
       }
