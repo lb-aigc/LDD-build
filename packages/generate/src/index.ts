@@ -379,15 +379,35 @@ function defineImageTool(
               .filter((n): n is NonNullable<typeof n> => n !== undefined)
             const meta = { pending: true, taskId: asyncTask.taskId, provider: provider.id, model: asyncTask.model, prompt: request.prompt }
             let next = before
-            if (refNodes.length === 1) {
-              const src = refNodes[0]!
-              const ph = addNode(before, { kind: 'image', label: '生成中…', x: src.x + 340, y: src.y, meta })
+            // 复用「用户手动连线」的空白下游节点：如果参考图节点已有一条边
+            // 连到 blank image 节点（无 url、非 pending），说明用户已经画好了
+            // 链，就在那里生图，不新建卡片。否则才走下面的 fan-out/merge 新建。
+            const bound = new Set<string>()
+            for (const src of refNodes) {
+              const blankEdge = before.edges.find((e) => {
+                if (e.source !== src.id) return false
+                const t = before.nodes.find((n) => n.id === e.target)
+                return t !== undefined
+                  && t.kind === 'image'
+                  && (t.url === undefined || t.url === '')
+                  && t.meta?.pending !== true
+              })
+              if (blankEdge === undefined) continue
+              const target = before.nodes.find((n) => n.id === blankEdge.target)
+              if (target === undefined) continue
+              next = updateNode(next, target.id, { label: '生成中…', meta: { ...(target.meta ?? {}), ...meta } })
+              bound.add(src.id)
+            }
+            const unbound = refNodes.filter((n) => !bound.has(n.id))
+            if (unbound.length === 1) {
+              const src = unbound[0]!
+              const ph = addNode(next, { kind: 'image', label: '生成中…', x: src.x + 340, y: src.y, meta })
               next = ph.state
               next = addEdge(next, { source: src.id, target: ph.node.id }).state
-            } else if (refNodes.length > 1) {
-              const xs = refNodes.map((n) => n.x)
-              const ys = refNodes.map((n) => n.y)
-              const ph = addNode(before, {
+            } else if (unbound.length > 1) {
+              const xs = unbound.map((n) => n.x)
+              const ys = unbound.map((n) => n.y)
+              const ph = addNode(next, {
                 kind: 'image',
                 label: '生成中…',
                 x: Math.max(...xs) + 340,
@@ -395,18 +415,18 @@ function defineImageTool(
                 meta,
               })
               next = ph.state
-              for (const src of refNodes) {
+              for (const src of unbound) {
                 next = addEdge(next, { source: src.id, target: ph.node.id }).state
               }
-            } else {
-              const reuse = before.nodes.find((n) => n.meta?.pending === true && n.meta.taskId === undefined)
+            } else if (refNodes.length === 0) {
+              const reuse = next.nodes.find((n) => n.meta?.pending === true && n.meta.taskId === undefined)
               next = reuse !== undefined
-                ? updateNode(before, reuse.id, { label: '生成中…', meta: { ...(reuse.meta ?? {}), ...meta } })
-                : addNode(before, {
+                ? updateNode(next, reuse.id, { label: '生成中…', meta: { ...(reuse.meta ?? {}), ...meta } })
+                : addNode(next, {
                     kind: 'image',
                     label: '生成中…',
-                    x: (before.nodes.length % 4) * 220,
-                    y: Math.floor(before.nodes.length / 4) * 180,
+                    x: (next.nodes.length % 4) * 220,
+                    y: Math.floor(next.nodes.length / 4) * 180,
                     meta,
                   }).state
             }
