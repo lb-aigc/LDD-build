@@ -288,7 +288,7 @@ function defineImageTool(
         // the user can submit the next request while generation continues.
         if (value.submitted === true) {
           const taskId = (value as { taskId?: string }).taskId ?? ''
-          return [{ type: 'text', text: `已提交生图任务（taskId=${taskId}），正在后台生成，完成后图片会自动出现在画布。` }] as any
+          return [{ type: 'text', text: `已提交生图任务（taskId=${taskId}），正在后台生成，完成后图片会自动出现在对话里。` }] as any
         }
         // Emit each image BOTH as an `image` block (the frontend renders it
         // inline via the attachment slot) AND as a text line carrying the URL
@@ -433,6 +433,19 @@ function defineImageTool(
             session.append('canvas/state', { state: next })
           } catch (error) {
             console.error('[ldd-generate] 挂占位节点失败:', error)
+          }
+          // 会话框进度卡片：独立于画布，始终追加。用户即使不开画布，也能在
+          // 会话框里看到「正在生成」的任务进度卡片（notice 形式，前端渲染为
+          // 可折叠的上下文消息卡片）。完成后 scheduler 会追加结果图片。
+          try {
+            session.append('user/message', {
+              id: crypto.randomUUID(),
+              role: 'user',
+              content: [{ type: 'text', text: `🖼️ 正在生成图片…（${count} 张）` }],
+              source: { kind: 'generate', form: 'notice', summary: `正在生成图片…（${count} 张）` },
+            }, { surfaceOp: 'append' })
+          } catch (error) {
+            console.error('[ldd-generate] 追加进度卡片失败:', error)
           }
         }
         scheduler.submit(sessionId ?? '', provider, asyncTask)

@@ -173,6 +173,15 @@ export class GenerationScheduler {
     const session = this.sessions()?.get(task.sessionId)
     if (session === undefined) return
     try {
+      // 会话框失败通知：独立于画布，始终追加。用户即使不开画布，也能在会话框
+      // 里看到失败原因，而不是任务无声消失。
+      session.append('user/message', {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: [{ type: 'text', text: `❌ 图片生成失败：${message}` }],
+        source: { kind: 'generate', form: 'notice', summary: '图片生成失败' },
+      }, { surfaceOp: 'append' })
+      // 画布失败标记：只在 placeholder 存在时执行（用户删了卡片就不复活）。
       const before = foldCanvas(session.snapshotEvents())
       const placeholder = findPendingNodeByTaskId(before, task.taskId)
       if (placeholder === undefined) return
