@@ -42,6 +42,12 @@ export class GenerationScheduler {
   private readonly tasks = new Map<string, ImageTask>()
   private timer: ReturnType<typeof setInterval> | undefined
   private disposed = false
+  /** Re-entrancy guard: complete() downloads 4K images (slow over the proxy),
+   *  so a single tick can outlive the 3s interval. Without this flag, the next
+   *  interval fires a CONCURRENT tick that re-polls the same still-queued task
+   *  (its state is already success, so every poll returns the result) and
+   *  complete()s it again - one image, N duplicate completion cards. */
+  private ticking = false
 
   constructor(
     private readonly sessions: () => SessionStoreLike | undefined,
@@ -69,30 +75,38 @@ export class GenerationScheduler {
   }
 
   private async tick(): Promise<void> {
-    if (this.disposed) return
-    for (const task of [...this.tasks.values()]) {
-      if (this.disposed) return
-      task.polls += 1
-      try {
-        const signal = AbortSignal.timeout(PER_POLL_TIMEOUT_MS)
-        const result = await task.provider.pollImageOnce(task.asyncTask, signal)
-        if (result !== undefined) {
-          await this.complete(task, result)
+    if (this.disposed || this.ticking) return
+    this.ticking = true
+    try {
+      for (const task of [...this.tasks.values()]) {
+        if (this.disposed) return
+        // A task may have been completed/removed by a prior await in this same
+        // tick (or deleted externally); skip it rather than re-complete.
+        if (!this.tasks.has(task.taskId)) continue
+        task.polls += 1
+        try {
+          const signal = AbortSignal.timeout(PER_POLL_TIMEOUT_MS)
+          const result = await task.provider.pollImageOnce(task.asyncTask, signal)
+          if (result !== undefined) {
+            await this.complete(task, result)
+            this.tasks.delete(task.taskId)
+            continue
+          }
+          if (task.polls >= MAX_TASK_POLLS) {
+            await this.fail(task, `生成超时（已轮询 ${MAX_TASK_POLLS} 次 / 10 分钟）`)
+            this.tasks.delete(task.taskId)
+          }
+        } catch (error) {
+          await this.fail(task, error instanceof Error ? error.message : String(error))
           this.tasks.delete(task.taskId)
-          continue
         }
-        if (task.polls >= MAX_TASK_POLLS) {
-          await this.fail(task, `生成超时（已轮询 ${MAX_TASK_POLLS} 次 / 10 分钟）`)
-          this.tasks.delete(task.taskId)
-        }
-      } catch (error) {
-        await this.fail(task, error instanceof Error ? error.message : String(error))
-        this.tasks.delete(task.taskId)
       }
-    }
-    if (this.tasks.size === 0 && this.timer !== undefined) {
-      clearInterval(this.timer)
-      this.timer = undefined
+      if (this.tasks.size === 0 && this.timer !== undefined) {
+        clearInterval(this.timer)
+        this.timer = undefined
+      }
+    } finally {
+      this.ticking = false
     }
   }
 
