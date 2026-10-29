@@ -1,6 +1,6 @@
 ---
 name: character-refs
-description: Use when the user wants real character reference images (character sheet / 三视图 / 定妆照 / turnaround) for a story — generate an anchor full-body front view, then derive headshot, side, and back views that all reference the anchor. Use generate_image for this. NOT for video prompts, and NOT for text-only character profiles (use novel-adaptation for that).
+description: 用户需要角色参考图（角色设定图/三视图/定妆照/转身图）时使用——生成一张锚定全身正面图，再派生都引用锚点的头像、侧视、背视图（用 generate_image 出图）。不用于视频提示词，也不用于纯文字角色设定（用 novel-adaptation）。
 ---
 
 # 角色参考图 — 三视图锚点法（真出图）

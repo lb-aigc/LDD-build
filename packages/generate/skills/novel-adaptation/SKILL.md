@@ -1,6 +1,6 @@
 ---
 name: novel-adaptation
-description: Use when the user wants to adapt a novel/story into an AI short-drama — produce the adaptation outline (卷/集/角色/场景/爽点), character profiles, and per-episode script. This is the UPSTREAM of novel-production (staging/storyboard). NOT for video prompts (that's video-director) and NOT for character reference images (that's character-refs).
+description: 用户要把小说/故事改编成 AI 短剧时使用——产出改编大纲（卷/集/角色/场景/爽点）、角色设定、分集剧本。这是 novel-production（站位/分镜）的上游。不用于视频提示词（video-director）、角色参考图（character-refs）。
 ---
 
 # 小说改编短剧 — 大纲 + 角色 + 剧本

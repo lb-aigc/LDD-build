@@ -1,6 +1,6 @@
 ---
 name: generate
-description: Use when the user asks to create an image or a video — generate a picture, illustration, poster, avatar, or produce a video clip or animation from a description.
+description: 用户要生成图片或视频时使用——根据描述生成图片、插画、海报、头像，或制作视频片段/动画。
 ---
 
 # Generate images and videos with LDD

@@ -1,6 +1,6 @@
 ---
 name: short-drama-feed
-description: Use when the user has a storyboard/分镜稿 and wants it turned into copy-paste-able Seedance/H3 投喂提示词 (the final packaging gate) — apply the 六道闸门 (rhythm/台词时长/字数/可投喂语义/图片数量/编号+素材形态一致), the 素材接线单, and 多段衔接 before handing off. NOT for writing the storyboard itself (novel-production) and NOT for the 打戏 rules (short-drama-combat).
+description: 用户已有分镜稿、要转成可复制的 Seedance/H3 投喂提示词（最终封装）时使用——过六道闸门（节奏/台词时长/字数/可投喂语义/图片数量/编号+素材形态一致）、素材接线单、多段衔接再交付。不用于写分镜（novel-production）、打戏规则（short-drama-combat）。
 ---
 
 # 短剧投喂封装 — 六道闸门 + 素材接线单

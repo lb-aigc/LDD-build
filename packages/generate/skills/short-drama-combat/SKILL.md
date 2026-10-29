@@ -1,6 +1,6 @@
 ---
 name: short-drama-combat
-description: Use when the user wants 打戏/武打/战斗/动作场面 storyboard prompts (武侠/玄幻/写实/现代格斗/群战) — the combat-specific directing rules: 构思层先于画面层, 八步写作脑, 动作强度三档 R1/R2/R3, 每镜有任务有因果. NOT for 文戏 storyboard (novel-production) and NOT for the Seedance prompt syntax itself (video-director).
+description: 用户要打戏/武打/战斗/动作场面分镜提示词（武侠/玄幻/写实/现代格斗/群战）时使用——构思层先于画面层、八步写作脑、动作强度三档 R1/R2/R3、每镜有任务有因果。不用于文戏分镜（novel-production）、Seedance 提示词语法（video-director）。
 ---
 
 # 短剧打戏引擎 — 构思先于画面 + 每镜有任务

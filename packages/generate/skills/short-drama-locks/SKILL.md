@@ -1,6 +1,6 @@
 ---
 name: short-drama-locks
-description: Use when the user wants to START a short-drama / 漫剧 production (立项) and the delivery requirements are not yet locked — route the 赛道 (domestic/overseas/解说/other), 素材来源 (原创/改编/对标爆款/热点), model version (Seedance 2.5/2.0/H3), aspect ratio, delivery form, and 段缝衔接. Every unspecified lock MUST be asked, never defaulted. NOT for actually writing the script/storyboard (that's novel-adaptation / novel-production).
+description: 用户要启动短剧/漫剧制作（立项）、交付要求还未锁定时使用——确定赛道（国内/海外/解说/其他）、素材来源（原创/改编/对标爆款/热点）、模型版本（Seedance 2.5/2.0/H3）、画幅、交付形式、段缝衔接。所有未指定的锁必须问清、不能默认。不用于写剧本/分镜（novel-adaptation / novel-production）。
 ---
 
 # 短剧立项锁 — 六道前置锁 + 画风锁

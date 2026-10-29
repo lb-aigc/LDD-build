@@ -65,6 +65,14 @@
       {
         "from": "build/icon.png",
         "to": "assets/icon.png"
+      },
+      {
+        "from": "build/tray-mac.png",
+        "to": "assets/tray-mac.png"
+      },
+      {
+        "from": "build/tray-mac@2x.png",
+        "to": "assets/tray-mac@2x.png"
       }
     ],
     "win": {

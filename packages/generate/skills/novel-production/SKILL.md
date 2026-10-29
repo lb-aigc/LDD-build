@@ -1,6 +1,6 @@
 ---
 name: novel-production
-description: Use when the user has a short-drama script and wants to produce the staging (opening positions), scene art bible (场景/道具设定), and storyboard (逐镜切分 + 视频提示词) — the DOWNSTREAM of novel-adaptation. Focus on 站位/认图, shot-beat claim, single-shot ≤15s. NOT for writing the script itself (novel-adaptation) and NOT for the detailed Seedance prompt craft (delegate each shot's prompt to video-director).
+description: 用户已有短剧剧本、要产出站位（开场位置）、场景美术圣经（场景/道具设定）、分镜（逐镜切分+视频提示词）时使用——novel-adaptation 的下游。聚焦站位/认图、镜头节拍、单镜≤15s。不用于写剧本（novel-adaptation）、Seedance 提示词细节（交给 video-director）。
 ---
 
 # 短剧制片 — 站位 + 美术资产 + 分镜

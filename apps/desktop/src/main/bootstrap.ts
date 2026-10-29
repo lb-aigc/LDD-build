@@ -66,7 +66,7 @@ async function startApplication(): Promise<void> {
     await createDesktopShell({
       paths,
       runtime,
-      trayIconPath: join(process.resourcesPath, 'assets', 'icon.png'),
+      trayIconPath: join(process.resourcesPath, 'assets', process.platform === 'darwin' ? 'tray-mac.png' : 'icon.png'),
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'LDD 初始化失败'

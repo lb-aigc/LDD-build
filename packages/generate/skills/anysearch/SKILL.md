@@ -1,6 +1,6 @@
 ---
 name: anysearch
-description: Use when the user needs real-time web search, vertical-domain search (finance/stock, academic, legal, health, code, film, gaming, business, security, travel…), parallel batch search, or full-page URL content extraction — beyond what the built-in search returns. NOT for facts already known, simple browsing, or queries with sensitive data.
+description: 用户需要实时联网搜索、垂直领域搜索（金融/股票、学术、法律、健康、代码、影视、游戏、商业、安全、旅行等）、批量并行搜索，或整页 URL 内容提取时使用——超出内置搜索的能力。不用于已知事实、简单浏览、或含敏感数据的查询。
 ---
 
 # AnySearch — 实时搜索 + 垂直领域搜索 + 全文提取
