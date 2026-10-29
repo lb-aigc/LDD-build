@@ -41,9 +41,14 @@ export interface UploadedAgentLike {
   session?: UploadedSessionLike
 }
 
-/** The slice of a harness Session the collector reads (the append-only event log). */
+/** The slice of a harness Session the collector reads. The REAL harness Session
+ *  exposes its durable event log via a `snapshotEvents()` METHOD, not an
+ *  `events` property — iterating `session.events` throws "session.events is not
+ *  iterable" (the exact failure that forced the agent to fall back to a local
+ *  object-store path for `sha256:` references). Mirror `canvas-bridge.ts`'s
+ *  `SessionLike.snapshotEvents()` signature. */
 export interface UploadedSessionLike {
-  events: readonly UploadedEventLike[]
+  snapshotEvents(): readonly UploadedEventLike[]
 }
 
 /**
@@ -71,7 +76,7 @@ export async function collectUploadedImages(
 ): Promise<UploadedImageRef[]> {
   if (session === undefined || store === undefined) return []
   const collected: UploadedImageRef[] = []
-  for (const event of session.events) {
+  for (const event of session.snapshotEvents()) {
     if (event.type !== 'user/message') continue
     const content = event.data?.content ?? []
     for (const block of content) {

@@ -9,7 +9,7 @@ import { imageAspectRatios, imageResolutions, maxImagesPerRequest, maxVideoDurat
 import type { GenerationConfig, ImageAspectRatio, ImageResolution, ImageSize } from './config.ts'
 import { credentialsServiceResolver, environmentSecretResolver } from './credentials.ts'
 import type { SecretResolver } from './credentials.ts'
-import { attachImageFromUrl, imageBlockOf, mediaTypeFromUrl } from './attach.ts'
+import { attachImageFromUrl, imageBlockOf, mediaTypeFromBytes, mediaTypeFromUrl } from './attach.ts'
 import type { AttachmentStoreLike, ImageMeta } from './attach.ts'
 import { aspectRatioToImageSize, isAsyncProvider } from './provider.ts'
 import { collectUploadedImages } from './uploaded-images.ts'
@@ -179,9 +179,14 @@ const musicResultSchema = {
  *  entry is dropped from the references. */
 async function readLocalImageReference(path: string): Promise<{ dataUri: string; attachmentId: string } | undefined> {
   try {
-    const mediaType = mediaTypeFromUrl(path)
-    if (mediaType === undefined) return undefined
     const bytes = await readFile(path)
+    // Prefer the extension, but fall back to magic-byte sniffing: the agent may
+    // pass the harness attachment object-store path (`…/objects/b0/<sha256hex>`)
+    // verbatim, which has NO extension — without sniffing, mediaTypeFromUrl
+    // returns undefined and the reference is silently dropped (→ the submit
+    // falls through to the text-to-image branch and hangs a detached card).
+    const mediaType = mediaTypeFromUrl(path) ?? mediaTypeFromBytes(bytes)
+    if (mediaType === undefined) return undefined
     return {
       dataUri: `data:${mediaType};base64,${bytes.toString('base64')}`,
       attachmentId: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,

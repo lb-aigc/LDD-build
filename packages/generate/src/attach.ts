@@ -63,6 +63,19 @@ export function mediaTypeFromContentType(contentType: string): ImageMediaType | 
   return CONTENT_TYPE_MEDIA_TYPES[base]
 }
 
+/** Detect an image media type from the leading magic bytes, so a reference whose
+ *  path has NO extension (e.g. the harness attachment object store
+ *  `…/objects/b0/<sha256hex>`, which the agent passes verbatim after a
+ *  `sha256:` reference fails) still resolves. Returns undefined when the bytes
+ *  don't match a known image signature. */
+export function mediaTypeFromBytes(bytes: Uint8Array): ImageMediaType | undefined {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png'
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg'
+  if (bytes.length >= 6 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return 'image/gif'
+  if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp'
+  return undefined
+}
+
 /** Parse a `data:<mediaType>;base64,<data>` URI into bytes + media type. */
 export function parseDataUri(uri: string): { data: Uint8Array; mediaType: ImageMediaType } | undefined {
   const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$/.exec(uri)
