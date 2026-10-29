@@ -3,6 +3,7 @@ import type {} from '@deepseek-ai/cordis-plugin-loader'
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 
 import { imageAspectRatios, imageResolutions, maxImagesPerRequest, maxVideoDurationSeconds, videoAspectRatios, videoResolutions } from './config.ts'
 import type { GenerationConfig, ImageAspectRatio, ImageResolution, ImageSize } from './config.ts'
@@ -163,29 +164,39 @@ const musicResultSchema = {
   },
 } as const
 
-/** Read a local image file path into a `data:` URI. This lets the agent pass a
- *  workspace file path (e.g. `D:\\file\\inputs\\ref.jpg`) directly as a reference
- *  image instead of writing shell scripts to upload it to a relay — the root
- *  cause of the "dozens of pwsh/node calls for one image-to-image" behaviour.
- *  The media type is guessed from the extension; an unreadable path or unknown
- *  extension returns undefined and the entry is dropped from the references. */
-async function readLocalImageReference(path: string): Promise<string | undefined> {
+/** Read a local image file path into a `data:` URI plus its content-addressed
+ *  `sha256:` attachment id. This lets the agent pass a workspace file path (e.g.
+ *  `D:\\file\\inputs\\ref.jpg`) directly as a reference image instead of writing
+ *  shell scripts to upload it to a relay — the root cause of the "dozens of
+ *  pwsh/node calls for one image-to-image" behaviour. The `sha256:` id is
+ *  computed from the file bytes so the async submit path can correlate the
+ *  reference with a canvas node whose `url` IS that id: the agent copies a
+ *  canvas image to a local path before passing it as `inputImages`, and without
+ *  the id the reference matches no canvas node, so the submit falls through to
+ *  the text-to-image branch and hangs a NEW detached card instead of reusing the
+ *  user's manually-wired blank node. The media type is guessed from the
+ *  extension; an unreadable path or unknown extension returns undefined and the
+ *  entry is dropped from the references. */
+async function readLocalImageReference(path: string): Promise<{ dataUri: string; attachmentId: string } | undefined> {
   try {
     const mediaType = mediaTypeFromUrl(path)
     if (mediaType === undefined) return undefined
     const bytes = await readFile(path)
-    return `data:${mediaType};base64,${Buffer.from(bytes).toString('base64')}`
+    return {
+      dataUri: `data:${mediaType};base64,${bytes.toString('base64')}`,
+      attachmentId: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+    }
   } catch {
     return undefined
   }
 }
 
 /** A resolved reference image: its data URI plus an optional durable
- *  `attachmentId` (present when the entry came from an uploaded attachment or a
- *  `sha256:` reference; absent for raw URLs / data URIs / local paths). The id
- *  lets the async submit path correlate a reference with a canvas node whose
- *  `url` IS that id, so fan-out (one ref per node) vs merge (many refs → one
- *  node) is driven by the agent's own `inputImages` shape. */
+ *  `attachmentId` (present when the entry came from an uploaded attachment, a
+ *  `sha256:` reference, or a local file path; absent only for raw URLs / data
+ *  URIs). The id lets the async submit path correlate a reference with a canvas
+ *  node whose `url` IS that id, so fan-out (one ref per node) vs merge (many
+ *  refs → one node) is driven by the agent's own `inputImages` shape. */
 interface ResolvedRef {
   dataUri: string
   attachmentId?: string
@@ -243,9 +254,10 @@ async function resolveReferenceImages(
       resolved.push({ dataUri: entry })
       continue
     }
-    // local file path → data URI (no durable id)
-    const dataUri = await readLocalImageReference(entry)
-    if (dataUri !== undefined) resolved.push({ dataUri })
+    // local file path → data URI + sha256 attachment id (so the submit can
+    // correlate it with a canvas node whose `url` IS that id)
+    const local = await readLocalImageReference(entry)
+    if (local !== undefined) resolved.push(local)
   }
   return resolved
 }
