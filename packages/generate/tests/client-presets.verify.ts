@@ -35,6 +35,7 @@ test('distinct-i2i KIE models auto-route their i2i counterpart', () => {
   assert.equal(i2iModelOf(kie, 'gpt-image-2-5-sunburst-text-to-image'), 'gpt-image-2-5-sunburst-image-to-image')
   assert.equal(i2iModelOf(kie, 'seedream/5-pro-text-to-image'), 'seedream/5-pro-image-to-image')
   assert.equal(i2iModelOf(kie, 'seedream/5-lite-text-to-image'), 'seedream/5-lite-image-to-image')
+  assert.equal(i2iModelOf(kie, 'seedream/5-flash-text-to-image'), 'seedream/5-flash-image-to-image')
   assert.equal(i2iModelOf(kie, 'flux-2/pro-text-to-image'), 'flux-2/pro-image-to-image')
   assert.equal(i2iModelOf(kie, 'flux-2/flex-text-to-image'), 'flux-2/flex-image-to-image')
   assert.equal(i2iModelOf(kie, 'grok-imagine/text-to-image'), 'grok-imagine/image-to-image')

@@ -70,6 +70,8 @@ const SAME_MODEL_I2I_FIELD: Readonly<Record<string, string>> = {
   'nano-banana-pro': 'image_input',
   'nano-banana-2': 'image_input',
   'nano-banana-2-lite': 'image_urls',
+  'wan/2-7-image': 'input_urls',
+  'wan/2-7-image-pro': 'input_urls',
 }
 
 /**
@@ -98,6 +100,7 @@ const DISTINCT_I2I_COUNTERPART: Readonly<Record<string, string>> = {
   'flux-2/pro-text-to-image': 'flux-2/pro-image-to-image',
   'flux-2/flex-text-to-image': 'flux-2/flex-image-to-image',
   'grok-imagine/text-to-image': 'grok-imagine/image-to-image',
+  'seedream/5-flash-text-to-image': 'seedream/5-flash-image-to-image',
 }
 
 /** The distinct i2i counterpart for a t2i capability id, or `undefined`. */
@@ -115,6 +118,7 @@ const DISTINCT_I2I_IMAGE_FIELD: Readonly<Record<string, string>> = {
   'grok-imagine/image-to-image': 'image_urls',
   'seedream/5-pro-image-to-image': 'image_urls',
   'seedream/5-lite-image-to-image': 'image_urls',
+  'seedream/5-flash-image-to-image': 'image_urls',
 }
 
 /** The image-reference field for a distinct i2i capability, default `input_urls`. */
@@ -125,8 +129,26 @@ export function kieDistinctI2iImageField(i2iModel: string): string {
 /** Seedream 5.0 Pro / Lite text-to-image capability ids. These use a `quality`
  *  field (basic=1K / high=2K) instead of a `resolution` field, top out at 2K
  *  (no 4K tier), and support only a fixed aspect-ratio set. */
-const SEEDREAM5_T2I = new Set(['seedream/5-pro-text-to-image', 'seedream/5-lite-text-to-image'])
-const SEEDREAM5_I2I = new Set(['seedream/5-pro-image-to-image', 'seedream/5-lite-image-to-image'])
+const SEEDREAM5_T2I = new Set([
+  'seedream/5-pro-text-to-image',
+  'seedream/5-lite-text-to-image',
+  'seedream/4.5-text-to-image',
+  'seedream/5-flash-text-to-image',
+])
+const SEEDREAM5_I2I = new Set(['seedream/5-pro-image-to-image', 'seedream/5-lite-image-to-image', 'seedream/5-flash-image-to-image'])
+
+/** Imagen 4 and Nano Banana (base) accept only `prompt` + `aspect_ratio` — no
+ *  `resolution` and no `quality` field. Sending either would 422, so they are
+ *  routed to a bare `{ prompt, aspect_ratio }` input. */
+const ASPECT_ONLY_T2I = new Set([
+  'google/imagen4',
+  'google/imagen4-fast',
+  'google/imagen4-ultra',
+  'google/nano-banana',
+])
+
+/** Wan 2.7 image caps at 2K (resolution is `1K`/`2K`, no 4K tier). */
+const WAN27_T2I = new Set(['wan/2-7-image', 'wan/2-7-image-pro'])
 
 /** Seedream 5 has no 4K: quality `high` = 2K, `basic` = 1K. Map the request's
  *  resolution tier to the quality field (4K/2K → high, 1K → basic). */
@@ -244,6 +266,7 @@ export class KieProvider implements GenerationProvider, AsyncGenerationProvider 
     // GPT Image 2.5 accepts a narrower aspect-ratio enum than the tool exposes,
     // so clamp its ratios too (2:1/1:2/4:5/5:4/9:21 → nearest supported).
     const isSeedream5 = SEEDREAM5_T2I.has(model)
+    const isWan27 = WAN27_T2I.has(model)
     const isGptImage25 = GPT_IMAGE_25_T2I.has(model)
     const aspectRatio = isSeedream5
       ? seedream5AspectRatio(this.resolveAspectRatio(request))
@@ -251,7 +274,7 @@ export class KieProvider implements GenerationProvider, AsyncGenerationProvider 
         ? gptImage25AspectRatio(this.resolveAspectRatio(request))
         : this.resolveAspectRatio(request)
     const requested = this.resolveResolution(request.resolution ?? '4K', aspectRatio)
-    const resolution = isSeedream5 && requested === '4K' ? '2K' : requested
+    const resolution = (isSeedream5 || isWan27) && requested === '4K' ? '2K' : requested
     const count = Math.max(1, request.count)
     let usedModel = model
     const taskIds: string[] = []
@@ -350,6 +373,9 @@ export class KieProvider implements GenerationProvider, AsyncGenerationProvider 
   private textInput(model: string, prompt: string, aspectRatio: string, resolution: ImageResolution): Record<string, unknown> {
     if (SEEDREAM5_T2I.has(model)) {
       return { prompt, aspect_ratio: aspectRatio, quality: seedream5Quality(resolution) }
+    }
+    if (ASPECT_ONLY_T2I.has(model)) {
+      return { prompt, aspect_ratio: aspectRatio }
     }
     return { prompt, aspect_ratio: aspectRatio, resolution }
   }
