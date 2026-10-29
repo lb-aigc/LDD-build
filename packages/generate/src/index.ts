@@ -435,14 +435,17 @@ function defineImageTool(
             console.error('[ldd-generate] 挂占位节点失败:', error)
           }
           // 会话框进度卡片：独立于画布，始终追加。用户即使不开画布，也能在
-          // 会话框里看到「正在生成」的任务进度卡片（notice 形式，前端渲染为
-          // 可折叠的上下文消息卡片）。完成后 scheduler 会追加结果图片。
+          // 会话框里看到「正在生成」的任务进度。kind 用 'user'（而非 context
+          // notice）：harness 的对话视图会过滤普通 context 消息（isVisibleChatNode），
+          // 只有 user / assistant / 工具结果可见，user 气泡是插件异步补发可见
+          // 消息的唯一干净路径（不唤醒 agent、不依赖画布）。纯文本无图片，不会
+          // 触发画布 auto-mirror。
           try {
             session.append('user/message', {
               id: crypto.randomUUID(),
               role: 'user',
               content: [{ type: 'text', text: `🖼️ 正在生成图片…（${count} 张）` }],
-              source: { kind: 'generate', form: 'notice', summary: `正在生成图片…（${count} 张）` },
+              source: { kind: 'user' },
             }, { surfaceOp: 'append' })
           } catch (error) {
             console.error('[ldd-generate] 追加进度卡片失败:', error)

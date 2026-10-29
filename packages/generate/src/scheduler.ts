@@ -146,10 +146,11 @@ export class GenerationScheduler {
         session.append('canvas/state', { state: next })
       }
 
-      // 同时把图片追加到会话框：一条 notice 形式的 user 消息，携带图片。
-      // user/message 不受 open-step 约束（可跨 turn 追加）、不唤醒 agent，且
-      // notice form 会被前端渲染为可见的上下文消息（图片 block 在 user 消息中
-      // 内联渲染）。这样生成图既落在画布上，也出现在会话框里。
+      // 同时把图片追加到会话框：kind='user' 的 user 消息，携带图片。user 气泡
+      // 会内联渲染 image block（这是 harness 对话视图唯一干净可见的图片路径；
+      // context notice 会被 isVisibleChatNode 过滤、且不渲染图片）。画布
+      // auto-mirror 会检查「图片 attachmentId 是否已在画布」，上一步已把占位节点
+      // 填成该 attachmentId，所以 auto-mirror 自动去重、不会重复挂卡。
       const imageBlocks = stored
         .map(({ meta }) => meta)
         .filter((m): m is ImageMeta => m !== undefined)
@@ -161,7 +162,7 @@ export class GenerationScheduler {
           { type: 'text', text: `图片生成完成，共 ${stored.length} 张。` },
           ...imageBlocks,
         ],
-        source: { kind: 'generate', form: 'notice', summary: `图片生成完成（${stored.length} 张）` },
+        source: { kind: 'user' },
       }, { surfaceOp: 'append' })
     } catch (error) {
       console.error('[ldd-generate] scheduler complete failed:', error)
@@ -173,13 +174,13 @@ export class GenerationScheduler {
     const session = this.sessions()?.get(task.sessionId)
     if (session === undefined) return
     try {
-      // 会话框失败通知：独立于画布，始终追加。用户即使不开画布，也能在会话框
-      // 里看到失败原因，而不是任务无声消失。
+      // 会话框失败通知：独立于画布，始终追加。kind='user'（同 complete：user
+      // 气泡是插件异步补发可见消息的唯一干净路径）。
       session.append('user/message', {
         id: crypto.randomUUID(),
         role: 'user',
         content: [{ type: 'text', text: `❌ 图片生成失败：${message}` }],
-        source: { kind: 'generate', form: 'notice', summary: '图片生成失败' },
+        source: { kind: 'user' },
       }, { surfaceOp: 'append' })
       // 画布失败标记：只在 placeholder 存在时执行（用户删了卡片就不复活）。
       const before = foldCanvas(session.snapshotEvents())
