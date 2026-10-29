@@ -22,7 +22,7 @@ const bytes = new Uint8Array([137, 80, 78, 71]) // "\x89PNG"
 test('collects the latest user-message images as data URIs', async () => {
   const store = fakeStore(new Map([['att-1', bytes]]))
   const session = {
-    events: [
+    snapshotEvents: () => [
       { type: 'turn/start', data: {} },
       {
         type: 'user/message',
@@ -39,7 +39,7 @@ test('collects the latest user-message images as data URIs', async () => {
 test('returns empty when no image block exists', async () => {
   const store = fakeStore(new Map())
   const session = {
-    events: [
+    snapshotEvents: () => [
       { type: 'user/message', data: { content: [{ type: 'text', text: 'no image' }] } },
     ],
   }
@@ -49,13 +49,13 @@ test('returns empty when no image block exists', async () => {
 
 test('returns empty without a session or store', async () => {
   assert.deepEqual(await collectUploadedImages(undefined, fakeStore(new Map()), new AbortController().signal), [])
-  assert.deepEqual(await collectUploadedImages({ events: [] } as never, undefined, new AbortController().signal), [])
+  assert.deepEqual(await collectUploadedImages({ snapshotEvents: () => [] } as never, undefined, new AbortController().signal), [])
 })
 
 test('collects images across multiple user messages (not just the latest)', async () => {
   const store = fakeStore(new Map([['new', bytes], ['old', bytes]]))
   const session = {
-    events: [
+    snapshotEvents: () => [
       { type: 'user/message', data: { content: [{ type: 'image', attachment: { attachmentId: 'old', mediaType: PNG, bytes: 4, width: 1, height: 1 } }] } },
       { type: 'assistant/message', data: { content: [] } },
       { type: 'user/message', data: { content: [{ type: 'text', text: 'turn it top-down' }] } },
@@ -80,6 +80,6 @@ test('caps at maxImages, keeping the most recent uploads', async () => {
     images.set(id, bytes)
     events.push({ type: 'user/message', data: { content: [{ type: 'image', attachment: { attachmentId: id, mediaType: PNG, bytes: 4, width: 1, height: 1 } }] } })
   }
-  const result = await collectUploadedImages({ events } as never, fakeStore(images), new AbortController().signal)
+  const result = await collectUploadedImages({ snapshotEvents: () => events } as never, fakeStore(images), new AbortController().signal)
   assert.equal(result.length, 8) // default maxImages = 8
 })
