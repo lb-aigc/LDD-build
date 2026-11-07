@@ -95,13 +95,15 @@ export const IMAGE_PROVIDER_PRESETS: readonly ProviderPreset[] = [
     label: 'GPT Image（OpenAI 官方）',
     protocol: 'openai-compatible',
     defaultBaseURL: 'https://api.openai.com/v1',
-    defaultModel: 'gpt-image-2.6',
+    defaultModel: 'gpt-image-2.6-sunburst',
     strengths: '通用写实与风格化图像，指令遵循和文字渲染强',
     imageToImage: true,
     models: [
       { id: 'gpt-image-2', label: 'GPT Image 2（官方）' },
-      { id: 'gpt-image-2.5', label: 'GPT Image 2.5（官方）' },
-      { id: 'gpt-image-2.6', label: 'GPT Image 2.6（官方）' },
+      { id: 'gpt-image-2.5-flare', label: 'GPT Image 2.5 Flare（官方）' },
+      { id: 'gpt-image-2.5-sunburst', label: 'GPT Image 2.5 Sunburst（官方）' },
+      { id: 'gpt-image-2.6-flare', label: 'GPT Image 2.6 Flare（官方）' },
+      { id: 'gpt-image-2.6-sunburst', label: 'GPT Image 2.6 Sunburst（官方）' },
     ],
   },
   {

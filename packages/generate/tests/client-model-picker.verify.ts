@@ -46,9 +46,11 @@ test('resolvePickerModels expands every provider that lists suggested models', (
   } as never)
   assert.deepEqual(models.map((m) => m.key), [
     'gpt-image:gpt-image-2',
-    'gpt-image:gpt-image-2.5',
-    'gpt-image:gpt-image-2.6',
+    'gpt-image:gpt-image-2.5-flare',
+    'gpt-image:gpt-image-2.5-sunburst',
+    'gpt-image:gpt-image-2.6-flare',
+    'gpt-image:gpt-image-2.6-sunburst',
     'nano-banana:gemini-2.5-flash-image',
   ])
-  assert.equal(models[3]!.isDefault, true)
+  assert.equal(models[5]!.isDefault, true)
 })

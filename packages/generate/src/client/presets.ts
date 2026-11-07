@@ -53,8 +53,10 @@ export const IMAGE_PRESETS: readonly ClientPreset[] = [
     label: 'GPT Image（OpenAI 官方）',
     suggestedModels: [
       { id: 'gpt-image-2', label: 'GPT Image 2（官方）' },
-      { id: 'gpt-image-2.5', label: 'GPT Image 2.5（官方）' },
-      { id: 'gpt-image-2.6', label: 'GPT Image 2.6（官方）' },
+      { id: 'gpt-image-2.5-flare', label: 'GPT Image 2.5 Flare（官方）' },
+      { id: 'gpt-image-2.5-sunburst', label: 'GPT Image 2.5 Sunburst（官方）' },
+      { id: 'gpt-image-2.6-flare', label: 'GPT Image 2.6 Flare（官方）' },
+      { id: 'gpt-image-2.6-sunburst', label: 'GPT Image 2.6 Sunburst（官方）' },
     ],
     defaultApiKeyEnv: 'OPENAI_API_KEY',
   },

@@ -34,7 +34,7 @@ test('video presets offer mock plus kie', () => {
 
 test('presets carry the expected protocol and defaults', () => {
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'gpt-image')?.protocol, 'openai-compatible')
-  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'gpt-image')?.defaultModel, 'gpt-image-2.6')
+  assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'gpt-image')?.defaultModel, 'gpt-image-2.6-sunburst')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'nano-banana')?.protocol, 'gemini')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'midjourney')?.protocol, 'midjourney')
   assert.equal(findPreset(IMAGE_PROVIDER_PRESETS, 'seedream')?.protocol, 'volcengine')
