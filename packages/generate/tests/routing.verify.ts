@@ -31,11 +31,12 @@ test('a configured models list becomes routable entries in order', () => {
     ],
     default: 'gpt-image',
   }, P)
-  assert.equal(resolved.entries.length, 3)
+  assert.equal(resolved.entries.length, 4)
   assert.equal(resolved.entries[0]?.key, 'seedream')
   assert.equal(resolved.entries[1]?.key, 'gpt-image:gpt-image-2')
-  assert.equal(resolved.entries[2]?.key, 'gpt-image:gpt-image-1.5')
-  assert.equal(resolved.defaultKey, 'gpt-image:gpt-image-2')
+  assert.equal(resolved.entries[2]?.key, 'gpt-image:gpt-image-2.5')
+  assert.equal(resolved.entries[3]?.key, 'gpt-image:gpt-image-2.6')
+  assert.equal(resolved.defaultKey, 'gpt-image:gpt-image-2.6')
 })
 
 test('duplicate provider ids get a #n suffix so each stays addressable', () => {
@@ -107,7 +108,7 @@ test('pickProvider routes by key and rejects an unknown key with the available l
   assert.equal(pickProvider(resolved, 'seedream').provider, 'seedream')
   assert.throws(
     () => pickProvider(resolved, 'does-not-exist'),
-    /unknown generation provider "does-not-exist" \(available: gpt-image:gpt-image-2, gpt-image:gpt-image-1.5, seedream\)/,
+    /unknown generation provider "does-not-exist" \(available: gpt-image:gpt-image-2, gpt-image:gpt-image-2.5, gpt-image:gpt-image-2.6, seedream\)/,
   )
 })
 

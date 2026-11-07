@@ -95,6 +95,9 @@ const DISTINCT_I2I_COUNTERPART: Readonly<Record<string, string>> = {
   'gpt-image-2-text-to-image': 'gpt-image-2-image-to-image',
   'gpt-image-2-5-flare-text-to-image': 'gpt-image-2-5-flare-image-to-image',
   'gpt-image-2-5-sunburst-text-to-image': 'gpt-image-2-5-sunburst-image-to-image',
+  'gpt-image-2-6/flare-text-to-image': 'gpt-image-2-6/flare-image-to-image',
+  'gpt-image-2-6/sunburst-text-to-image': 'gpt-image-2-6/sunburst-image-to-image',
+  'gpt-image-2-6/economy-text-to-image': 'gpt-image-2-6/economy-image-to-image',
   'seedream/5-pro-text-to-image': 'seedream/5-pro-image-to-image',
   'seedream/5-lite-text-to-image': 'seedream/5-lite-image-to-image',
   'flux-2/pro-text-to-image': 'flux-2/pro-image-to-image',
@@ -137,15 +140,22 @@ const SEEDREAM5_T2I = new Set([
 ])
 const SEEDREAM5_I2I = new Set(['seedream/5-pro-image-to-image', 'seedream/5-lite-image-to-image', 'seedream/5-flash-image-to-image'])
 
-/** Imagen 4 and Nano Banana (base) accept only `prompt` + `aspect_ratio` — no
- *  `resolution` and no `quality` field. Sending either would 422, so they are
+/** Imagen 4, Nano Banana (base) and GPT Image 2.6 Economy accept only `prompt`
+ *  + `aspect_ratio` — no `resolution` and no `quality` field (Economy infers
+ *  size from `output_format`/`frame_*`). Sending either would 422, so they are
  *  routed to a bare `{ prompt, aspect_ratio }` input. */
 const ASPECT_ONLY_T2I = new Set([
   'google/imagen4',
   'google/imagen4-fast',
   'google/imagen4-ultra',
   'google/nano-banana',
+  'gpt-image-2-6/economy-text-to-image',
 ])
+
+/** GPT Image 2.6 Economy's i2i also has NO `resolution` field (size is
+ *  inferred). Its distinct i2i must omit `resolution` — the same rule the
+ *  Nano Banana 2 Lite inline branch already applies. */
+const NO_RESOLUTION_I2I = new Set(['gpt-image-2-6/economy-image-to-image'])
 
 /** Wan 2.7 image caps at 2K (resolution is `1K`/`2K`, no 4K tier). */
 const WAN27_T2I = new Set(['wan/2-7-image', 'wan/2-7-image-pro'])
@@ -172,10 +182,14 @@ function seedream5AspectRatio(aspectRatio: string): string {
   return SEEDREAM5_ASPECT_CLAMP[aspectRatio] ?? aspectRatio
 }
 
-/** GPT Image 2.5 text-to-image capability ids. */
+/** GPT Image 2.5 + 2.6 Flare/Sunburst text-to-image capability ids. They share
+ *  the narrower aspect-ratio enum + a `resolution` field. (2.6 Economy has no
+ *  `resolution` — it lives in {@link ASPECT_ONLY_T2I}.) */
 const GPT_IMAGE_25_T2I = new Set([
   'gpt-image-2-5-flare-text-to-image',
   'gpt-image-2-5-sunburst-text-to-image',
+  'gpt-image-2-6/flare-text-to-image',
+  'gpt-image-2-6/sunburst-text-to-image',
 ])
 
 /** GPT Image 2.5's `aspect_ratio` enum is narrower than the tool's: it accepts
@@ -427,7 +441,7 @@ export class KieProvider implements GenerationProvider, AsyncGenerationProvider 
       aspect_ratio: aspectRatio,
     }
     if (seedream5) input.quality = seedream5Quality(resolution)
-    else input.resolution = resolution
+    else if (!NO_RESOLUTION_I2I.has(i2iModel)) input.resolution = resolution
     return { taskId: await this.submit(signal, i2iModel, input), model: i2iModel }
   }
 
